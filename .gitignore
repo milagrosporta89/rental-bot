@@ -3,3 +3,5 @@ dist/
 .env
 *.js.map
 QA_rental_bot.xlsx
+~$*.xlsx
+comprobantes/
