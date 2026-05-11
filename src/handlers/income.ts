@@ -5,7 +5,7 @@ import { registrarIngreso, registrarGasto, buscarIngresoDuplicado, buscarGastoDu
 import { CASAS, config, NOMBRES_TITULARES, resolverNombre } from "../config";
 import { nombreTelegram, ahora } from "../utils";
 import { subirComprobante } from "../services/storage";
-import { obtenerCotizacionOficial } from "../services/dolar";
+import { obtenerCotizacion } from "../services/dolar";
 import { Casa, CategoriaGasto, DatosComprobante, EstadoConversacion, TipoIngreso, Titular } from "../types";
 
 const estados = new Map<number, EstadoConversacion>();
@@ -509,7 +509,7 @@ async function confirmarIngreso(
     registradoPor: nombreTelegram(ctx.from),
     comprobanteUrl: d.comprobanteUrl ?? "",
     timestamp: ahora(),
-    cotizacion: await obtenerCotizacionOficial(),
+    cotizacion: await obtenerCotizacion(d.fecha || hoy),
   });
 
   await ctx.reply(
@@ -560,7 +560,7 @@ async function registrarGastoFoto(
     registradoPor: nombreTelegram(ctx.from),
     comprobanteUrl: d.comprobanteUrl ?? "",
     timestamp: ahora(),
-    cotizacion: await obtenerCotizacionOficial(),
+    cotizacion: await obtenerCotizacion(d.fecha || hoy),
   });
 
   await ctx.reply(

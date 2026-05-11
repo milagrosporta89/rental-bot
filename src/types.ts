@@ -73,6 +73,7 @@ export interface SaldoReal {
   fecha: string;
   titular: Titular;
   monto: number;
+  timestamp: string;
 }
 
 // Estado de conversación para flujos multi-paso

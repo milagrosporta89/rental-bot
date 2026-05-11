@@ -3,7 +3,7 @@ import { registrarIngreso, registrarGasto } from "../services/sheets";
 import { CASAS, TITULARES } from "../config";
 import { Casa, CategoriaGasto, EstadoConversacion, Titular } from "../types";
 import { validarFecha, validarMonto, nombreTelegram, ahora } from "../utils";
-import { obtenerCotizacionOficial } from "../services/dolar";
+import { obtenerCotizacion } from "../services/dolar";
 
 const estados = new Map<number, EstadoConversacion>();
 
@@ -335,7 +335,7 @@ export function registrarHandlersCash(bot: Bot<Context>) {
         registradoPor: nombreTelegram(ctx.from),
         comprobanteUrl: "",
         timestamp: ahora(),
-        cotizacion: await obtenerCotizacionOficial(),
+        cotizacion: await obtenerCotizacion(estado.datos.fecha!),
       });
       estados.delete(userId);
       await ctx.reply(
@@ -361,7 +361,7 @@ export function registrarHandlersCash(bot: Bot<Context>) {
         registradoPor: nombreTelegram(ctx.from),
         comprobanteUrl: "",
         timestamp: ahora(),
-        cotizacion: await obtenerCotizacionOficial(),
+        cotizacion: await obtenerCotizacion(estado.datos.fecha!),
       });
       estados.delete(userId);
       await ctx.reply(

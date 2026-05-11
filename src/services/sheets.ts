@@ -102,13 +102,14 @@ export async function registrarSaldoReal(saldo: SaldoReal): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
-    range: `${SHEETS.saldosReales}!A:C`,
+    range: `${SHEETS.saldosReales}!A:D`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
         saldo.fecha,
         saldo.titular,
         saldo.monto,
+        saldo.timestamp,
       ]],
     },
   });

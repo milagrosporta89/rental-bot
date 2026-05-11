@@ -2,6 +2,7 @@ import { Bot, Context, InlineKeyboard } from "grammy";
 import { registrarSaldoReal, obtenerSaldos } from "../services/sheets";
 import { TITULARES } from "../config";
 import { EstadoConversacion, Titular } from "../types";
+import { ahora } from "../utils";
 
 const estados = new Map<number, EstadoConversacion>();
 
@@ -107,6 +108,7 @@ export function registrarHandlersBalance(bot: Bot<Context>) {
       fecha: hoy,
       titular: estado.datos.titular as Titular,
       monto,
+      timestamp: ahora(),
     });
 
     estados.delete(userId);
