@@ -76,6 +76,19 @@ export interface SaldoReal {
   timestamp: string;
 }
 
+export interface WaCtx {
+  from: { id: string; name: string };
+  text?: string;
+  imageId?: string;
+  documentId?: string;
+  mimeType?: string;
+  buttonId?: string;
+  reply(text: string): Promise<void>;
+  replyButtons(text: string, buttons: Array<{ id: string; title: string }>): Promise<void>;
+  replyList(text: string, items: Array<{ id: string; title: string }>): Promise<void>;
+  answerCallbackQuery(): Promise<void>;
+}
+
 // Estado de conversación para flujos multi-paso
 
 export interface EstadoConversacion {

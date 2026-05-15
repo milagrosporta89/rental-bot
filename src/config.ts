@@ -2,7 +2,6 @@ import "dotenv/config";
 import { Casa, Titular } from "./types";
 
 export const config = {
-  telegramToken: process.env.TELEGRAM_BOT_TOKEN!,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY!,
   googleSheetId: process.env.GOOGLE_SHEET_ID!,
   googleClientEmail: process.env.GOOGLE_CLIENT_EMAIL!,
@@ -11,6 +10,11 @@ export const config = {
     .replace(/\\n/g, "\n"),
   storageBaseUrl: process.env.STORAGE_BASE_URL ?? "",
   storageDir: process.env.STORAGE_DIR ?? "./comprobantes",
+  whatsappPhoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+  whatsappVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN!,
+  whatsappTeamNumbers: new Set((process.env.WHATSAPP_TEAM_NUMBERS ?? "").split(",").map((n) => n.trim())),
+  port: parseInt(process.env.PORT ?? "3000"),
 };
 
 export const CASAS: Casa[] = [

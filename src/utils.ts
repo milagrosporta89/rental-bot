@@ -24,6 +24,10 @@ export function ahora(): string {
   return new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+export function nombreWa(name: string, phone: string): string {
+  return name && name !== phone ? name : phone;
+}
+
 export function nombreTelegram(
   from: { first_name?: string; last_name?: string; username?: string } | undefined
 ): string {
