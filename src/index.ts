@@ -4,8 +4,10 @@ import { config } from "./config";
 import { parseWebhookBody, sendText, sendButtons, sendList, WaMessage } from "./services/whatsapp";
 import { WaCtx } from "./types";
 import { onPhoto, onCallback as onCallbackIngreso, onText as onTextIngreso } from "./handlers/income";
-import { onEfectivoCommand, onCallback as onCallbackCash, onText as onTextCash } from "./handlers/cash";
+import { onEfectivoIngreso, onEfectivoGasto, onCallback as onCallbackCash, onText as onTextCash, onFlowReply } from "./handlers/cash";
 import { onReportarSaldoCommand, onSaldoCommand, onCallback as onCallbackBalance, onText as onTextBalance } from "./handlers/balance";
+import { onComisionCommand } from "./handlers/comision";
+import { onReembolsoCommand, onText as onTextReembolso } from "./handlers/reembolso";
 
 const app = express();
 app.use(express.json());
@@ -33,8 +35,9 @@ app.post("/webhook", async (req, res) => {
 
   try {
     await routeMessage(msg);
-  } catch (err) {
-    console.error("Error procesando mensaje:", err);
+  } catch (err: any) {
+    const detail = err?.response?.data ?? err?.message ?? err;
+    console.error("Error procesando mensaje:", JSON.stringify(detail, null, 2));
   }
 });
 
@@ -61,14 +64,14 @@ function buildCtx(msg: WaMessage): WaCtx {
   };
 }
 
-async function sendWelcome(ctx: WaCtx) {
-  await ctx.reply(
-    "Bienvenido al bot de alquileres 🏠\n\n" +
-    "Comandos disponibles:\n\n" +
-    "📸 Foto — Enviá un comprobante\n" +
-    "/efectivo — Registrar efectivo\n" +
-    "/reportarsaldo — Informar saldo real\n" +
-    "/saldo — Ver saldos de todas las cuentas"
+async function sendMenu(ctx: WaCtx) {
+  await ctx.replyButtons(
+    `Hola ${ctx.from.name.split(" ")[0]} 👋 ¿Qué querés hacer?`,
+    [
+      { id: "menu_ingreso", title: "💰 Nuevo ingreso" },
+      { id: "menu_gasto", title: "💸 Nuevo gasto" },
+      { id: "menu_saldos", title: "📊 Saldos" },
+    ]
   );
 }
 
@@ -96,9 +99,33 @@ async function routeMessage(msg: WaMessage) {
     return;
   }
 
+  // ── Flow reply ────────────────────────────────────────────────────────────
+  if (msg.type === "flow_reply" && msg.flowData) {
+    await onFlowReply(ctx, msg.flowData);
+    return;
+  }
+
   // ── Botones / listas ──────────────────────────────────────────────────────
   if (msg.type === "interactive" && msg.buttonReplyId) {
     const id = msg.buttonReplyId;
+
+    // Menú principal
+    if (id === "menu_ingreso") { await onEfectivoIngreso(ctx); return; }
+    if (id === "menu_gasto") { await onEfectivoGasto(ctx); return; }
+    if (id === "menu_saldos") {
+      await ctx.replyList("¿Qué querés ver?", [
+        { id: "menu_ver_saldos", title: "Ver saldos" },
+        { id: "menu_reportar_saldo", title: "Reportar saldo" },
+        { id: "menu_comision", title: "💼 Comisión Paola" },
+        { id: "menu_reembolso", title: "💸 Reembolso a Paola" },
+      ]);
+      return;
+    }
+    if (id === "menu_comision") { await onComisionCommand(ctx); return; }
+    if (id === "menu_reembolso") { await onReembolsoCommand(ctx); return; }
+    if (id === "menu_ver_saldos") { await onSaldoCommand(ctx); return; }
+    if (id === "menu_reportar_saldo") { await onReportarSaldoCommand(ctx); return; }
+
     if (await onCallbackIngreso(ctx, id)) return;
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;
@@ -107,20 +134,14 @@ async function routeMessage(msg: WaMessage) {
 
   // ── Texto ─────────────────────────────────────────────────────────────────
   if (msg.type === "text") {
-    const text = (msg.text ?? "").trim();
-
     // Primero intentar flujos activos
     if (await onTextIngreso(ctx)) return;
     if (await onTextCash(ctx)) return;
     if (await onTextBalance(ctx)) return;
+    if (await onTextReembolso(ctx)) return;
 
-    // Comandos
-    if (text === "/start" || text.toLowerCase() === "hola") { await sendWelcome(ctx); return; }
-    if (text === "/efectivo") { await onEfectivoCommand(ctx); return; }
-    if (text === "/reportarsaldo") { await onReportarSaldoCommand(ctx); return; }
-    if (text === "/saldo") { await onSaldoCommand(ctx); return; }
-
-    await ctx.reply("No entendí. Enviá una foto de un comprobante o usá /efectivo, /reportarsaldo, /saldo.");
+    // Cualquier texto sin flujo activo → menú
+    await sendMenu(ctx);
   }
 }
 

@@ -1,24 +1,20 @@
 import { extraerDatosComprobante } from "../services/claude";
-import { registrarIngreso, registrarGasto, buscarIngresoDuplicado, buscarGastoDuplicado } from "../services/sheets";
+import { registrarIngreso, registrarGasto, buscarIngresoDuplicado, buscarGastoDuplicado, registrarComision } from "../services/sheets";
 import { CASAS, NOMBRES_TITULARES, resolverNombre } from "../config";
-import { nombreWa, ahora } from "../utils";
+import { nombreWa, ahora, validarFecha, generarId } from "../utils";
 import { subirComprobante } from "../services/storage";
 import { obtenerCotizacion } from "../services/dolar";
 import { downloadMedia } from "../services/whatsapp";
-import { Casa, CategoriaGasto, DatosComprobante, EstadoConversacion, TipoIngreso, Titular, WaCtx } from "../types";
+import { Casa, CategoriaGasto, DatosComprobante, EstadoConversacion, Titular, WaCtx, MENU_BOTONES } from "../types";
 
 const estados = new Map<string, EstadoConversacion>();
 
 const CATEGORIAS_GASTO: CategoriaGasto[] = [
   "limpieza", "jardinero", "lavanderia", "expensas",
-  "luz", "gas", "mantenimiento", "otro",
+  "luz", "gas", "mantenimiento", "internet",
+  "marketing", "impuestos", "comision", "otro",
 ];
 
-const TIPO_LABELS: Record<string, string> = {
-  deposito_reserva: "Seña 30%",
-  saldo_checkin: "Saldo check-in",
-  transferencia: "Transferencia",
-};
 
 function normalizar(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -174,14 +170,15 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   }
 
   // ── Tipo de pago ──────────────────────────────────────────────────────────
-  const tiposMap: Record<string, TipoIngreso> = {
-    income_tipo_deposito_reserva: "deposito_reserva",
-    income_tipo_saldo_checkin: "saldo_checkin",
-    income_tipo_transferencia: "transferencia",
+  const tiposMap: Record<string, string> = {
+    income_tipo_deposito_reserva: "Seña 30%",
+    income_tipo_saldo_checkin: "Saldo check-in",
+    income_tipo_transferencia: "Transferencia",
   };
   if (tiposMap[buttonId]) {
     if (!estado || !estado.datos.casa) return false;
-    estado.datos.tipo = tiposMap[buttonId];
+    estado.datos.tipo = "transferencia" as any;
+    estado.datos.detalle = tiposMap[buttonId];
     estados.set(ctx.from.id, estado);
     const monedaDetectada = (estado.datos as DatosComprobante).moneda;
     if (monedaDetectada === "ARS" || monedaDetectada === "USD") {
@@ -265,11 +262,11 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (estado.paso === "corrigiendo") {
     if (texto.toLowerCase().startsWith("fecha ")) {
       const fechaStr = texto.slice(6).trim();
-      const match = fechaStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (!match) { await ctx.reply("Formato inválido. Usá: fecha DD/MM/YYYY"); return true; }
-      estado.datos.fecha = fechaStr;
+      const v = validarFecha(fechaStr);
+      if (!v.ok) { await ctx.reply(`Formato inválido. Ejemplo: fecha 1/4/26`); return true; }
+      estado.datos.fecha = v.fecha;
       estados.set(ctx.from.id, estado);
-      await ctx.reply(`Fecha actualizada: ${fechaStr}. Escribí otro campo o "confirmar".`);
+      await ctx.reply(`Fecha actualizada: ${v.fecha}. Escribí otro campo o "confirmar".`);
       return true;
     }
     if (texto.toLowerCase().startsWith("destinatario ")) {
@@ -288,13 +285,19 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       ]);
       return true;
     }
+    await ctx.reply(
+      "Campos que podés corregir:\n\n" +
+      "fecha 1/4/26\n" +
+      "destinatario Nombre Apellido\n\n" +
+      "O escribí \"confirmar\" para terminar."
+    );
     return true;
   }
 
   // Etiqueta tipo de pago personalizado
   if (estado.paso === "ingreso_etiqueta") {
     if (!texto) { await ctx.reply("Escribí una etiqueta para el tipo de pago."); return true; }
-    estado.datos.notas = texto;
+    estado.datos.detalle = texto;
     const monedaDetectada = (estado.datos as DatosComprobante).moneda;
     if (monedaDetectada === "ARS" || monedaDetectada === "USD") {
       await confirmarIngreso(ctx, estado, monedaDetectada);
@@ -313,7 +316,7 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   // Categoría personalizada (gasto foto)
   if (estado.paso === "foto_gasto_categoria_personalizada") {
     if (!texto) { await ctx.reply("Escribí una categoría."); return true; }
-    estado.datos.notas = texto;
+    estado.datos.detalle = texto;
     const titularOrd = detectarTitular((estado.datos as DatosComprobante).nombreOrdenante ?? "");
     if (titularOrd) {
       await registrarGastoFoto(ctx, estado, "otro", titularOrd);
@@ -339,22 +342,23 @@ async function pedirCategoria(ctx: WaCtx) {
 }
 
 async function confirmarIngreso(ctx: WaCtx, estado: EstadoConversacion, moneda: "ARS" | "USD") {
-  const d = estado.datos as DatosComprobante & { casa: Casa; tipo: TipoIngreso; notas?: string; comprobanteUrl?: string };
+  const d = estado.datos as DatosComprobante & { casa: Casa; detalle?: string; comprobanteUrl?: string };
   const hoy = new Date().toLocaleDateString("es-AR");
-  const label = d.notas || TIPO_LABELS[d.tipo] || d.tipo;
+  const label = d.detalle || "Transferencia";
   const simbolo = moneda === "USD" ? "U$D" : "$";
 
   await registrarIngreso({
+    id: generarId("ING"),
     fecha: d.fecha || hoy,
     casa: d.casa,
     monto: d.monto ?? 0,
     moneda,
-    tipo: d.tipo,
+    tipo: "transferencia",
     quienPago: resolverNombre(d.nombreOrdenante ?? ""),
     nombreDestinatario: resolverNombre(d.nombreDestinatario ?? ""),
     bancoOrigen: d.bancoOrigen ?? "",
     nroOperacion: d.nroOperacion ?? "",
-    notas: label,
+    detalle: label,
     registradoPor: nombreWa(ctx.from.name, ctx.from.id),
     comprobanteUrl: d.comprobanteUrl ?? "",
     timestamp: ahora(),
@@ -362,12 +366,18 @@ async function confirmarIngreso(ctx: WaCtx, estado: EstadoConversacion, moneda: 
   });
 
   await ctx.reply(`✅ Registrado\n${label} · ${d.casa} · ${simbolo}${(d.monto ?? 0).toLocaleString("es-AR")}`);
+
+  if (resolverNombre(d.nombreDestinatario ?? "") === "Paola") {
+    await registrarComision(d.monto ?? 0, `${label} · ${d.casa}`, ahora(), await obtenerCotizacion(d.fecha || hoy), "cobro").catch(() => {});
+  }
+
+  await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
 }
 
 async function registrarGastoFoto(ctx: WaCtx, estado: EstadoConversacion, categoria: CategoriaGasto, pagadoPor: Titular) {
   const d = estado.datos as DatosComprobante & { comprobanteUrl?: string };
   const hoy = new Date().toLocaleDateString("es-AR");
-  const categoriaFinal = (categoria === "otro" && estado.datos.notas) ? estado.datos.notas : categoria;
+  const categoriaFinal = (categoria === "otro" && estado.datos.detalle) ? estado.datos.detalle : categoria;
 
   if (d.nroOperacion) {
     const duplicado = await buscarGastoDuplicado(d.nroOperacion);
@@ -384,6 +394,7 @@ async function registrarGastoFoto(ctx: WaCtx, estado: EstadoConversacion, catego
   const simbolo = moneda === "USD" ? "U$D" : "$";
 
   await registrarGasto({
+    id: generarId("GAS"),
     fecha: d.fecha || hoy,
     monto: d.monto ?? 0,
     moneda,
@@ -392,7 +403,7 @@ async function registrarGastoFoto(ctx: WaCtx, estado: EstadoConversacion, catego
     nombreDestinatario: resolverNombre(d.nombreDestinatario ?? ""),
     bancoOrigen: d.bancoOrigen ?? "",
     nroOperacion: d.nroOperacion ?? "",
-    notas: "",
+    detalle: "",
     registradoPor: nombreWa(ctx.from.name, ctx.from.id),
     comprobanteUrl: d.comprobanteUrl ?? "",
     timestamp: ahora(),
@@ -400,4 +411,10 @@ async function registrarGastoFoto(ctx: WaCtx, estado: EstadoConversacion, catego
   });
 
   await ctx.reply(`✅ Gasto registrado\n${categoriaFinal} · ${resolverNombre(pagadoPor)} · ${simbolo}${(d.monto ?? 0).toLocaleString("es-AR")}`);
+
+  if (resolverNombre(pagadoPor) === "Paola") {
+    await registrarComision(d.monto ?? 0, `Gasto: ${categoriaFinal}`, ahora(), await obtenerCotizacion(d.fecha || hoy), "gasto").catch(() => {});
+  }
+
+  await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
 }

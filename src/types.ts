@@ -20,9 +20,13 @@ export type CategoriaGasto =
   | "luz"
   | "gas"
   | "mantenimiento"
+  | "internet"
+  | "marketing"
+  | "impuestos"
+  | "comision"
   | "otro";
 
-export type Titular = "Francisco" | "Milagros" | "Inés" | "Fernando";
+export type Titular = "Francisco" | "Milagros" | "Inés" | "Fernando" | "Paola";
 
 export interface DatosComprobante {
   fecha: string;
@@ -37,16 +41,17 @@ export interface DatosComprobante {
 }
 
 export interface Ingreso {
+  id: string;
   fecha: string;
   casa: Casa;
   monto: number;
   moneda: "ARS" | "USD";
-  tipo: TipoIngreso;
+  tipo: "transferencia" | "efectivo";
   quienPago: string;
   nombreDestinatario: string;
   bancoOrigen: string;
   nroOperacion: string;
-  notas: string;
+  detalle: string;
   registradoPor: string;
   comprobanteUrl: string;
   timestamp: string;
@@ -54,6 +59,7 @@ export interface Ingreso {
 }
 
 export interface Gasto {
+  id: string;
   fecha: string;
   monto: number;
   moneda: "ARS" | "USD";
@@ -62,7 +68,7 @@ export interface Gasto {
   nombreDestinatario: string;
   bancoOrigen: string;
   nroOperacion: string;
-  notas: string;
+  detalle: string;
   registradoPor: string;
   comprobanteUrl: string;
   timestamp: string;
@@ -75,6 +81,12 @@ export interface SaldoReal {
   monto: number;
   timestamp: string;
 }
+
+export const MENU_BOTONES = [
+  { id: "menu_ingreso", title: "💰 Nuevo ingreso" },
+  { id: "menu_gasto", title: "💸 Nuevo gasto" },
+  { id: "menu_saldos", title: "📊 Saldos" },
+];
 
 export interface WaCtx {
   from: { id: string; name: string };
