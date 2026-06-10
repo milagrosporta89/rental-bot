@@ -48,8 +48,11 @@ Respondé SOLO con el JSON, sin markdown, sin explicaciones.`;
       ],
     });
 
-    const texto = (response.content[0] as { type: string; text: string }).text.trim();
-    return JSON.parse(texto) as DatosComprobante;
+    const raw = (response.content[0] as { type: string; text: string }).text.trim();
+    // Quitar bloques markdown si el modelo los agrega (```json ... ```)
+    const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+    console.log("extraerDatosComprobante raw:", raw);
+    return JSON.parse(jsonStr) as DatosComprobante;
   } catch (error) {
     console.error("Error extrayendo datos del comprobante:", error);
     return null;

@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { config, SHEETS } from "../config";
+import { config, SHEETS, titularDeCasa } from "../config";
 import { Ingreso, Gasto, SaldoReal, Titular } from "../types";
 
 function getAuth() {
@@ -21,7 +21,7 @@ export async function registrarIngreso(ingreso: Ingreso): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
-    range: `${SHEETS.ingresos}!A:O`,
+    range: `${SHEETS.ingresos}!A:Q`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
@@ -40,6 +40,8 @@ export async function registrarIngreso(ingreso: Ingreso): Promise<void> {
         ingreso.comprobanteUrl,
         ingreso.timestamp,
         ingreso.cotizacion,
+        ingreso.moneda === "USD" ? +(ingreso.monto * ingreso.cotizacion).toFixed(2) : ingreso.monto,
+        ingreso.moneda === "ARS" ? (ingreso.cotizacion > 0 ? +(ingreso.monto / ingreso.cotizacion).toFixed(2) : "") : ingreso.monto,
       ]],
     },
   });
@@ -49,7 +51,7 @@ export async function registrarGasto(gasto: Gasto): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
-    range: `${SHEETS.gastos}!A:N`,
+    range: `${SHEETS.gastos}!A:P`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
@@ -67,6 +69,8 @@ export async function registrarGasto(gasto: Gasto): Promise<void> {
         gasto.comprobanteUrl,
         gasto.timestamp,
         gasto.cotizacion,
+        gasto.moneda === "USD" ? +(gasto.monto * gasto.cotizacion).toFixed(2) : gasto.monto,
+        gasto.moneda === "ARS" ? (gasto.cotizacion > 0 ? +(gasto.monto / gasto.cotizacion).toFixed(2) : "") : gasto.monto,
       ]],
     },
   });
@@ -249,53 +253,67 @@ export async function registrarComision(
 export async function obtenerResumenComision(): Promise<{
   mesBase: string;
   baseIngresos: number;
-  comisionTotal: number;
-  cobrado: number;
-  pendiente: number;
+  comisionMes: number;
+  cobradosMes: number;
+  gastosMes: number;
+  netMes: number;
+  pendienteMes: number;
+  totalComisionFormal: number;
+  totalCobrosDirectos: number;
+  totalGastosHistorico: number;
+  superavit: number;
 }> {
   const sheets = getSheetsClient();
   const mesActual = mesKey(new Date().toLocaleDateString("es-AR"));
   const base = mesPrevio(mesActual);
 
   const [ingresosRes, comisionesRes] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: config.googleSheetId, range: `${SHEETS.ingresos}!A2:O` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: config.googleSheetId, range: `${SHEETS.ingresos}!A2:Q` }),
     sheets.spreadsheets.values.get({ spreadsheetId: config.googleSheetId, range: `${SHEETS.comisiones}!A2:F` }),
   ]);
 
-  // Sumar ingresos del mes base (mes anterior)
+  // ── Ingresos del mes anterior ─────────────────────────────────────────────
   const baseIngresos = (ingresosRes.data.values ?? [])
     .filter((r) => r[1] && mesKey(r[1]) === base)
-    .reduce((sum, r) => {
-      const monto = parsearMonto(r[3]);
-      const moneda = r[4] as string;
-      const cotizacion = parsearMonto(r[14]);
-      return sum + (moneda === "USD" ? monto * cotizacion : monto);
-    }, 0);
+    .reduce((sum, r) => sum + (parsearMonto(r[15]) || parsearMonto(r[3])), 0);
+  const comisionMes = Math.round(baseIngresos * 0.15);
 
-  // Cobrado este mes: pagos directos + gastos pagados por Paola (ambos en Comisiones)
-  const cobrado = (comisionesRes.data.values ?? [])
-    .filter((r) => r[0] === mesActual)
-    .reduce((sum, r) => sum + parsearMonto(r[1]), 0);
+  const filasCom = comisionesRes.data.values ?? [];
 
-  const comisionTotal = Math.round(baseIngresos * 0.20);
+  // ── Este mes: cobros y gastos por separado ────────────────────────────────
+  const filasMes = filasCom.filter((r) => r[0] === mesActual);
+  const cobradosMes = Math.round(filasMes.filter(r => parsearMonto(r[1]) > 0).reduce((s, r) => s + parsearMonto(r[1]), 0));
+  const gastosMes   = Math.round(filasMes.filter(r => parsearMonto(r[1]) < 0).reduce((s, r) => s + Math.abs(parsearMonto(r[1])), 0));
+  const netMes = cobradosMes - gastosMes;
+
+  // ── Histórico: comisiones formales, cobros directos, gastos ───────────────
+  const totalComisionFormal = Math.round(
+    filasCom.filter(r => r[2] === "cobro" && r[3]?.toLowerCase().includes("comisi"))
+             .reduce((s, r) => s + parsearMonto(r[1]), 0)
+  );
+  const totalCobrosDirectos = Math.round(
+    filasCom.filter(r => r[2] === "cobro" && !r[3]?.toLowerCase().includes("comisi"))
+             .reduce((s, r) => s + parsearMonto(r[1]), 0)
+  );
+  const totalGastosHistorico = Math.round(
+    filasCom.filter(r => parsearMonto(r[1]) < 0)
+             .reduce((s, r) => s + Math.abs(parsearMonto(r[1])), 0)
+  );
+  // Superávit = lo cobrado neto menos las comisiones formales ya liquidadas
+  const superavit = Math.round(totalCobrosDirectos + totalComisionFormal - totalGastosHistorico - totalComisionFormal);
 
   return {
     mesBase: base,
     baseIngresos: Math.round(baseIngresos),
-    comisionTotal,
-    cobrado: Math.round(cobrado),
-    pendiente: Math.round(comisionTotal - cobrado),
+    comisionMes,
+    cobradosMes,
+    gastosMes,
+    netMes,
+    pendienteMes: Math.round(comisionMes - netMes),
+    totalComisionFormal,
+    totalCobrosDirectos,
+    totalGastosHistorico,
+    superavit: Math.round(totalCobrosDirectos - totalGastosHistorico),
   };
 }
 
-// Tabla de casas → titular (se puede mover a config cuando se definan los nombres reales)
-function titularDeCasa(casa: string): Titular | null {
-  const mapa: Record<string, Titular> = {
-    "Casa 1": "Francisco",
-    "Casa 2": "Francisco",
-    "Casa 3": "Milagros",
-    "Casa 4": "Milagros",
-    "Casa 5": "Inés",
-  };
-  return mapa[casa] ?? null;
-}

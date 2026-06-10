@@ -35,7 +35,7 @@ export const TITULARES: Titular[] = [
   "Paola",
 ];
 
-export const COMISION_TASA = 0.20;
+export const COMISION_TASA = 0.15;
 
 // Aliases y variantes por titular (minúsculas, sin tildes).
 // Agregar acá cualquier apodo o forma abreviada que pueda aparecer en comprobantes.
@@ -64,4 +64,16 @@ export const SHEETS = {
   saldosReales: "SaldosReales",
   comisiones: "Comisiones",
   reembolsosPaola: "ReembolsosPaola",
+  reservas: "Reservas",
 };
+
+export function titularDeCasa(casa: string): Titular | null {
+  const mapa: Record<string, Titular> = {
+    "Casa 1": "Francisco",
+    "Casa 2": "Francisco",
+    "Casa 3": "Milagros",
+    "Casa 4": "Milagros",
+    "Casa 5": "Inés",
+  };
+  return mapa[casa] ?? null;
+}

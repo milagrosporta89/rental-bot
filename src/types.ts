@@ -82,10 +82,34 @@ export interface SaldoReal {
   timestamp: string;
 }
 
+export type EstadoPagoReserva = "ADELANTO_RECIBIDO" | "SALDO_RECIBIDO" | "COMPLETO";
+
+export interface Reserva {
+  id: string;               // TMP-YYYY-NNNN
+  fechaRegistro: string;
+  casa: Casa;
+  titular: Titular;
+  nombrePax: string;
+  cantidadPax: number;
+  cantidadNoches: number;
+  fechaEntrada: string;
+  fechaSalida: string;
+  montoTotalUSD: number;
+  montoAdelantoARS: number;
+  montoAdelantoUSD: number;
+  saldoUSD: number;
+  estadoPago: EstadoPagoReserva;
+  comprobanteUrl: string;
+  registradoPor: string;
+  timestamp: string;
+  cotizacion: number;
+  plataforma: "whatsapp_directo";
+}
+
 export const MENU_BOTONES = [
-  { id: "menu_ingreso", title: "💰 Nuevo ingreso" },
-  { id: "menu_gasto", title: "💸 Nuevo gasto" },
-  { id: "menu_saldos", title: "📊 Saldos" },
+  { id: "menu_gasto",   title: "💸 Nuevo gasto" },
+  { id: "menu_reserva", title: "📋 Reservas" },
+  { id: "menu_otros",   title: "📎 Otros" },
 ];
 
 export interface WaCtx {

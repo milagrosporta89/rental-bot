@@ -8,6 +8,7 @@ import { onEfectivoIngreso, onEfectivoGasto, onCallback as onCallbackCash, onTex
 import { onReportarSaldoCommand, onSaldoCommand, onCallback as onCallbackBalance, onText as onTextBalance } from "./handlers/balance";
 import { onComisionCommand } from "./handlers/comision";
 import { onReembolsoCommand, onText as onTextReembolso } from "./handlers/reembolso";
+import { onReservaCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
 
 const app = express();
 app.use(express.json());
@@ -65,12 +66,13 @@ function buildCtx(msg: WaMessage): WaCtx {
 }
 
 async function sendMenu(ctx: WaCtx) {
-  await ctx.replyButtons(
+  await ctx.replyList(
     `Hola ${ctx.from.name.split(" ")[0]} 👋 ¿Qué querés hacer?`,
     [
-      { id: "menu_ingreso", title: "💰 Nuevo ingreso" },
-      { id: "menu_gasto", title: "💸 Nuevo gasto" },
-      { id: "menu_saldos", title: "📊 Saldos" },
+      { id: "menu_gasto",    title: "💸 Nuevo gasto" },
+      { id: "menu_reserva",  title: "📋 Gestionar reservas" },
+      { id: "menu_saldos",   title: "📊 Ver saldos en cuentas" },
+      { id: "menu_otros",    title: "📎 Otros" },
     ]
   );
 }
@@ -87,14 +89,27 @@ async function routeMessage(msg: WaMessage) {
 
   // ── Imágenes y documentos ─────────────────────────────────────────────────
   if (msg.type === "image" && msg.imageId) {
-    await onPhoto(ctx, msg.imageId, "image/jpeg");
+    if (!await onPhotoReserva(ctx, msg.imageId, "image/jpeg")) {
+      if (!await onPhotoSinContexto(ctx, msg.imageId, "image/jpeg")) {
+        await onPhoto(ctx, msg.imageId, "image/jpeg");
+      }
+    }
     return;
   }
   if (msg.type === "document" && msg.documentId && msg.mimeType) {
     if (msg.mimeType === "application/pdf") {
-      await onPhoto(ctx, msg.documentId, "application/pdf");
+      if (!await onPhotoReserva(ctx, msg.documentId, "application/pdf")) {
+        if (!await onPhotoSinContexto(ctx, msg.documentId, "application/pdf")) {
+          await onPhoto(ctx, msg.documentId, "application/pdf");
+        }
+      }
     } else if (msg.mimeType.startsWith("image/")) {
-      await onPhoto(ctx, msg.documentId, msg.mimeType as "image/jpeg" | "image/png" | "image/webp");
+      const mime = msg.mimeType as "image/jpeg" | "image/png" | "image/webp";
+      if (!await onPhotoReserva(ctx, msg.documentId, mime)) {
+        if (!await onPhotoSinContexto(ctx, msg.documentId, mime)) {
+          await onPhoto(ctx, msg.documentId, mime);
+        }
+      }
     }
     return;
   }
@@ -110,8 +125,8 @@ async function routeMessage(msg: WaMessage) {
     const id = msg.buttonReplyId;
 
     // Menú principal
-    if (id === "menu_ingreso") { await onEfectivoIngreso(ctx); return; }
     if (id === "menu_gasto") { await onEfectivoGasto(ctx); return; }
+    if (id === "menu_otros") { await onEfectivoIngreso(ctx); return; }
     if (id === "menu_saldos") {
       await ctx.replyList("¿Qué querés ver?", [
         { id: "menu_ver_saldos", title: "Ver saldos" },
@@ -125,20 +140,29 @@ async function routeMessage(msg: WaMessage) {
     if (id === "menu_reembolso") { await onReembolsoCommand(ctx); return; }
     if (id === "menu_ver_saldos") { await onSaldoCommand(ctx); return; }
     if (id === "menu_reportar_saldo") { await onReportarSaldoCommand(ctx); return; }
+    if (id === "menu_reserva") { await onReservaCommand(ctx); return; }
 
     if (await onCallbackIngreso(ctx, id)) return;
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;
+    if (await onCallbackReserva(ctx, id)) return;
     return;
   }
 
   // ── Texto ─────────────────────────────────────────────────────────────────
   if (msg.type === "text") {
+    // Comando de texto /reserva
+    if (ctx.text?.trim().toLowerCase() === "/reserva") {
+      await onReservaCommand(ctx);
+      return;
+    }
+
     // Primero intentar flujos activos
     if (await onTextIngreso(ctx)) return;
     if (await onTextCash(ctx)) return;
     if (await onTextBalance(ctx)) return;
     if (await onTextReembolso(ctx)) return;
+    if (await onTextReserva(ctx)) return;
 
     // Cualquier texto sin flujo activo → menú
     await sendMenu(ctx);

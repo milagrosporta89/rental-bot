@@ -5,3 +5,5 @@ dist/
 QA_rental_bot.xlsx
 ~$*.xlsx
 comprobantes/
+coverage/
+*.html
