@@ -184,6 +184,25 @@ export async function buscarReservaPorId(id: string): Promise<ReservaEncontrada 
   return null;
 }
 
+// Columnas editables: C=casa (índice 3), E=nombrePax (índice 5)
+export type CampoReservaEditable = "casa" | "nombrePax";
+const COLUMNA_CAMPO: Record<CampoReservaEditable, string> = { casa: "C", nombrePax: "E" };
+
+export async function actualizarCampoReserva(
+  fila: number,
+  campo: CampoReservaEditable,
+  valor: string
+): Promise<void> {
+  const sheets = getSheetsClient();
+  const col = COLUMNA_CAMPO[campo];
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.googleSheetId,
+    range: `${TAB}!${col}${fila}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[valor]] },
+  });
+}
+
 export async function registrarSaldoReserva(
   fila: number,
   estadoPago: EstadoPagoReserva,

@@ -1,20 +1,22 @@
-import { extraerDatosComprobante } from "../services/claude";
+import fs from "fs";
+import path from "path";
 import {
   generarIdReserva,
   registrarReserva,
   registrarSaldoReserva,
+  actualizarCampoReserva,
   listarReservasSemana,
   buscarReservasPorNombre,
+  buscarReservaPorId,
   ReservaEncontrada,
   ReservaPendiente,
 } from "../services/reservas";
 import { registrarIngreso } from "../services/sheets";
+import { procesarComprobante } from "../services/comprobantes";
 import { onPhoto as onPhotoIngreso } from "./income";
 import { CASAS, titularDeCasa } from "../config";
-import { nombreWa, ahora, generarId } from "../utils";
-import { subirComprobante } from "../services/storage";
+import { nombreWa, ahora, generarId, intentarEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
-import { downloadMedia } from "../services/whatsapp";
 import { Casa, WaCtx, MENU_BOTONES } from "../types";
 
 // ── Estado de conversación ─────────────────────────────────────────────────
@@ -56,13 +58,79 @@ interface EstadoReserva {
   datos: DatosReserva;
 }
 
-const estados = new Map<string, EstadoReserva>();
+// ── Persistencia del estado de conversación ───────────────────────────────────
+// En tests (NODE_ENV=test) la escritura a disco se deshabilita para no contaminar
+// el sistema de archivos y mantener los tests aislados.
+
+const ESTADOS_FILE = path.join(__dirname, "../../data/estados.json");
+const TTL_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+class EstadosPersistentes<T> {
+  private readonly map = new Map<string, { ts: number; v: T }>();
+  private readonly persist: boolean;
+
+  constructor(private readonly file: string) {
+    this.persist = process.env.NODE_ENV !== "test";
+    if (this.persist) this.cargar();
+  }
+
+  private cargar(): void {
+    try {
+      const raw = fs.readFileSync(this.file, "utf8");
+      const obj = JSON.parse(raw) as Record<string, { ts: number; v: T }>;
+      const ahora = Date.now();
+      for (const [k, entry] of Object.entries(obj)) {
+        if (ahora - entry.ts <= TTL_MS) this.map.set(k, entry);
+      }
+    } catch {
+      // archivo inexistente o corrupto → empezar vacío
+    }
+  }
+
+  private guardar(): void {
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file, JSON.stringify(Object.fromEntries(this.map), null, 2), "utf8");
+    } catch (err) {
+      console.error("[estados] Error guardando estado:", err);
+    }
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.ts > TTL_MS) {
+      this.map.delete(key);
+      if (this.persist) this.guardar();
+      return undefined;
+    }
+    return entry.v;
+  }
+
+  has(key: string): boolean { return this.get(key) !== undefined; }
+  get size(): number { return this.map.size; }
+
+  set(key: string, value: T): this {
+    this.map.set(key, { ts: Date.now(), v: value });
+    if (this.persist) this.guardar();
+    return this;
+  }
+
+  delete(key: string): boolean {
+    const result = this.map.delete(key);
+    if (result && this.persist) this.guardar();
+    return result;
+  }
+}
+
+const estados = new EstadosPersistentes<EstadoReserva>(ESTADOS_FILE);
 
 // ── Parsers ────────────────────────────────────────────────────────────────
 
 function parsearMontoMoneda(texto: string): { monto: number; moneda: "ARS" | "USD" | null } | null {
-  const limpio = texto.replace(/\$/g, "").trim();
-  const m = limpio.match(/^([\d.,]+)\s*(ARS|USD|pesos?|d[oó]lares?)?$/i);
+  // Solo quitar el $ de prefijo de precio (ej: "$50000"), no el de "u$s"
+  const limpio = texto.replace(/^\$/, "").trim();
+  const m = limpio.match(/^([\d.,]+)\s*(ARS|USD|u\$s|u\$d|pesos?|d[oó]lares?)?$/i);
   if (!m) return null;
   const monto = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
   if (isNaN(monto) || monto <= 0) return null;
@@ -70,7 +138,7 @@ function parsearMontoMoneda(texto: string): { monto: number; moneda: "ARS" | "US
   if (m[2]) {
     const c = m[2].toLowerCase();
     if (c.startsWith("ars") || c.startsWith("peso")) moneda = "ARS";
-    else if (c.startsWith("usd") || c.startsWith("dol") || c.startsWith("dól")) moneda = "USD";
+    else if (c.startsWith("usd") || c.startsWith("u$") || c.startsWith("dol") || c.startsWith("dól")) moneda = "USD";
   }
   return { monto, moneda };
 }
@@ -95,7 +163,8 @@ function parsearFechas(texto: string): { entrada: string; salida: string; noches
 
   const entrada = parseDate(partes[0]);
   const salida = parseDate(partes[1]);
-  if (!entrada || !salida || salida <= entrada) return null;
+  if (!entrada || !salida) return null;
+  if (salida <= entrada) return { entrada: "", salida: "", noches: -1 };
 
   const noches = Math.round((salida.getTime() - entrada.getTime()) / 86400000);
   const fmt = (date: Date) =>
@@ -113,13 +182,15 @@ function formatearListaNumerada(reservas: ReservaPendiente[]): string {
   ).join("\n\n");
 }
 
-async function mostrarListaYEsperar(ctx: WaCtx, estado: EstadoReserva, reservas: ReservaPendiente[], paso: string) {
+async function mostrarListaYEsperar(ctx: WaCtx, estado: EstadoReserva, reservas: ReservaPendiente[], paso: string, header?: string) {
   estado.datos.listaTemp = reservas;
   estado.paso = paso;
   estados.set(ctx.from.id, estado);
+  const prefijo = header ? `${header}\n\n` : "";
   await ctx.reply(
+    prefijo +
     formatearListaNumerada(reservas) +
-    "\n\nRespondé con el número o escribí *0* para buscar por nombre de pasajero."
+    "\n\nRespondé con el número o escribí *0* para buscar por nombre."
   );
 }
 
@@ -141,9 +212,13 @@ async function seleccionarDeListaTemp(ctx: WaCtx, estado: EstadoReserva, texto: 
   estado.datos.reservaInfo = reserva;
   estado.datos.listaTemp = undefined;
 
-  // Si ya tenemos monto del comprobante previo → ir directo a confirmación
+  // Si ya tenemos monto del comprobante previo → pedir tipo de pago si falta, luego confirmación
   if (estado.datos.montoSaldo != null) {
-    await pedirConfirmacionSaldo(ctx, estado);
+    if (!estado.datos.tipoIngreso) {
+      await pedirTipoPago(ctx, estado);
+    } else {
+      await pedirConfirmacionSaldo(ctx, estado);
+    }
     return true;
   }
 
@@ -160,8 +235,8 @@ async function seleccionarDeListaTemp(ctx: WaCtx, estado: EstadoReserva, texto: 
 
 // ── Helpers de comprobante ─────────────────────────────────────────────────
 
-// Procesa una foto: descarga, extrae datos, sube a storage, guarda en estado.
-// Muestra confirmación del monto extraído o pide ingreso manual si falla.
+// Procesa una foto usando el pipeline compartido (descarga → Claude → duplicado → storage).
+// En caso de duplicado alerta y NO avanza el flujo; para otros errores cae a ingreso manual.
 async function procesarFotoEnContexto(
   ctx: WaCtx,
   estado: EstadoReserva,
@@ -171,65 +246,74 @@ async function procesarFotoEnContexto(
 ) {
   await ctx.reply("Procesando comprobante...");
 
-  const { base64 } = await downloadMedia(mediaId);
-  const datos = await extraerDatosComprobante(base64, mimeType);
-
-  const fechaStr = new Date().toLocaleDateString("es-AR").replace(/\//g, "-");
-  const comprobanteUrl = await subirComprobante(
-    base64, mimeType,
-    `reserva_${fechaStr}_${datos?.nroOperacion || Date.now()}`
-  ).catch(() => "");
-
-  // Guardar datos del comprobante para completar columnas de Ingresos
-  estado.datos.comprobanteUrl = comprobanteUrl;
-  estado.datos.fechaComprobante = datos?.fecha ?? "";
-  estado.datos.bancoOrigen = datos?.bancoOrigen ?? "";
-  estado.datos.nroOperacion = datos?.nroOperacion ?? "";
-  estado.datos.quienPago = datos?.nombreOrdenante ?? "";
-  estado.datos.nombreDestinatario = datos?.nombreDestinatario ?? "";
   estado.datos.pendingMediaId = undefined;
   estado.datos.pendingMimeType = undefined;
 
-  if (datos?.monto && datos.monto > 0) {
-    const moneda = datos.moneda === "USD" ? "USD" : "ARS";
-    if (flujo === "nueva") {
-      estado.datos.monedaAdelanto = moneda;
-      if (moneda === "ARS") { estado.datos.montoAdelantoARS = datos.monto; estado.datos.montoAdelantoUSD = undefined; }
-      else { estado.datos.montoAdelantoUSD = datos.monto; estado.datos.montoAdelantoARS = undefined; }
-    } else {
-      estado.datos.montoSaldo = datos.monto;
-      estado.datos.monedaSaldo = moneda;
+  const resultado = await procesarComprobante(mediaId, mimeType, "ingreso");
+
+  if (!resultado.ok) {
+    const msgManual = flujo === "nueva"
+      ? "Ingresá el monto manualmente (ej: 50000 ARS o 200 USD)."
+      : "Ingresá el monto manualmente (ej: 60000 ARS o 300 USD).";
+
+    if (resultado.error.tipo === "duplicado") {
+      await ctx.reply(`⚠️ *Comprobante duplicado*\n\n${resultado.error.detalle}`);
+      // No avanzamos — el estado queda en el paso actual para reintentar o ingresar manual
+      if (flujo === "nueva") { estado.paso = "res_monto_adelanto"; } else { estado.paso = "res_monto_saldo"; }
+      estados.set(ctx.from.id, estado);
+      await ctx.reply(`Si el pago es correcto, ${msgManual}`);
+      return;
     }
-    const simbolo = moneda === "USD" ? "USD " : "$";
-    const lineas = [
-      `*${simbolo}${datos.monto.toLocaleString("es-AR")} ${moneda}*`,
-      datos.fecha               ? `Fecha: ${datos.fecha}` : "",
-      datos.nombreOrdenante     ? `De: ${datos.nombreOrdenante}` : "",
-      datos.nombreDestinatario  ? `Para: ${datos.nombreDestinatario}` : "",
-      datos.bancoOrigen         ? `Banco: ${datos.bancoOrigen}` : "",
-      datos.nroOperacion        ? `Op. ${datos.nroOperacion}` : "",
-    ].filter(Boolean).join("\n");
-    estado.paso = "res_confirmar_monto_foto";
+
+    const msgError = resultado.error.tipo === "descarga_fallida"
+      ? "No pude descargar la imagen (puede haber expirado)."
+      : "No pude leer el comprobante.";
+
+    if (flujo === "nueva") { estado.paso = "res_monto_adelanto"; } else { estado.paso = "res_monto_saldo"; }
     estados.set(ctx.from.id, estado);
-    await ctx.replyButtons(
-      `Del comprobante extraje:\n\n${lineas}\n\n¿Es correcto?`,
-      [
-        { id: "res_foto_ok", title: "✅ Sí, es correcto" },
-        { id: "res_foto_manual", title: "✏️ Ingresar manualmente" },
-      ]
-    );
-  } else {
-    // No se pudo extraer monto
-    if (flujo === "nueva") {
-      estado.paso = "res_monto_adelanto";
-      estados.set(ctx.from.id, estado);
-      await ctx.reply("Comprobante guardado, pero no pude extraer el monto. ¿Cuánto fue el adelanto? (ej: 50000 ARS o 200 USD)");
-    } else {
-      estado.paso = "res_monto_saldo";
-      estados.set(ctx.from.id, estado);
-      await ctx.reply("Comprobante guardado, pero no pude extraer el monto. ¿Cuánto pagó el huésped? (ej: 60000 ARS o 300 USD)");
-    }
+    await ctx.reply(`${msgError} ${msgManual}`);
+    return;
   }
+
+  const { datos, comprobanteUrl } = resultado;
+
+  // Guardar datos del comprobante para completar columnas de Ingresos
+  estado.datos.comprobanteUrl = comprobanteUrl;
+  estado.datos.fechaComprobante = datos.fecha ?? "";
+  estado.datos.bancoOrigen = datos.bancoOrigen ?? "";
+  estado.datos.nroOperacion = datos.nroOperacion ?? "";
+  estado.datos.quienPago = datos.nombreOrdenante ?? "";
+  estado.datos.nombreDestinatario = datos.nombreDestinatario ?? "";
+
+  const moneda = datos.moneda === "USD" ? "USD" : "ARS";
+  if (flujo === "nueva") {
+    estado.datos.monedaAdelanto = moneda;
+    if (moneda === "ARS") { estado.datos.montoAdelantoARS = datos.monto; estado.datos.montoAdelantoUSD = undefined; }
+    else { estado.datos.montoAdelantoUSD = datos.monto; estado.datos.montoAdelantoARS = undefined; }
+  } else {
+    estado.datos.montoSaldo = datos.monto;
+    estado.datos.monedaSaldo = moneda;
+  }
+
+  const simbolo = moneda === "USD" ? "USD " : "$";
+  const lineas = [
+    `*${simbolo}${datos.monto.toLocaleString("es-AR")} ${moneda}*`,
+    datos.fecha              ? `Fecha: ${datos.fecha}` : "",
+    datos.nombreOrdenante    ? `De: ${datos.nombreOrdenante}` : "",
+    datos.nombreDestinatario ? `Para: ${datos.nombreDestinatario}` : "",
+    datos.bancoOrigen        ? `Banco: ${datos.bancoOrigen}` : "",
+    datos.nroOperacion       ? `Op. ${datos.nroOperacion}` : "",
+  ].filter(Boolean).join("\n");
+
+  estado.paso = "res_confirmar_monto_foto";
+  estados.set(ctx.from.id, estado);
+  await ctx.replyButtons(
+    `Del comprobante extraje:\n\n${lineas}\n\n¿Es correcto?`,
+    [
+      { id: "res_foto_ok", title: "✅ Sí, es correcto" },
+      { id: "res_foto_manual", title: "✏️ Ingresar manualmente" },
+    ]
+  );
 }
 
 // ── Formateo de resumen ────────────────────────────────────────────────────
@@ -309,15 +393,42 @@ async function pedirConfirmacionSaldo(ctx: WaCtx, estado: EstadoReserva) {
   estado.paso = "res_confirmacion_saldo";
   estados.set(ctx.from.id, estado);
   const info = estado.datos.reservaInfo!;
+  const montoSaldo = estado.datos.montoSaldo ?? 0;
   const monedaStr = estado.datos.monedaSaldo === "USD" ? "USD " : "$";
-  const montoStr = `${monedaStr}${(estado.datos.montoSaldo ?? 0).toLocaleString("es-AR")}`;
+  let montoStr = `${monedaStr}${montoSaldo.toLocaleString("es-AR")}`;
+
+  // Calcular equivalente en USD para comparar con saldo pendiente
+  let montoEnUSD = estado.datos.monedaSaldo === "USD" ? montoSaldo : 0;
+  if (estado.datos.monedaSaldo !== "USD") {
+    const cotiz = await obtenerCotizacion(new Date().toLocaleDateString("es-AR"));
+    if (cotiz > 0) {
+      estado.datos.cotizacion = cotiz;
+      montoEnUSD = Math.round((montoSaldo / cotiz) * 100) / 100;
+      montoStr += ` ≈ USD ${montoEnUSD} (cotiz. $${Math.round(cotiz).toLocaleString("es-AR")})`;
+    }
+  }
+
+  const excedente = montoEnUSD > 0
+    ? Math.round((montoEnUSD - info.saldoUSD) * 100) / 100
+    : 0;
+  const saldoResultante = Math.max(0, Math.round((info.saldoUSD - montoEnUSD) * 100) / 100);
+
+  const avisoExcedente = excedente > 0
+    ? `\n\n⚠️ *Este pago supera el saldo pendiente en USD ${excedente.toLocaleString("es-AR")}. Verificá que el monto sea correcto.*`
+    : "";
+  const avisoResultante = excedente <= 0 && saldoResultante > 0
+    ? `\nSaldo restante tras este pago: USD ${saldoResultante.toLocaleString("es-AR")}`
+    : "";
+
   await ctx.replyButtons(
     `💳 *Saldo de reserva*\n\n` +
       `Reserva: *${estado.datos.nroReserva}*\n` +
       `Casa: ${info.casa} · ${info.nombrePax}\n` +
       `Total reserva: USD ${info.montoTotalUSD}\n` +
-      `Saldo USD registrado: ${info.saldoUSD}\n` +
-      `Monto recibido: ${montoStr}`,
+      `Saldo pendiente: USD ${info.saldoUSD}\n` +
+      `Monto recibido: ${montoStr}` +
+      avisoResultante +
+      avisoExcedente,
     [
       { id: "res_confirmar_saldo", title: "✅ Confirmar" },
       { id: "res_cancelar_saldo", title: "❌ Cancelar" },
@@ -350,7 +461,7 @@ async function guardarNuevaReserva(ctx: WaCtx, estado: EstadoReserva) {
       montoAdelantoARS: adelantoARS,
       montoAdelantoUSD: adelantoUSD,
       saldoUSD,
-      estadoPago: "ADELANTO_RECIBIDO",
+      estadoPago: saldoUSD <= 0 ? "COMPLETO" : "ADELANTO_RECIBIDO",
       comprobanteUrl: d.comprobanteUrl ?? "",
       registradoPor: nombreWa(ctx.from.name, ctx.from.id),
       timestamp: ahora(),
@@ -388,7 +499,9 @@ async function guardarNuevaReserva(ctx: WaCtx, estado: EstadoReserva) {
     await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
   } catch (e: any) {
     console.error("Error guardarNuevaReserva:", e?.response?.data ?? e?.message ?? e);
-    await ctx.reply("Error guardando la reserva. Intentá de nuevo.");
+    estados.delete(ctx.from.id);
+    await ctx.reply("Hubo un error al guardar la reserva. Por favor intentá de nuevo.");
+    await ctx.replyButtons("¿Qué querés hacer?", MENU_BOTONES);
   }
 }
 
@@ -396,7 +509,8 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
   try {
     const d = estado.datos;
     const info = d.reservaInfo!;
-    const cotizacion = await obtenerCotizacion(new Date().toLocaleDateString("es-AR"));
+    // Reusar cotización mostrada en confirmación para que el ingreso coincida con lo que vio el usuario
+    const cotizacion = d.cotizacion ?? await obtenerCotizacion(new Date().toLocaleDateString("es-AR"));
 
     const monto = d.montoSaldo ?? 0;
     const saldoUSD = d.monedaSaldo === "USD" ? monto : cotizacion > 0 ? Math.round((monto / cotizacion) * 100) / 100 : 0;
@@ -452,7 +566,9 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
     await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
   } catch (e: any) {
     console.error("Error guardarSaldo:", e?.response?.data ?? e?.message ?? e);
-    await ctx.reply("Error actualizando la reserva. Intentá de nuevo.");
+    estados.delete(ctx.from.id);
+    await ctx.reply("Hubo un error al registrar el pago. Por favor intentá de nuevo.");
+    await ctx.replyButtons("¿Qué querés hacer?", MENU_BOTONES);
   }
 }
 
@@ -466,6 +582,11 @@ async function sesionExpirada(ctx: WaCtx) {
 export async function onReservaCommand(ctx: WaCtx): Promise<void> {
   estados.set(ctx.from.id, { paso: "res_tipo", datos: {} });
   await pedirTipo(ctx);
+}
+
+export async function onCorregirCommand(ctx: WaCtx): Promise<void> {
+  estados.set(ctx.from.id, { paso: "res_corregir_buscar", datos: {} });
+  await ctx.reply("Escribí el número o el nombre del huésped de la reserva que querés corregir:");
 }
 
 // Foto enviada SIN estado activo: intercepción antes del handler de ingresos.
@@ -507,7 +628,8 @@ export async function onPhoto(
     await procesarFotoEnContexto(ctx, estado, mediaId, mimeType, "saldo");
     return true;
   }
-  return false;
+  await ctx.reply("No esperaba una imagen en este paso. Continuá con el texto o los botones del menú.");
+  return true;
 }
 
 export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean> {
@@ -515,15 +637,17 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
 
   let estado = estados.get(ctx.from.id);
 
-  // ── Tipo (entrada: no requieren estado previo) ─────────────────────────────
+  // ── Tipo (entrada: resetean cualquier flujo previo, salvo foto pendiente) ────
   if (buttonId === "res_tipo_nueva") {
-    if (!estado) estado = { paso: "res_tipo", datos: {} };
-    estado.datos.tipo = "nueva";
+    // Si había un flujo activo (no foto pendiente), descartarlo limpiamente
+    const pendingMedia = estado?.datos.pendingMediaId
+      ? { pendingMediaId: estado.datos.pendingMediaId, pendingMimeType: estado.datos.pendingMimeType }
+      : undefined;
+    estado = { paso: "res_tipo", datos: { tipo: "nueva", ...pendingMedia } };
 
-    if (estado.datos.pendingMediaId) {
+    if (pendingMedia?.pendingMediaId) {
       // Foto enviada antes de iniciar el flujo → procesarla como adelanto
-      const { pendingMediaId, pendingMimeType } = estado.datos;
-      await procesarFotoEnContexto(ctx, estado, pendingMediaId, pendingMimeType!, "nueva");
+      await procesarFotoEnContexto(ctx, estado, pendingMedia.pendingMediaId, pendingMedia.pendingMimeType!, "nueva");
     } else {
       estado.paso = "res_casa";
       estados.set(ctx.from.id, estado);
@@ -533,18 +657,18 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   }
 
   if (buttonId === "res_tipo_saldo") {
-    if (!estado) estado = { paso: "res_tipo", datos: {} };
-    estado.datos.tipo = "saldo";
+    const pendingMedia = estado?.datos.pendingMediaId
+      ? { pendingMediaId: estado.datos.pendingMediaId, pendingMimeType: estado.datos.pendingMimeType }
+      : undefined;
+    estado = { paso: "res_tipo", datos: { tipo: "saldo", ...pendingMedia } };
 
-    if (estado.datos.pendingMediaId) {
+    if (pendingMedia?.pendingMediaId) {
       // Foto enviada antes de iniciar el flujo → procesarla como saldo
-      const { pendingMediaId, pendingMimeType } = estado.datos;
-      await procesarFotoEnContexto(ctx, estado, pendingMediaId, pendingMimeType!, "saldo");
+      await procesarFotoEnContexto(ctx, estado, pendingMedia.pendingMediaId, pendingMedia.pendingMimeType!, "saldo");
     } else {
       const semana = await listarReservasSemana();
       if (semana.length > 0) {
-        await ctx.reply("Check-ins esta semana con saldo pendiente:\n\n");
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana");
+        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
@@ -568,14 +692,12 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   // ── Foto confirmada / descartada ──────────────────────────────────────────
   if (buttonId === "res_foto_ok") {
     if (!estado) { await sesionExpirada(ctx); return true; }
-    estado.datos.tipoIngreso = "transferencia";
 
     if (estado.datos.tipo === "saldo") {
       // Monto del comprobante confirmado → mostrar lista de reservas
       const semana = await listarReservasSemana();
       if (semana.length > 0) {
-        await ctx.reply("Check-ins esta semana con saldo pendiente:\n\n");
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana");
+        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
@@ -587,8 +709,8 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       estados.set(ctx.from.id, estado);
       await ctx.replyButtons("¿Qué casa?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
     } else {
-      // Foto enviada en el paso res_monto_adelanto → ir a confirmación
-      await pedirConfirmacionNueva(ctx, estado);
+      // Foto enviada en el paso res_monto_adelanto → pedir tipo de pago
+      await pedirTipoPago(ctx, estado);
     }
     return true;
   }
@@ -608,8 +730,7 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       // Mostrar lista de reservas; monto se pide después
       const semana = await listarReservasSemana();
       if (semana.length > 0) {
-        await ctx.reply("Check-ins esta semana con saldo pendiente:\n\n");
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana");
+        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
@@ -675,7 +796,7 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   if (buttonId === "res_moneda_ARS" || buttonId === "res_moneda_USD") {
     if (!estado) { await sesionExpirada(ctx); return true; }
     const moneda = buttonId === "res_moneda_ARS" ? "ARS" : "USD";
-    const monto = estado.datos.montoAdelantoARS ?? 0;
+    const monto = estado.datos.montoAdelantoARS ?? estado.datos.montoAdelantoUSD ?? 0;
     estado.datos.monedaAdelanto = moneda;
     if (moneda === "ARS") {
       estado.datos.montoAdelantoARS = monto;
@@ -710,6 +831,34 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     return true;
   }
 
+  // ── Sin resultado de búsqueda ─────────────────────────────────────────────
+  if (buttonId === "res_crear_desde_busqueda") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const nombreGuardado = estado.datos.nombrePax;
+    const pendingMedia = estado.datos.pendingMediaId
+      ? { pendingMediaId: estado.datos.pendingMediaId, pendingMimeType: estado.datos.pendingMimeType }
+      : undefined;
+    const nuevoEstado: EstadoReserva = {
+      paso: "res_tipo",
+      datos: { tipo: "nueva", nombrePax: nombreGuardado, ...pendingMedia },
+    };
+    estado = nuevoEstado;
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `Vamos a crear una nueva reserva${nombreGuardado ? ` para *${nombreGuardado}*` : ""}.\n\n¿Cuál es la casa?`,
+      CASAS.map(c => ({ id: `res_casa_${c}`, title: c }))
+    );
+    return true;
+  }
+
+  if (buttonId === "res_buscar_otro_nombre") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_buscar_nombre";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("Escribí el nombre del pasajero:");
+    return true;
+  }
+
   // ── Confirmar / cancelar saldo ────────────────────────────────────────────
   if (buttonId === "res_confirmar_saldo") {
     if (!estado) { await sesionExpirada(ctx); return true; }
@@ -724,10 +873,44 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     return true;
   }
 
+  // ── Corrección de reserva ─────────────────────────────────────────────────
+  if (buttonId === "res_corregir_nombre") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_corregir_nuevo_nombre";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply(`Nombre actual: *${estado.datos.reservaInfo!.nombrePax}*\n\nEscribí el nombre correcto:`);
+    return true;
+  }
+
+  if (buttonId === "res_corregir_casa") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_corregir_nueva_casa";
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `Casa actual: *${estado.datos.reservaInfo!.casa}*\n\n¿Cuál es la casa correcta?`,
+      CASAS.map(c => ({ id: `res_corregir_casa_${c}`, title: c }))
+    );
+    return true;
+  }
+
+  if (buttonId.startsWith("res_corregir_casa_")) {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const nuevaCasa = buttonId.replace("res_corregir_casa_", "") as Casa;
+    const info = estado.datos.reservaInfo!;
+    await actualizarCampoReserva(info.fila, "casa", nuevaCasa);
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Casa actualizada a *${nuevaCasa}*\nReserva #${info.id} · ${info.nombrePax}`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
   return false;
 }
 
 export async function onText(ctx: WaCtx): Promise<boolean> {
+  const tieneEstado = estados.has(ctx.from.id);
+  if (await intentarEscape(ctx, tieneEstado, () => estados.delete(ctx.from.id))) return true;
+
   const estado = estados.get(ctx.from.id);
   if (!estado || !estado.paso.startsWith("res_")) return false;
 
@@ -760,6 +943,10 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       await ctx.reply("No pude leer las fechas. Usá el formato: 10/07 - 15/07 o 10/07/2026 - 15/07/2026");
       return true;
     }
+    if (fechas.noches === -1) {
+      await ctx.reply("La fecha de salida debe ser posterior a la de entrada. Revisá el orden.");
+      return true;
+    }
     estado.datos.fechaEntrada = fechas.entrada;
     estado.datos.fechaSalida = fechas.salida;
     estado.datos.cantidadNoches = fechas.noches;
@@ -775,11 +962,19 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       await ctx.reply("Ingresá el monto total en USD (ej: 800).");
       return true;
     }
+    if (parsed.moneda === "ARS") {
+      await ctx.reply("El total de la reserva va en USD. Ingresá el monto en dólares (ej: 800).");
+      return true;
+    }
     estado.datos.montoTotalUSD = parsed.monto;
 
-    // Si el adelanto ya fue capturado desde un comprobante previo → ir a confirmación
+    // Si el adelanto ya fue capturado desde un comprobante previo → pedir tipo de pago si falta
     if (estado.datos.montoAdelantoARS != null || estado.datos.montoAdelantoUSD != null) {
-      await pedirConfirmacionNueva(ctx, estado);
+      if (!estado.datos.tipoIngreso) {
+        await pedirTipoPago(ctx, estado);
+      } else {
+        await pedirConfirmacionNueva(ctx, estado);
+      }
     } else {
       estado.paso = "res_monto_adelanto";
       estados.set(ctx.from.id, estado);
@@ -830,7 +1025,17 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
     if (!texto) { await ctx.reply("Escribí el nombre del pasajero."); return true; }
     const resultados = await buscarReservasPorNombre(texto);
     if (resultados.length === 0) {
-      await ctx.reply(`No encontré reservas para "${texto}". Intentá con otro nombre.`);
+      estado.datos.nombrePax = texto;
+      estado.paso = "res_sin_resultado";
+      estados.set(ctx.from.id, estado);
+      await ctx.replyButtons(
+        `No encontré reservas para "${texto}".`,
+        [
+          { id: "res_crear_desde_busqueda", title: "➕ Crear reserva nueva" },
+          { id: "res_buscar_otro_nombre",   title: "🔍 Buscar otro nombre" },
+          { id: "res_cancelar",             title: "❌ Cancelar" },
+        ]
+      );
       return true;
     }
     if (resultados.length === 1) {
@@ -838,9 +1043,13 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       estado.datos.nroReserva = r.id;
       estado.datos.reservaInfo = r;
 
-      // Si hay monto del comprobante previo → ir a confirmación directamente
+      // Si hay monto del comprobante previo → pedir tipo de pago si falta, luego confirmación
       if (estado.datos.montoSaldo != null) {
-        await pedirConfirmacionSaldo(ctx, estado);
+        if (!estado.datos.tipoIngreso) {
+          await pedirTipoPago(ctx, estado);
+        } else {
+          await pedirConfirmacionSaldo(ctx, estado);
+        }
         return true;
       }
 
@@ -853,8 +1062,7 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       );
       return true;
     }
-    await ctx.reply(`Encontré ${resultados.length} reservas:\n\n`);
-    await mostrarListaYEsperar(ctx, estado, resultados, "res_elegir_busqueda");
+    await mostrarListaYEsperar(ctx, estado, resultados, "res_elegir_busqueda", `Encontré ${resultados.length} reservas:`);
     return true;
   }
 
@@ -864,6 +1072,10 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
 
   // ── Datos de transferencia manual ────────────────────────────────────────
   if (estado.paso === "res_datos_transferencia") {
+    if (!texto.trim()) {
+      await ctx.reply("Ingresá el nombre del destinatario o presioná *Omitir*.");
+      return true;
+    }
     estado.datos.nombreDestinatario = texto.trim();
     if (estado.datos.tipo === "saldo") {
       await pedirConfirmacionSaldo(ctx, estado);
@@ -893,6 +1105,85 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
         { id: "res_saldo_moneda_USD", title: "🇺🇸 Dólares (USD)" },
       ]);
     }
+    return true;
+  }
+
+  // ── Flujo de corrección ───────────────────────────────────────────────────
+
+  if (estado.paso === "res_corregir_buscar") {
+    if (!texto) { await ctx.reply("Escribí el número o nombre de la reserva."); return true; }
+    let reserva: ReservaEncontrada | null = null;
+    // Intento por ID numérico primero
+    if (/^\d+$/.test(texto)) {
+      reserva = await buscarReservaPorId(texto);
+    }
+    if (!reserva) {
+      const resultados = await buscarReservasPorNombre(texto);
+      if (resultados.length === 1) reserva = resultados[0];
+      else if (resultados.length > 1) {
+        estado.datos.listaTemp = resultados;
+        estado.paso = "res_corregir_elegir";
+        estados.set(ctx.from.id, estado);
+        const lista = resultados.map((r, i) => `${i + 1}. #${r.id} · ${r.casa} · ${r.nombrePax}`).join("\n");
+        await ctx.reply(`Encontré varias reservas. Escribí el número:\n\n${lista}`);
+        return true;
+      }
+    }
+    if (!reserva) {
+      await ctx.reply(`No encontré ninguna reserva para "${texto}". Intentá con otro nombre o número.`);
+      return true;
+    }
+    estado.datos.reservaInfo = reserva;
+    estado.paso = "res_corregir_campo";
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `Reserva #${reserva.id} · ${reserva.casa} · ${reserva.nombrePax}\n\n¿Qué querés corregir?`,
+      [
+        { id: "res_corregir_nombre", title: "✏️ Nombre del huésped" },
+        { id: "res_corregir_casa",   title: "🏠 Casa" },
+        { id: "res_cancelar",        title: "❌ Cancelar" },
+      ]
+    );
+    return true;
+  }
+
+  if (estado.paso === "res_corregir_elegir") {
+    const idx = parseInt(texto, 10) - 1;
+    const lista = estado.datos.listaTemp ?? [];
+    if (isNaN(idx) || idx < 0 || idx >= lista.length) {
+      await ctx.reply(`Ingresá un número entre 1 y ${lista.length}.`);
+      return true;
+    }
+    estado.datos.reservaInfo = lista[idx];
+    estado.datos.listaTemp = undefined;
+    estado.paso = "res_corregir_campo";
+    estados.set(ctx.from.id, estado);
+    const r = lista[idx];
+    await ctx.replyButtons(
+      `Reserva #${r.id} · ${r.casa} · ${r.nombrePax}\n\n¿Qué querés corregir?`,
+      [
+        { id: "res_corregir_nombre", title: "✏️ Nombre del huésped" },
+        { id: "res_corregir_casa",   title: "🏠 Casa" },
+        { id: "res_cancelar",        title: "❌ Cancelar" },
+      ]
+    );
+    return true;
+  }
+
+  if (estado.paso === "res_corregir_nuevo_nombre") {
+    if (!texto) { await ctx.reply("Escribí el nuevo nombre del huésped."); return true; }
+    const info = estado.datos.reservaInfo!;
+    await actualizarCampoReserva(info.fila, "nombrePax", texto);
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Nombre actualizado: *${texto}*\nReserva #${info.id} · ${info.casa}`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  // Pasos donde el usuario debe usar los botones, no texto libre
+  const PASOS_SOLO_BOTONES = ["res_confirmacion", "res_confirmacion_saldo", "res_confirmar_monto_foto", "res_corregir_campo", "res_sin_resultado"];
+  if (PASOS_SOLO_BOTONES.includes(estado.paso)) {
+    await ctx.reply("Usá los botones de arriba para continuar.");
     return true;
   }
 

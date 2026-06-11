@@ -9,7 +9,24 @@ export async function onReembolsoCommand(ctx: WaCtx): Promise<void> {
   await ctx.reply("¿Cuál es la fecha del reembolso? (DD/MM/AAAA o \"hoy\")");
 }
 
-export async function onCallback(_ctx: WaCtx, _buttonId: string): Promise<boolean> {
+export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean> {
+  if (buttonId === "reembolso_confirmar") {
+    const estado = estados.get(ctx.from.id);
+    if (!estado) return false;
+    const { fecha, monto, detalle } = estado.datos;
+    await registrarReembolso(fecha!, monto!, detalle!, ahora());
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Reembolso registrado\n$${(monto ?? 0).toLocaleString("es-AR")} · ${fecha}\n${detalle}`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  if (buttonId === "reembolso_cancelar") {
+    estados.delete(ctx.from.id);
+    await ctx.replyButtons("Cancelado.", MENU_BOTONES);
+    return true;
+  }
+
   return false;
 }
 
@@ -42,14 +59,19 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
 
   if (estado.paso === "reembolso_descripcion") {
     if (!texto) { await ctx.reply("Escribí una descripción."); return true; }
-    const monto = estado.datos.monto ?? 0;
-    const fecha = estado.datos.fecha ?? new Date().toLocaleDateString("es-AR");
-
-    await registrarReembolso(fecha, monto, texto, ahora());
-    estados.delete(ctx.from.id);
-
-    await ctx.reply(`✅ Reembolso registrado\n$${monto.toLocaleString("es-AR")} · ${fecha}\n${texto}`);
-    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    estado.datos.detalle = texto;
+    estado.paso = "reembolso_confirmar";
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `*Confirmar reembolso:*\n\n` +
+      `Monto: $${(estado.datos.monto ?? 0).toLocaleString("es-AR")} ARS\n` +
+      `Fecha: ${estado.datos.fecha}\n` +
+      `Concepto: ${texto}`,
+      [
+        { id: "reembolso_confirmar", title: "✅ Confirmar" },
+        { id: "reembolso_cancelar",  title: "❌ Cancelar" },
+      ]
+    );
     return true;
   }
 

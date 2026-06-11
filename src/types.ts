@@ -109,6 +109,7 @@ export interface Reserva {
 export const MENU_BOTONES = [
   { id: "menu_gasto",   title: "💸 Nuevo gasto" },
   { id: "menu_reserva", title: "📋 Reservas" },
+  { id: "menu_saldos",  title: "📊 Saldos y reportes" },
   { id: "menu_otros",   title: "📎 Otros" },
 ];
 

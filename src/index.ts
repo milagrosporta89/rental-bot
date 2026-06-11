@@ -7,8 +7,8 @@ import { onPhoto, onCallback as onCallbackIngreso, onText as onTextIngreso } fro
 import { onEfectivoIngreso, onEfectivoGasto, onCallback as onCallbackCash, onText as onTextCash, onFlowReply } from "./handlers/cash";
 import { onReportarSaldoCommand, onSaldoCommand, onCallback as onCallbackBalance, onText as onTextBalance } from "./handlers/balance";
 import { onComisionCommand } from "./handlers/comision";
-import { onReembolsoCommand, onText as onTextReembolso } from "./handlers/reembolso";
-import { onReservaCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
+import { onReembolsoCommand, onCallback as onCallbackReembolso, onText as onTextReembolso } from "./handlers/reembolso";
+import { onReservaCommand, onCorregirCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
 
 const app = express();
 app.use(express.json());
@@ -71,7 +71,7 @@ async function sendMenu(ctx: WaCtx) {
     [
       { id: "menu_gasto",    title: "💸 Nuevo gasto" },
       { id: "menu_reserva",  title: "📋 Gestionar reservas" },
-      { id: "menu_saldos",   title: "📊 Ver saldos en cuentas" },
+      { id: "menu_saldos",   title: "📊 Saldos y reportes" },
       { id: "menu_otros",    title: "📎 Otros" },
     ]
   );
@@ -126,13 +126,21 @@ async function routeMessage(msg: WaMessage) {
 
     // Menú principal
     if (id === "menu_gasto") { await onEfectivoGasto(ctx); return; }
-    if (id === "menu_otros") { await onEfectivoIngreso(ctx); return; }
+    if (id === "menu_otros") {
+      await ctx.replyList("¿Qué querés hacer?", [
+        { id: "menu_otros_ingreso",  title: "💰 Registrar ingreso" },
+        { id: "menu_otros_corregir", title: "✏️ Corregir reserva" },
+      ]);
+      return;
+    }
+    if (id === "menu_otros_ingreso")  { await onEfectivoIngreso(ctx); return; }
+    if (id === "menu_otros_corregir") { await onCorregirCommand(ctx); return; }
     if (id === "menu_saldos") {
       await ctx.replyList("¿Qué querés ver?", [
-        { id: "menu_ver_saldos", title: "Ver saldos" },
-        { id: "menu_reportar_saldo", title: "Reportar saldo" },
-        { id: "menu_comision", title: "💼 Comisión Paola" },
-        { id: "menu_reembolso", title: "💸 Reembolso a Paola" },
+        { id: "menu_ver_saldos",     title: "📊 Ver saldos" },
+        { id: "menu_reportar_saldo", title: "✏️ Actualizar saldo" },
+        { id: "menu_comision",       title: "💼 Comisión Paola" },
+        { id: "menu_reembolso",      title: "💸 Reembolso a Paola" },
       ]);
       return;
     }
@@ -145,6 +153,7 @@ async function routeMessage(msg: WaMessage) {
     if (await onCallbackIngreso(ctx, id)) return;
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;
+    if (await onCallbackReembolso(ctx, id)) return;
     if (await onCallbackReserva(ctx, id)) return;
     return;
   }

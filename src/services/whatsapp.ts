@@ -31,15 +31,21 @@ export async function sendButtons(to: string, text: string, buttons: WaButton[])
 }
 
 export async function sendList(to: string, text: string, buttonLabel: string, items: WaButton[]) {
+  const chunk = (arr: WaButton[], size: number) => {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  };
+  const sections = chunk(items.slice(0, 20), 10).map((group, i) => ({
+    title: i === 0 ? "Opciones" : "Más opciones",
+    rows: group.map((b) => ({ id: b.id, title: b.title.slice(0, 24) })),
+  }));
   await post({
     messaging_product: "whatsapp", to, type: "interactive",
     interactive: {
       type: "list",
       body: { text },
-      action: {
-        button: buttonLabel,
-        sections: [{ title: "Opciones", rows: items.slice(0, 10).map((b) => ({ id: b.id, title: b.title.slice(0, 24) })) }],
-      },
+      action: { button: buttonLabel, sections },
     },
   });
 }

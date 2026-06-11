@@ -1,5 +1,5 @@
 import { obtenerResumenComision } from "../services/sheets";
-import { WaCtx } from "../types";
+import { WaCtx, MENU_BOTONES } from "../types";
 
 const MESES: Record<string, string> = {
   "01": "enero", "02": "febrero", "03": "marzo", "04": "abril",
@@ -44,7 +44,9 @@ export async function onComisionCommand(ctx: WaCtx): Promise<void> {
       `Gastos pagados por Paola: -$${totalGastosHistorico.toLocaleString("es-AR")}\n` +
       `${estadoSuperavit}`
     );
+    await ctx.replyButtons("¿Qué más querés hacer?", MENU_BOTONES);
   } catch {
     await ctx.reply("Error consultando. Intentá de nuevo.");
+    await ctx.replyButtons("¿Qué más querés hacer?", MENU_BOTONES);
   }
 }

@@ -12,7 +12,7 @@ const TITULARES_GASTO: Titular[] = ["Francisco", "Fernando", "Paola", "Milagros"
 const CATEGORIAS_GASTO: CategoriaGasto[] = [
   "limpieza", "jardinero", "lavanderia", "expensas",
   "luz", "gas", "mantenimiento", "internet",
-  "marketing", "impuestos", "comision", "otro",
+  "marketing", "impuestos", "otro",
 ];
 
 function hoyAR(): string {

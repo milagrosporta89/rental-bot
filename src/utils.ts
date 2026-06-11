@@ -1,3 +1,40 @@
+import { WaCtx, MENU_BOTONES } from "./types";
+
+// Palabras que siempre sacan del flujo activo (con o sin estado previo)
+const PALABRAS_ESCAPE = new Set(["cancelar", "salir", "menu", "menú", "volver", "inicio", "start"]);
+// Palabras que inician un flujo distinto: solo interrumpen si hay estado activo
+const PALABRAS_COMANDO = new Set(["saldo", "reserva", "gasto", "ingreso"]);
+
+function normalizar(texto: string): string {
+  return texto.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+/**
+ * Detecta si el usuario quiere escapar del flujo actual (palabras clave o comando nuevo).
+ * Si aplica: llama `onEscape()`, avisa y muestra el menú. Devuelve true → el handler debe retornar.
+ * Seguro de llamar aunque no haya estado activo (simplemente muestra el menú).
+ */
+export async function intentarEscape(
+  ctx: WaCtx,
+  tieneEstadoActivo: boolean,
+  onEscape: () => void
+): Promise<boolean> {
+  const n = normalizar(ctx.text ?? "");
+  const esEscape = PALABRAS_ESCAPE.has(n);
+  const esComando = tieneEstadoActivo && PALABRAS_COMANDO.has(n);
+
+  if (!esEscape && !esComando) return false;
+
+  if (tieneEstadoActivo) {
+    onEscape();
+    await ctx.reply("Operación cancelada. ¿En qué te ayudo?");
+  } else {
+    await ctx.reply("¿En qué te ayudo?");
+  }
+  await ctx.replyButtons("Menú principal", MENU_BOTONES);
+  return true;
+}
+
 export function validarFecha(texto: string): { ok: boolean; fecha?: string; error?: string } {
   const match = texto.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (!match) return { ok: false, error: "Formato inválido. Ejemplo: 1/4/26 o 15/04/2026" };
