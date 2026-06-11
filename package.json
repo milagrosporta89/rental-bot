@@ -1,7 +1,7 @@
 {
   "name": "rental-bot",
   "version": "1.0.0",
-  "description": "Bot de Telegram para gestión de alquileres temporarios",
+  "description": "Bot de WhatsApp para gestión de alquileres temporarios",
   "main": "dist/index.js",
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--openssl-legacy-provider ts-node-dev --respawn src/index.ts",
@@ -16,12 +16,8 @@
     "@types/express": "^5.0.6",
     "axios": "^1.15.2",
     "dotenv": "^16.4.5",
-    "duckdb": "^1.4.4",
-    "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "form-data": "^4.0.5",
-    "googleapis": "^144.0.0",
-    "grammy": "^1.27.0"
+    "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",

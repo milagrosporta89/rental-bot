@@ -70,11 +70,3 @@ export function ahora(): string {
 export function nombreWa(name: string, phone: string): string {
   return name && name !== phone ? name : phone;
 }
-
-export function nombreTelegram(
-  from: { first_name?: string; last_name?: string; username?: string } | undefined
-): string {
-  if (!from) return "desconocido";
-  if (from.username) return `@${from.username}`;
-  return [from.first_name, from.last_name].filter(Boolean).join(" ") || "desconocido";
-}

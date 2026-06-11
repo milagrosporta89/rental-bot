@@ -58,31 +58,6 @@ export async function downloadMedia(mediaId: string): Promise<{ base64: string; 
   return { base64: Buffer.from(res.data).toString("base64"), mimeType };
 }
 
-export async function sendFlow(to: string, flowId: string, screenId: string, headerText: string, bodyText: string, ctaLabel: string) {
-  await post({
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "flow",
-      header: { type: "text", text: headerText },
-      body: { text: bodyText },
-      action: {
-        name: "flow",
-        parameters: {
-          flow_message_version: "3",
-          flow_token: `${to}_${Date.now()}`,
-          flow_id: flowId,
-          flow_cta: ctaLabel,
-          flow_action: "navigate",
-          flow_action_payload: { screen: screenId },
-          mode: "draft",
-        },
-      },
-    },
-  });
-}
-
 // Parsear mensaje entrante del webhook
 export interface WaMessage {
   from: string;

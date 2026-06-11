@@ -15,8 +15,6 @@ export const config = {
   whatsappVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN!,
   whatsappTeamNumbers: new Set((process.env.WHATSAPP_TEAM_NUMBERS ?? "").split(",").map((n) => n.trim())),
   port: parseInt(process.env.PORT ?? "3000"),
-  whatsappFlowIngresoId: process.env.WHATSAPP_FLOW_INGRESO_ID ?? "",
-  whatsappFlowGastoId: process.env.WHATSAPP_FLOW_GASTO_ID ?? "",
 };
 
 export const CASAS: Casa[] = [
@@ -26,16 +24,6 @@ export const CASAS: Casa[] = [
   "Casa 4",
   "Casa 5",
 ];
-
-export const TITULARES: Titular[] = [
-  "Francisco",
-  "Milagros",
-  "Inés",
-  "Fernando",
-  "Paola",
-];
-
-export const COMISION_TASA = 0.15;
 
 // Aliases y variantes por titular (minúsculas, sin tildes).
 // Agregar acá cualquier apodo o forma abreviada que pueda aparecer en comprobantes.
