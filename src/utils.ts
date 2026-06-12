@@ -67,6 +67,11 @@ export function ahora(): string {
   return new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+export function fechaHoy(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
 export function nombreWa(name: string, phone: string): string {
   return name && name !== phone ? name : phone;
 }

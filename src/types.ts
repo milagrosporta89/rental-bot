@@ -108,7 +108,7 @@ export interface Reserva {
 
 export const MENU_BOTONES = [
   { id: "menu_gasto",   title: "💸 Nuevo gasto" },
-  { id: "menu_reserva", title: "📋 Reservas" },
+  { id: "menu_reserva", title: "📋 Gestionar reservas" },
   { id: "menu_saldos",  title: "📊 Saldos y reportes" },
   { id: "menu_otros",   title: "📎 Otros" },
 ];
@@ -123,7 +123,6 @@ export interface WaCtx {
   reply(text: string): Promise<void>;
   replyButtons(text: string, buttons: Array<{ id: string; title: string }>): Promise<void>;
   replyList(text: string, items: Array<{ id: string; title: string }>): Promise<void>;
-  answerCallbackQuery(): Promise<void>;
 }
 
 // Estado de conversación para flujos multi-paso

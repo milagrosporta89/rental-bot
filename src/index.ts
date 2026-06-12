@@ -4,11 +4,12 @@ import { config } from "./config";
 import { parseWebhookBody, sendText, sendButtons, sendList, WaMessage } from "./services/whatsapp";
 import { WaCtx } from "./types";
 import { onPhoto, onCallback as onCallbackIngreso, onText as onTextIngreso } from "./handlers/income";
-import { onEfectivoIngreso, onEfectivoGasto, onCallback as onCallbackCash, onText as onTextCash, onFlowReply } from "./handlers/cash";
+import { onEfectivoIngreso, onCallback as onCallbackCash, onText as onTextCash, onFlowReply } from "./handlers/cash";
 import { onReportarSaldoCommand, onSaldoCommand, onCallback as onCallbackBalance, onText as onTextBalance } from "./handlers/balance";
 import { onComisionCommand } from "./handlers/comision";
 import { onReembolsoCommand, onCallback as onCallbackReembolso, onText as onTextReembolso } from "./handlers/reembolso";
 import { onReservaCommand, onCorregirCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
+import { onManualGasto, onCallback as onCallbackGasto, onText as onTextGasto } from "./handlers/gastos";
 
 const app = express();
 app.use(express.json());
@@ -28,11 +29,9 @@ app.get("/webhook", (req, res) => {
 // ── Incoming messages ─────────────────────────────────────────────────────────
 app.post("/webhook", async (req, res) => {
   res.sendStatus(200); // Responder rápido a Meta
-  console.log("POST /webhook:", JSON.stringify(req.body, null, 2));
 
   const msg = parseWebhookBody(req.body);
-  if (!msg) { console.log("No se pudo parsear el mensaje"); return; }
-  console.log("Mensaje de:", msg.from, "| tipo:", msg.type, "| texto:", msg.text ?? msg.buttonReplyId ?? "(media)");
+  if (!msg) return;
 
   try {
     await routeMessage(msg);
@@ -61,7 +60,6 @@ function buildCtx(msg: WaMessage): WaCtx {
     async replyList(text, items) {
       await sendList(msg.from, text, "Ver opciones", items);
     },
-    async answerCallbackQuery() { /* no-op */ },
   };
 }
 
@@ -125,7 +123,7 @@ async function routeMessage(msg: WaMessage) {
     const id = msg.buttonReplyId;
 
     // Menú principal
-    if (id === "menu_gasto") { await onEfectivoGasto(ctx); return; }
+    if (id === "menu_gasto") { await onManualGasto(ctx); return; }
     if (id === "menu_otros") {
       await ctx.replyList("¿Qué querés hacer?", [
         { id: "menu_otros_ingreso",  title: "💰 Registrar ingreso" },
@@ -154,6 +152,7 @@ async function routeMessage(msg: WaMessage) {
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;
     if (await onCallbackReembolso(ctx, id)) return;
+    if (await onCallbackGasto(ctx, id)) return;
     if (await onCallbackReserva(ctx, id)) return;
     return;
   }
@@ -171,6 +170,7 @@ async function routeMessage(msg: WaMessage) {
     if (await onTextCash(ctx)) return;
     if (await onTextBalance(ctx)) return;
     if (await onTextReembolso(ctx)) return;
+    if (await onTextGasto(ctx)) return;
     if (await onTextReserva(ctx)) return;
 
     // Cualquier texto sin flujo activo → menú

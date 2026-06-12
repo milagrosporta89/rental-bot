@@ -40,7 +40,6 @@ export function makeCtx(userId: string): MockCtx {
     replyList: jest.fn(async (text: string, items: Array<{ id: string; title: string }>) => {
       buttonCalls.push({ text, buttons: items });
     }),
-    answerCallbackQuery: jest.fn(),
     replies,
     buttonCalls,
     lastReply: () => replies[replies.length - 1] ?? '',

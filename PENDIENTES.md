@@ -98,14 +98,30 @@ Esto complica el cálculo actual. **Definir con Paola antes de implementar.**
 
 - [ ] **¿Las reservas son siempre en dólares?** Hoy el bot pide el monto de la reserva directamente en USD sin opción de elegir moneda. Confirmar si puede haber reservas en pesos, o si USD es siempre la regla.
 - [ ] **Base de cálculo del 5% de comisión en reservas Airbnb** (ver ítem 6b)
+- [ ] **Suelen haber reembolsos?** una reserva que se cancelada por fuerza mayor. 
 
 ---
 
-## 8. Columnas innecesarias en la tabla de Gastos
-Las columnas `nombreDestinatario`, `bancoOrigen` y `nroOperacion` tienen sentido para ingresos (transferencias con comprobante), pero en gastos siempre quedan vacías o sin valor real.
+## 8. Columnas posiblemente innecesarias en la tabla de Gastos
+Revisado el código — resultado por columna:
 
-**Opciones:**
-- Ocultarlas en la sheet sin borrarlas (más seguro, no rompe nada)
-- Eliminarlas del modelo `Gasto` en `src/types.ts` y del registro en `src/services/sheets.ts`
+| Columna | ¿Se usa? | Detalle |
+|---|---|---|
+| `nroOperacion` | ✅ Sí, no tocar | `buscarGastoDuplicado` la usa para evitar doble registro |
+| `bancoOrigen` | Parcialmente | Gastos manuales → siempre `"Efectivo"`. Gastos con comprobante → nombre del banco real |
+| `nombreDestinatario` | Casi no | Gastos manuales → siempre `""`. Gastos con comprobante → puede traer dato del OCR |
 
-**Confirmar primero:** si hay algún gasto donde esos campos se usen (ej. reembolsos con comprobante).
+**Candidatas a ocultar (no eliminar) en la sheet:**
+- `nombreDestinatario` — casi siempre vacío o irrelevante para un gasto
+- `bancoOrigen` — solo útil si se quiere saber de qué banco salió el pago
+
+**Archivos a tocar si se decide eliminar del modelo:**
+- `src/types.ts` → interfaz `Gasto`
+- `src/services/sheets.ts` → función `registrarGasto` (~líneas 62-67)
+- `src/handlers/cash.ts`, `src/handlers/income.ts`, `src/handlers/gastos.ts` → llamadas a `registrarGasto`
+
+---
+
+## 9. Reserva sin adelanto
+
+Permitir registrar una reserva sin pago inicial, para casos informales (amigos/conocidos) donde el acuerdo es verbal. Definir si se trata como saldo 100% pendiente o con un flag especial.

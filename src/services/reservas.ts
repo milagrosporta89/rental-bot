@@ -39,6 +39,7 @@ export interface ReservaPendiente {
   casa: Casa;
   titular: Titular;
   nombrePax: string;
+  cantidadPax: number;
   fechaEntrada: string;
   fechaSalida: string;
   montoTotalUSD: number;
@@ -71,6 +72,7 @@ function toReservaPendiente(f: string[], fila: number): ReservaPendiente {
     casa: f[2] as Casa,
     titular: f[3] as Titular,
     nombrePax: f[4] ?? "",
+    cantidadPax: parseInt(f[5]) || 0,
     fechaEntrada: f[7] ?? "",
     fechaSalida: f[8] ?? "",
     montoTotalUSD: parseFloat(f[9]) || 0,
@@ -160,6 +162,9 @@ export interface ReservaEncontrada {
   casa: Casa;
   titular: Titular;
   nombrePax: string;
+  cantidadPax: number;
+  fechaEntrada: string;
+  fechaSalida: string;
   montoTotalUSD: number;
   saldoUSD: number;
   estadoPago: EstadoPagoReserva;
@@ -175,6 +180,9 @@ export async function buscarReservaPorId(id: string): Promise<ReservaEncontrada 
         casa: filas[i][2] as Casa,
         titular: filas[i][3] as Titular,
         nombrePax: filas[i][4] ?? "",
+        cantidadPax: parseInt(filas[i][5]) || 0,
+        fechaEntrada: filas[i][7] ?? "",
+        fechaSalida: filas[i][8] ?? "",
         montoTotalUSD: parseFloat(filas[i][9]) || 0,
         saldoUSD: parseFloat(filas[i][12]) || 0,
         estadoPago: (filas[i][13] ?? "ADELANTO_RECIBIDO") as EstadoPagoReserva,
@@ -184,9 +192,16 @@ export async function buscarReservaPorId(id: string): Promise<ReservaEncontrada 
   return null;
 }
 
-// Columnas editables: C=casa (índice 3), E=nombrePax (índice 5)
-export type CampoReservaEditable = "casa" | "nombrePax";
-const COLUMNA_CAMPO: Record<CampoReservaEditable, string> = { casa: "C", nombrePax: "E" };
+// Columnas editables según layout de la planilla Reservas
+export type CampoReservaEditable = "casa" | "nombrePax" | "cantidadPax" | "fechaEntrada" | "fechaSalida" | "montoTotalUSD";
+const COLUMNA_CAMPO: Record<CampoReservaEditable, string> = {
+  casa: "C",
+  nombrePax: "E",
+  cantidadPax: "F",
+  fechaEntrada: "H",
+  fechaSalida: "I",
+  montoTotalUSD: "J",
+};
 
 export async function actualizarCampoReserva(
   fila: number,

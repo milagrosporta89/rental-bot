@@ -14,6 +14,7 @@ import {
 import { registrarIngreso } from "../services/sheets";
 import { procesarComprobante } from "../services/comprobantes";
 import { onPhoto as onPhotoIngreso } from "./income";
+import { onPhoto as onPhotoGasto } from "./gastos";
 import { CASAS, titularDeCasa } from "../config";
 import { nombreWa, ahora, generarId, intentarEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
@@ -175,9 +176,11 @@ function parsearFechas(texto: string): { entrada: string; salida: string; noches
 
 // ── Helpers de lista numerada ──────────────────────────────────────────────
 
+const NUMEROS_EMOJI = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣"];
+
 function formatearListaNumerada(reservas: ReservaPendiente[]): string {
   return reservas.map((r, i) =>
-    `*${i + 1}.* ${r.casa} · ${r.nombrePax}\n` +
+    `${NUMEROS_EMOJI[i] ?? `*${i + 1}.*`} *${r.casa} · ${r.nombrePax}*\n` +
     `   ${r.fechaEntrada} → ${r.fechaSalida} · saldo USD ${r.saldoUSD}`
   ).join("\n\n");
 }
@@ -577,6 +580,22 @@ async function sesionExpirada(ctx: WaCtx) {
   await ctx.replyButtons("¿Qué querés hacer?", MENU_BOTONES);
 }
 
+async function mostrarMenuCorreccion(ctx: WaCtx, info: Pick<ReservaEncontrada, "id" | "casa" | "nombrePax" | "cantidadPax" | "fechaEntrada" | "fechaSalida" | "montoTotalUSD" | "saldoUSD">) {
+  const resumen =
+    `Reserva #${info.id}\n` +
+    `🏠 ${info.casa} · 👤 ${info.nombrePax} · 👥 ${info.cantidadPax} personas\n` +
+    `📅 ${info.fechaEntrada} → ${info.fechaSalida} · 💰 USD ${info.montoTotalUSD} · Saldo: USD ${info.saldoUSD}\n\n` +
+    `¿Qué campo querés corregir?`;
+  await ctx.replyList(resumen, [
+    { id: "res_corregir_nombre",   title: "👤 Nombre del huésped" },
+    { id: "res_corregir_casa",     title: "🏠 Casa" },
+    { id: "res_corregir_fechas",   title: "📅 Fechas entrada/salida" },
+    { id: "res_corregir_monto",    title: "💰 Monto total" },
+    { id: "res_corregir_personas", title: "👥 Cantidad de personas" },
+    { id: "res_cancelar",          title: "❌ Cancelar" },
+  ]);
+}
+
 // ── Exports ────────────────────────────────────────────────────────────────
 
 export async function onReservaCommand(ctx: WaCtx): Promise<void> {
@@ -603,10 +622,11 @@ export async function onPhotoSinContexto(
     datos: { pendingMediaId: mediaId, pendingMimeType: mimeType },
   });
 
-  await ctx.replyButtons("¿Qué registrás con este comprobante?", [
-    { id: "res_tipo_nueva", title: "📋 Reserva nueva" },
-    { id: "res_tipo_saldo", title: "💳 Saldo de reserva" },
-    { id: "res_foto_ingreso", title: "📎 Otros" },
+  await ctx.replyButtons("¿Para qué es este comprobante?", [
+    { id: "res_tipo_nueva",   title: "📋 Reserva nueva" },
+    { id: "res_tipo_saldo",   title: "💳 Saldo de reserva" },
+    { id: "res_foto_gasto",   title: "💸 Gasto" },
+    { id: "res_foto_ingreso", title: "💰 Otro ingreso" },
   ]);
   return true;
 }
@@ -685,6 +705,17 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     estados.delete(ctx.from.id);
     if (pendingMediaId) {
       await onPhotoIngreso(ctx, pendingMediaId, pendingMimeType ?? "image/jpeg");
+    }
+    return true;
+  }
+
+  // ── Gasto directo con foto pendiente ─────────────────────────────────────
+  if (buttonId === "res_foto_gasto") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const { pendingMediaId, pendingMimeType } = estado.datos;
+    estados.delete(ctx.from.id);
+    if (pendingMediaId) {
+      await onPhotoGasto(ctx, pendingMediaId, pendingMimeType ?? "image/jpeg");
     }
     return true;
   }
@@ -890,6 +921,33 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       `Casa actual: *${estado.datos.reservaInfo!.casa}*\n\n¿Cuál es la casa correcta?`,
       CASAS.map(c => ({ id: `res_corregir_casa_${c}`, title: c }))
     );
+    return true;
+  }
+
+  if (buttonId === "res_corregir_fechas") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const info = estado.datos.reservaInfo!;
+    estado.paso = "res_corregir_nuevas_fechas";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply(`Fechas actuales: *${info.fechaEntrada} → ${info.fechaSalida}*\n\nIngresá las nuevas fechas (ej: 10/07 - 15/07):`);
+    return true;
+  }
+
+  if (buttonId === "res_corregir_monto") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const info = estado.datos.reservaInfo!;
+    estado.paso = "res_corregir_nuevo_monto";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply(`Monto total actual: *USD ${info.montoTotalUSD}*\n\nIngresá el nuevo monto total en USD (ej: 900):`);
+    return true;
+  }
+
+  if (buttonId === "res_corregir_personas") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const info = estado.datos.reservaInfo!;
+    estado.paso = "res_corregir_nueva_cantidad_pax";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply(`Cantidad actual: *${info.cantidadPax} personas*\n\nIngresá la cantidad correcta:`);
     return true;
   }
 
@@ -1136,14 +1194,7 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
     estado.datos.reservaInfo = reserva;
     estado.paso = "res_corregir_campo";
     estados.set(ctx.from.id, estado);
-    await ctx.replyButtons(
-      `Reserva #${reserva.id} · ${reserva.casa} · ${reserva.nombrePax}\n\n¿Qué querés corregir?`,
-      [
-        { id: "res_corregir_nombre", title: "✏️ Nombre del huésped" },
-        { id: "res_corregir_casa",   title: "🏠 Casa" },
-        { id: "res_cancelar",        title: "❌ Cancelar" },
-      ]
-    );
+    await mostrarMenuCorreccion(ctx, reserva);
     return true;
   }
 
@@ -1158,15 +1209,7 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
     estado.datos.listaTemp = undefined;
     estado.paso = "res_corregir_campo";
     estados.set(ctx.from.id, estado);
-    const r = lista[idx];
-    await ctx.replyButtons(
-      `Reserva #${r.id} · ${r.casa} · ${r.nombrePax}\n\n¿Qué querés corregir?`,
-      [
-        { id: "res_corregir_nombre", title: "✏️ Nombre del huésped" },
-        { id: "res_corregir_casa",   title: "🏠 Casa" },
-        { id: "res_cancelar",        title: "❌ Cancelar" },
-      ]
-    );
+    await mostrarMenuCorreccion(ctx, lista[idx]);
     return true;
   }
 
@@ -1176,6 +1219,53 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
     await actualizarCampoReserva(info.fila, "nombrePax", texto);
     estados.delete(ctx.from.id);
     await ctx.reply(`✅ Nombre actualizado: *${texto}*\nReserva #${info.id} · ${info.casa}`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  if (estado.paso === "res_corregir_nuevas_fechas") {
+    const fechas = parsearFechas(texto);
+    if (!fechas) {
+      await ctx.reply("No pude leer las fechas. Usá el formato: 10/07 - 15/07 o 10/07/2026 - 15/07/2026");
+      return true;
+    }
+    if (fechas.noches === -1) {
+      await ctx.reply("La fecha de salida debe ser posterior a la de entrada. Revisá el orden.");
+      return true;
+    }
+    const info = estado.datos.reservaInfo!;
+    await actualizarCampoReserva(info.fila, "fechaEntrada", fechas.entrada);
+    await actualizarCampoReserva(info.fila, "fechaSalida", fechas.salida);
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Fechas actualizadas\nReserva #${info.id} · ${fechas.entrada} → ${fechas.salida} (${fechas.noches} noches)`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  if (estado.paso === "res_corregir_nuevo_monto") {
+    const n = parseFloat(texto.replace(/\./g, "").replace(",", "."));
+    if (isNaN(n) || n <= 0) {
+      await ctx.reply("Ingresá el monto en USD (ej: 900).");
+      return true;
+    }
+    const info = estado.datos.reservaInfo!;
+    await actualizarCampoReserva(info.fila, "montoTotalUSD", String(n));
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Monto total actualizado: *USD ${n.toLocaleString("es-AR")}*\nReserva #${info.id} · ${info.nombrePax}`);
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  if (estado.paso === "res_corregir_nueva_cantidad_pax") {
+    const n = parseInt(texto);
+    if (isNaN(n) || n < 1) {
+      await ctx.reply("Ingresá un número válido (ej: 4).");
+      return true;
+    }
+    const info = estado.datos.reservaInfo!;
+    await actualizarCampoReserva(info.fila, "cantidadPax", String(n));
+    estados.delete(ctx.from.id);
+    await ctx.reply(`✅ Cantidad actualizada: *${n} personas*\nReserva #${info.id} · ${info.nombrePax}`);
     await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
     return true;
   }
