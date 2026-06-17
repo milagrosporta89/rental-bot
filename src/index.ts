@@ -7,9 +7,11 @@ import { onPhoto, onCallback as onCallbackIngreso, onText as onTextIngreso } fro
 import { onEfectivoIngreso, onCallback as onCallbackCash, onText as onTextCash, onFlowReply } from "./handlers/cash";
 import { onReportarSaldoCommand, onSaldoCommand, onCallback as onCallbackBalance, onText as onTextBalance } from "./handlers/balance";
 import { onComisionCommand } from "./handlers/comision";
-import { onReembolsoCommand, onCallback as onCallbackReembolso, onText as onTextReembolso } from "./handlers/reembolso";
 import { onReservaCommand, onCorregirCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
 import { onManualGasto, onCallback as onCallbackGasto, onText as onTextGasto } from "./handlers/gastos";
+import { onCorregirGastoCommand, onCallbackCorreccion, onTextCorreccion } from "./handlers/correccion";
+import { obtenerDatosReporte } from "./services/sheets";
+import { REPORTE_HTML } from "./reporte-template";
 
 const app = express();
 app.use(express.json());
@@ -126,24 +128,24 @@ async function routeMessage(msg: WaMessage) {
     if (id === "menu_gasto") { await onManualGasto(ctx); return; }
     if (id === "menu_otros") {
       await ctx.replyList("¿Qué querés hacer?", [
-        { id: "menu_otros_ingreso",  title: "💰 Registrar ingreso" },
-        { id: "menu_otros_corregir", title: "✏️ Corregir reserva" },
+        { id: "menu_otros_ingreso",        title: "💰 Registrar ingreso" },
+        { id: "menu_otros_corregir",       title: "✏️ Corregir reserva" },
+        { id: "menu_otros_corregir_gasto", title: "✏️ Corregir gasto" },
       ]);
       return;
     }
-    if (id === "menu_otros_ingreso")  { await onEfectivoIngreso(ctx); return; }
-    if (id === "menu_otros_corregir") { await onCorregirCommand(ctx); return; }
+    if (id === "menu_otros_ingreso")        { await onEfectivoIngreso(ctx); return; }
+    if (id === "menu_otros_corregir")       { await onCorregirCommand(ctx); return; }
+    if (id === "menu_otros_corregir_gasto") { await onCorregirGastoCommand(ctx); return; }
     if (id === "menu_saldos") {
       await ctx.replyList("¿Qué querés ver?", [
         { id: "menu_ver_saldos",     title: "📊 Ver saldos" },
         { id: "menu_reportar_saldo", title: "✏️ Actualizar saldo" },
         { id: "menu_comision",       title: "💼 Comisión Paola" },
-        { id: "menu_reembolso",      title: "💸 Reembolso a Paola" },
       ]);
       return;
     }
     if (id === "menu_comision") { await onComisionCommand(ctx); return; }
-    if (id === "menu_reembolso") { await onReembolsoCommand(ctx); return; }
     if (id === "menu_ver_saldos") { await onSaldoCommand(ctx); return; }
     if (id === "menu_reportar_saldo") { await onReportarSaldoCommand(ctx); return; }
     if (id === "menu_reserva") { await onReservaCommand(ctx); return; }
@@ -151,8 +153,8 @@ async function routeMessage(msg: WaMessage) {
     if (await onCallbackIngreso(ctx, id)) return;
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;
-    if (await onCallbackReembolso(ctx, id)) return;
     if (await onCallbackGasto(ctx, id)) return;
+    if (await onCallbackCorreccion(ctx, id)) return;
     if (await onCallbackReserva(ctx, id)) return;
     return;
   }
@@ -169,13 +171,29 @@ async function routeMessage(msg: WaMessage) {
     if (await onTextIngreso(ctx)) return;
     if (await onTextCash(ctx)) return;
     if (await onTextBalance(ctx)) return;
-    if (await onTextReembolso(ctx)) return;
     if (await onTextGasto(ctx)) return;
+    if (await onTextCorreccion(ctx)) return;
     if (await onTextReserva(ctx)) return;
 
     // Cualquier texto sin flujo activo → menú
     await sendMenu(ctx);
   }
 }
+
+// ── Reporte en vivo ──────────────────────────────────────────────────────────
+app.get("/reporte", (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(REPORTE_HTML);
+});
+
+app.get("/api/reporte", async (_req, res) => {
+  try {
+    const datos = await obtenerDatosReporte();
+    res.json(datos);
+  } catch (err: any) {
+    const msg = err?.response?.data?.error?.message ?? err?.message ?? "Error interno";
+    res.status(500).json({ error: msg });
+  }
+});
 
 app.listen(config.port ?? 3000, () => console.log("Bot WhatsApp iniciado ✓"));

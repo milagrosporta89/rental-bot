@@ -4,7 +4,7 @@
   "description": "Bot de WhatsApp para gestión de alquileres temporarios",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--openssl-legacy-provider ts-node-dev --respawn src/index.ts",
+    "dev": "cross-env NODE_OPTIONS=\"--openssl-legacy-provider --max-old-space-size=4096\" ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider node dist/index.js",
     "test": "jest",

@@ -14,6 +14,7 @@ export const config = {
   whatsappAccessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
   whatsappVerifyToken: process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN!,
   whatsappTeamNumbers: new Set((process.env.WHATSAPP_TEAM_NUMBERS ?? "").split(",").map((n) => n.trim())),
+  whatsappOwnerNumber: process.env.WHATSAPP_OWNER_NUMBER ?? "",
   port: parseInt(process.env.PORT ?? "3000"),
 };
 
@@ -50,9 +51,8 @@ export const SHEETS = {
   ingresos: "Ingresos",
   gastos: "Gastos",
   saldosReales: "SaldosReales",
-  comisiones: "Comisiones",
-  reembolsosPaola: "ReembolsosPaola",
   reservas: "Reservas",
+  historial: "Historial",
 };
 
 export function titularDeCasa(casa: string): Titular | null {

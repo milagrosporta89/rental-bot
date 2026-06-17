@@ -121,7 +121,11 @@ export async function listarReservasPendientes(): Promise<ReservaPendiente[]> {
     if (!f[0] || f[13] === "COMPLETO") continue;
     result.push(toReservaPendiente(f, i + 2));
   }
-  return result;
+  return result.sort((a, b) => {
+    const fa = parsearFechaSheet(a.fechaEntrada);
+    const fb = parsearFechaSheet(b.fechaEntrada);
+    return (fa?.getTime() ?? 0) - (fb?.getTime() ?? 0);
+  });
 }
 
 export async function registrarReserva(r: Reserva): Promise<void> {

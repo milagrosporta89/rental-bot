@@ -1,5 +1,4 @@
 import { registrarIngreso } from "../services/sheets";
-import { registrarComision } from "../services/sheets";
 import { obtenerCotizacion } from "../services/dolar";
 import { procesarComprobante } from "../services/comprobantes";
 import { resolverNombre } from "../config";
@@ -222,21 +221,14 @@ async function guardarIngreso(ctx: WaCtx, estado: EstadoIngreso, moneda: "ARS" |
     comprobanteUrl: d.comprobanteUrl ?? "",
     timestamp: ahora(),
     cotizacion: await obtenerCotizacion(d.fecha || hoy),
+    idReserva: "",
+    tipoMovimiento: "directo",
   });
 
   await ctx.reply(
     `✅ Registrado\n${label} · ${d.casa} · ${simbolo}${(d.monto ?? 0).toLocaleString("es-AR")}`
   );
 
-  if (resolverNombre(d.nombreDestinatario ?? "") === "Paola") {
-    await registrarComision(
-      d.monto ?? 0,
-      `${label} · ${d.casa}`,
-      ahora(),
-      await obtenerCotizacion(d.fecha || hoy),
-      "cobro"
-    ).catch(() => {});
-  }
 
   await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
 }

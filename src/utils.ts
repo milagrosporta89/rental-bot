@@ -35,23 +35,38 @@ export async function intentarEscape(
   return true;
 }
 
-export function validarFecha(texto: string): { ok: boolean; fecha?: string; error?: string } {
-  const match = texto.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!match) return { ok: false, error: "Formato inválido. Ejemplo: 1/4/26 o 15/04/2026" };
+export function validarFecha(
+  texto: string,
+  { autoYear = true, permitirFutura = false } = {}
+): { ok: boolean; fecha?: string; error?: string } {
+  const normalizado = texto.trim().replace(/-/g, "/");
+  const sinAnio = autoYear ? normalizado.match(/^(\d{1,2})\/(\d{1,2})$/) : null;
+  const entrada = sinAnio
+    ? `${sinAnio[1]}/${sinAnio[2]}/${new Date().getFullYear()}`
+    : normalizado;
+  const match = entrada.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!match) return { ok: false, error: "Formato inválido. Ejemplo: 15/06 o 15/06/2026" };
   const d = Number(match[1]);
   const m = Number(match[2]);
   const anioRaw = Number(match[3]);
   const a = anioRaw < 100 ? 2000 + anioRaw : anioRaw;
   if (m < 1 || m > 12 || d < 1 || d > 31) return { ok: false, error: "Fecha inválida. Revisá el día y el mes." };
-  const fecha = new Date(a, m - 1, d);
-  if (fecha.getFullYear() !== a || fecha.getMonth() !== m - 1 || fecha.getDate() !== d)
+  let anio = a;
+  let fecha = new Date(anio, m - 1, d);
+  if (fecha.getFullYear() !== anio || fecha.getMonth() !== m - 1 || fecha.getDate() !== d)
     return { ok: false, error: "Fecha inválida. Revisá el día y el mes." };
-  if (fecha > new Date()) return { ok: false, error: "No podés ingresar una fecha futura." };
-  const fechaStr = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${a}`;
+  // Si el año fue auto-asignado y la fecha queda en el futuro, retrocedemos un año (ej: 15/12 en enero)
+  if (sinAnio && fecha > new Date()) {
+    anio -= 1;
+    fecha = new Date(anio, m - 1, d);
+  }
+  if (!permitirFutura && fecha > new Date()) return { ok: false, error: "No podés ingresar una fecha futura." };
+  const fechaStr = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${anio}`;
   return { ok: true, fecha: fechaStr };
 }
 
 export function validarMonto(texto: string): { ok: boolean; monto?: number; error?: string } {
+  if (!/^[\d.,]+$/.test(texto.trim())) return { ok: false, error: "Formato inválido. Ingresá solo el monto numérico, por ejemplo: 8500" };
   const monto = parseFloat(texto.replace(/\./g, "").replace(",", "."));
   if (isNaN(monto)) return { ok: false, error: "Formato inválido. Ingresá solo el monto numérico, por ejemplo: 8500" };
   if (monto < 0) return { ok: false, error: "El monto no puede ser negativo." };

@@ -56,6 +56,8 @@ export interface Ingreso {
   comprobanteUrl: string;
   timestamp: string;
   cotizacion: number;
+  idReserva: string;
+  tipoMovimiento: "adelanto" | "saldo" | "directo";
 }
 
 export interface Gasto {

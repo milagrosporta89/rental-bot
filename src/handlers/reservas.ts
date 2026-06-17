@@ -6,6 +6,7 @@ import {
   registrarSaldoReserva,
   actualizarCampoReserva,
   listarReservasSemana,
+  listarReservasPendientes,
   buscarReservasPorNombre,
   buscarReservaPorId,
   ReservaEncontrada,
@@ -18,7 +19,15 @@ import { onPhoto as onPhotoGasto } from "./gastos";
 import { CASAS, titularDeCasa } from "../config";
 import { nombreWa, ahora, generarId, intentarEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
-import { Casa, WaCtx, MENU_BOTONES } from "../types";
+import { Casa, Titular, WaCtx, MENU_BOTONES } from "../types";
+
+const TITULARES: Titular[] = ["Paola", "Francisco", "Fernando", "Milagros", "Inés"];
+
+function destinatarioConocido(nombre: string): boolean {
+  if (!nombre) return false;
+  const n = nombre.toLowerCase();
+  return TITULARES.some(t => n.includes(t.toLowerCase()));
+}
 
 // ── Estado de conversación ─────────────────────────────────────────────────
 
@@ -361,6 +370,15 @@ async function pedirTipo(ctx: WaCtx) {
   ]);
 }
 
+async function pedirQuienRecibio(ctx: WaCtx, estado: EstadoReserva) {
+  estado.paso = "res_quien_recibio";
+  estados.set(ctx.from.id, estado);
+  await ctx.replyButtons(
+    "¿Quién recibió el pago?",
+    TITULARES.map(t => ({ id: `res_quien_recibio_${t}`, title: t }))
+  );
+}
+
 async function pedirTipoPago(ctx: WaCtx, estado: EstadoReserva) {
   estados.set(ctx.from.id, estado);
   await ctx.replyButtons("¿Cómo fue el pago?", [
@@ -490,6 +508,8 @@ async function guardarNuevaReserva(ctx: WaCtx, estado: EstadoReserva) {
       comprobanteUrl: d.comprobanteUrl ?? "",
       timestamp: ahora(),
       cotizacion,
+      idReserva: id,
+      tipoMovimiento: "adelanto",
     });
 
     estados.delete(ctx.from.id);
@@ -552,6 +572,8 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
       comprobanteUrl: d.comprobanteUrl ?? "",
       timestamp: ahora(),
       cotizacion,
+      idReserva: d.nroReserva!,
+      tipoMovimiento: "saldo",
     });
 
     const monedaStr = d.monedaSaldo === "USD" ? "USD " : "$";
@@ -686,13 +708,13 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       // Foto enviada antes de iniciar el flujo → procesarla como saldo
       await procesarFotoEnContexto(ctx, estado, pendingMedia.pendingMediaId, pendingMedia.pendingMimeType!, "saldo");
     } else {
-      const semana = await listarReservasSemana();
-      if (semana.length > 0) {
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
+      const pendientes = await listarReservasPendientes();
+      if (pendientes.length > 0) {
+        await mostrarListaYEsperar(ctx, estado, pendientes, "res_elegir_semana", "Reservas con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
-        await ctx.reply("No hay check-ins esta semana con saldo pendiente.\n\n¿Nombre del pasajero?");
+        await ctx.reply("No hay reservas con saldo pendiente.\n\n¿Nombre del pasajero?");
       }
     }
     return true;
@@ -726,13 +748,13 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
 
     if (estado.datos.tipo === "saldo") {
       // Monto del comprobante confirmado → mostrar lista de reservas
-      const semana = await listarReservasSemana();
-      if (semana.length > 0) {
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
+      const pendientes = await listarReservasPendientes();
+      if (pendientes.length > 0) {
+        await mostrarListaYEsperar(ctx, estado, pendientes, "res_elegir_semana", "Reservas con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
-        await ctx.reply("No hay check-ins esta semana. ¿Nombre del pasajero?");
+        await ctx.reply("No hay reservas con saldo pendiente. ¿Nombre del pasajero?");
       }
     } else if (!estado.datos.casa) {
       // Foto enviada antes de iniciar el flujo de nueva → continuar desde casa
@@ -759,13 +781,13 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
 
     if (estado.datos.tipo === "saldo") {
       // Mostrar lista de reservas; monto se pide después
-      const semana = await listarReservasSemana();
-      if (semana.length > 0) {
-        await mostrarListaYEsperar(ctx, estado, semana, "res_elegir_semana", "Check-ins esta semana con saldo pendiente:");
+      const pendientes = await listarReservasPendientes();
+      if (pendientes.length > 0) {
+        await mostrarListaYEsperar(ctx, estado, pendientes, "res_elegir_semana", "Reservas con saldo pendiente:");
       } else {
         estado.paso = "res_buscar_nombre";
         estados.set(ctx.from.id, estado);
-        await ctx.reply("No hay check-ins esta semana. ¿Nombre del pasajero?");
+        await ctx.reply("No hay reservas con saldo pendiente. ¿Nombre del pasajero?");
       }
     } else if (!estado.datos.casa) {
       // Foto enviada antes de flujo → continuar desde casa
@@ -794,16 +816,22 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   if (buttonId === "res_pago_transferencia" || buttonId === "res_pago_efectivo") {
     if (!estado) { await sesionExpirada(ctx); return true; }
     estado.datos.tipoIngreso = buttonId === "res_pago_transferencia" ? "transferencia" : "efectivo";
-    // Si eligió transferencia sin comprobante, pedir destinatario
-    if (buttonId === "res_pago_transferencia" && !estado.datos.nombreDestinatario) {
-      estado.paso = "res_datos_transferencia";
-      estados.set(ctx.from.id, estado);
-      await ctx.replyButtons(
-        "¿A quién fue la transferencia? (nombre del titular o alias de la cuenta)",
-        [{ id: "res_omitir_nro", title: "Omitir" }]
-      );
-      return true;
+    estados.set(ctx.from.id, estado);
+    if (!destinatarioConocido(estado.datos.nombreDestinatario ?? "")) {
+      await pedirQuienRecibio(ctx, estado);
+    } else if (estado.datos.tipo === "saldo") {
+      await pedirConfirmacionSaldo(ctx, estado);
+    } else {
+      await pedirConfirmacionNueva(ctx, estado);
     }
+    return true;
+  }
+
+  // ── Quién recibió el pago ─────────────────────────────────────────────────
+  if (buttonId.startsWith("res_quien_recibio_")) {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.datos.nombreDestinatario = buttonId.replace("res_quien_recibio_", "");
+    estados.set(ctx.from.id, estado);
     if (estado.datos.tipo === "saldo") {
       await pedirConfirmacionSaldo(ctx, estado);
     } else {
@@ -1271,7 +1299,7 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   }
 
   // Pasos donde el usuario debe usar los botones, no texto libre
-  const PASOS_SOLO_BOTONES = ["res_confirmacion", "res_confirmacion_saldo", "res_confirmar_monto_foto", "res_corregir_campo", "res_sin_resultado"];
+  const PASOS_SOLO_BOTONES = ["res_confirmacion", "res_confirmacion_saldo", "res_confirmar_monto_foto", "res_corregir_campo", "res_sin_resultado", "res_quien_recibio"];
   if (PASOS_SOLO_BOTONES.includes(estado.paso)) {
     await ctx.reply("Usá los botones de arriba para continuar.");
     return true;

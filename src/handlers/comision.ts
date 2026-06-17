@@ -1,48 +1,25 @@
-import { obtenerResumenComision } from "../services/sheets";
+import { obtenerBalancePaola } from "../services/sheets";
 import { WaCtx, MENU_BOTONES } from "../types";
-
-const MESES: Record<string, string> = {
-  "01": "enero", "02": "febrero", "03": "marzo", "04": "abril",
-  "05": "mayo", "06": "junio", "07": "julio", "08": "agosto",
-  "09": "septiembre", "10": "octubre", "11": "noviembre", "12": "diciembre",
-};
-
-function fmtMes(key: string): string {
-  const [anio, mes] = key.split("-");
-  return `${MESES[mes] ?? mes} ${anio}`;
-}
 
 export async function onComisionCommand(ctx: WaCtx): Promise<void> {
   await ctx.reply("Consultando...");
   try {
-    const {
-      mesBase, baseIngresos, comisionMes,
-      cobradosMes, gastosMes, netMes, pendienteMes,
-      totalComisionFormal, totalCobrosDirectos, totalGastosHistorico, superavit,
-    } = await obtenerResumenComision();
+    const { totalCobrado, totalGastado, balance, cobradoMes, gastadoMes } = await obtenerBalancePaola();
 
-    const estadoMes = pendienteMes <= 0
-      ? `✅ Al día${pendienteMes < 0 ? ` (crédito $${Math.abs(pendienteMes).toLocaleString("es-AR")})` : ""}`
-      : `⏳ Pendiente: $${pendienteMes.toLocaleString("es-AR")}`;
-
-    const estadoSuperavit = superavit >= 0
-      ? `✅ A favor de Paola: $${superavit.toLocaleString("es-AR")}`
-      : `⏳ Debe al negocio: $${Math.abs(superavit).toLocaleString("es-AR")}`;
+    const estadoBalance = balance >= 0
+      ? `✅ A favor de Paola: $${balance.toLocaleString("es-AR")}`
+      : `⚠️ El negocio le debe: $${Math.abs(balance).toLocaleString("es-AR")}`;
 
     await ctx.reply(
-      `*Comisión de Paola*\n\n` +
+      `*Saldo de Paola*\n\n` +
       `📅 *ESTE MES*\n` +
-      `Base (${fmtMes(mesBase)}): $${baseIngresos.toLocaleString("es-AR")}\n` +
-      `Comisión (15%): $${comisionMes.toLocaleString("es-AR")}\n` +
-      `Cobros: +$${cobradosMes.toLocaleString("es-AR")}\n` +
-      `Gastos: -$${gastosMes.toLocaleString("es-AR")}\n` +
-      `Neto cobrado: $${netMes.toLocaleString("es-AR")}\n` +
-      `${estadoMes}\n\n` +
+      `Cobrado: $${cobradoMes.toLocaleString("es-AR")}\n` +
+      `Gastado: $${gastadoMes.toLocaleString("es-AR")}\n` +
+      `Neto: $${(cobradoMes - gastadoMes).toLocaleString("es-AR")}\n\n` +
       `📊 *HISTÓRICO*\n` +
-      `Comisiones formales liquidadas: $${totalComisionFormal.toLocaleString("es-AR")}\n` +
-      `Cobros directos de huéspedes: $${totalCobrosDirectos.toLocaleString("es-AR")}\n` +
-      `Gastos pagados por Paola: -$${totalGastosHistorico.toLocaleString("es-AR")}\n` +
-      `${estadoSuperavit}`
+      `Total cobrado: $${totalCobrado.toLocaleString("es-AR")}\n` +
+      `Total gastado: $${totalGastado.toLocaleString("es-AR")}\n` +
+      `${estadoBalance}`
     );
     await ctx.replyButtons("¿Qué más querés hacer?", MENU_BOTONES);
   } catch {

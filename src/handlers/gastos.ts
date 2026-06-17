@@ -1,4 +1,4 @@
-import { registrarGasto, registrarComision } from "../services/sheets";
+import { registrarGasto } from "../services/sheets";
 import { obtenerCotizacion } from "../services/dolar";
 import { procesarComprobante } from "../services/comprobantes";
 import { nombreWa, ahora, fechaHoy, validarFecha, validarMonto, generarId } from "../utils";
@@ -151,7 +151,15 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       }
     }
 
-    // Manual, o comprobante sin titular → pedir pagador
+    // Manual → pedir monto primero
+    if (estado.tipo === "manual") {
+      estado.paso = "gasto_monto";
+      estados.set(ctx.from.id, estado);
+      await ctx.reply("¿Cuál es el monto?");
+      return true;
+    }
+
+    // Comprobante sin titular detectado → pedir pagador
     estado.paso = "seleccionar_quien";
     estados.set(ctx.from.id, estado);
     await pedirPagador(ctx);
@@ -187,9 +195,9 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     if (!estado) return false;
     estado.datos.detalle = "";
     if (estado.tipo === "manual") {
-      estado.paso = "confirmar_manual";
+      estado.paso = "seleccionar_quien";
       estados.set(ctx.from.id, estado);
-      await mostrarConfirmacionManual(ctx, estado);
+      await pedirPagador(ctx);
     } else {
       await guardarGasto(ctx, estado, estado.datos.pagadoPor ?? "");
       estados.delete(ctx.from.id);
@@ -255,6 +263,13 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       }
     }
 
+    if (estado.tipo === "manual") {
+      estado.paso = "gasto_monto";
+      estados.set(ctx.from.id, estado);
+      await ctx.reply("¿Cuál es el monto?");
+      return true;
+    }
+
     estado.paso = "seleccionar_quien";
     estados.set(ctx.from.id, estado);
     await pedirPagador(ctx);
@@ -265,9 +280,9 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (estado.paso === "pedir_descripcion") {
     estado.datos.detalle = texto.toLowerCase() === "omitir" || texto === "-" ? "" : texto;
     if (estado.tipo === "manual") {
-      estado.paso = "confirmar_manual";
+      estado.paso = "seleccionar_quien";
       estados.set(ctx.from.id, estado);
-      await mostrarConfirmacionManual(ctx, estado);
+      await pedirPagador(ctx);
     } else {
       await guardarGasto(ctx, estado, estado.datos.pagadoPor ?? "");
       estados.delete(ctx.from.id);
@@ -286,9 +301,9 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       fecha = v.fecha!;
     }
     estado.datos.fecha = fecha;
-    estado.paso = "gasto_monto";
+    estado.paso = "confirmar_manual";
     estados.set(ctx.from.id, estado);
-    await ctx.reply("¿Cuál es el monto?");
+    await mostrarConfirmacionManual(ctx, estado);
     return true;
   }
 
@@ -374,15 +389,6 @@ async function guardarGasto(ctx: WaCtx, estado: EstadoGasto, pagadoPor: string) 
     `✅ Gasto registrado\n${categoriaFinal} · ${pagadoPorFinal} · ${simbolo}${(d.monto ?? 0).toLocaleString("es-AR")}`
   );
 
-  if (pagadoPorFinal === "Paola") {
-    await registrarComision(
-      d.monto ?? 0,
-      `Gasto: ${categoriaFinal}`,
-      ahora(),
-      await obtenerCotizacion(d.fecha || hoy),
-      "gasto"
-    ).catch(() => {});
-  }
 
   await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
 }

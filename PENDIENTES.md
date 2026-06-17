@@ -122,6 +122,63 @@ Revisado el código — resultado por columna:
 
 ---
 
-## 9. Reserva sin adelanto
+## 9. Corrección de registros con trazabilidad
+
+Cuando se confirma un gasto o ingreso con datos erróneos, hoy no hay forma de corregirlo desde el bot.
+
+**Diseño acordado: flujo de aprobación + hoja de auditoría**
+
+1. Quien quiere corregir inicia el flujo desde el bot (ej. "Corregir registro")
+2. El bot le envía a Milagros un mensaje de aprobación:
+   ```
+   ⚠️ Corrección solicitada por Paola
+   GAS-2026-0042 · limpieza · $45.000
+   Campo: categoría → "mantenimiento"
+   [✅ Aprobar]  [❌ Rechazar]
+   ```
+3. Solo se aplica si Milagros aprueba
+4. Al aplicar, se escribe en la hoja `Historial`:
+   `timestamp | idRegistro | tipoRegistro | campo | valorAnterior | valorNuevo | modificadoPor | aprobadoPor`
+
+**Qué se puede corregir por bot:** `categoria` y `detalle` únicamente.
+**Qué NO:** monto, fecha, quién pagó → esos van directo a la planilla.
+
+**Archivos a crear/modificar:**
+- `src/services/sheets.ts` → nueva función `corregirGasto(id, campos, modificadoPor)` + `registrarAudit(...)`
+- `src/services/sheets.ts` → nueva hoja `Historial` en setup
+- `src/handlers/correccion.ts` → nuevo handler (flujo de solicitud + aprobación)
+- `src/index.ts` → rutear botones de aprobación/rechazo
+
+---
+
+## 10. Reporte de últimos registros
+
+Para poder identificar qué registro hay que corregir (o simplemente auditar la actividad reciente), agregar un comando que muestre los últimos N gastos o ingresos.
+
+**Formato propuesto:**
+```
+📋 Últimos 10 gastos:
+
+1️⃣ GAS-2026-0042 · 12/06/2026
+   limpieza · Francisco · $45.000 ARS
+
+2️⃣ GAS-2026-0041 · 11/06/2026
+   expensas · Milagros · $32.000 ARS
+...
+```
+
+**Evaluación técnica:** simple de implementar.
+- `sheets.ts` ya lee la hoja Gastos para `buscarGastoDuplicado` — usar la misma lectura, tomar las últimas 10 filas
+- Accesible desde el submenú de Saldos o como opción en `menu_otros`
+- Se podría extender a "últimos 10 ingresos" también
+
+**Archivos a tocar:**
+- `src/services/sheets.ts` → nueva función `obtenerUltimosGastos(n: number)`
+- `src/handlers/balance.ts` → o nuevo handler `src/handlers/historial.ts`
+- `src/index.ts` → nuevo botón en `menu_saldos` o `menu_otros`
+
+---
+
+## 11. Reserva sin adelanto
 
 Permitir registrar una reserva sin pago inicial, para casos informales (amigos/conocidos) donde el acuerdo es verbal. Definir si se trata como saldo 100% pendiente o con un flag especial.

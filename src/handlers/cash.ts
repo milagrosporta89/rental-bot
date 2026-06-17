@@ -1,4 +1,4 @@
-import { registrarIngreso, registrarComision } from "../services/sheets";
+import { registrarIngreso } from "../services/sheets";
 import { CASAS } from "../config";
 import { Casa, EstadoConversacion, Titular, WaCtx, MENU_BOTONES } from "../types";
 import { validarFecha, validarMonto, nombreWa, ahora, fechaHoy, generarId } from "../utils";
@@ -38,6 +38,8 @@ export async function onFlowReply(ctx: WaCtx, data: Record<string, string>): Pro
     comprobanteUrl: "",
     timestamp: ahora(),
     cotizacion: await obtenerCotizacion(fecha),
+    idReserva: "",
+    tipoMovimiento: "directo",
   });
   await ctx.reply(`✅ Ingreso registrado\n${data.tipo ?? "efectivo"} · ${data.casa} · ${simbolo}${monto.toLocaleString("es-AR")}\nFecha: ${fecha} · Pagó: ${data.quien_pago}`);
 }
@@ -241,12 +243,10 @@ async function registrarIngresoEfectivo(ctx: WaCtx, estado: EstadoConversacion) 
     comprobanteUrl: "",
     timestamp: ahora(),
     cotizacion: await obtenerCotizacion(estado.datos.fecha ?? fechaHoy()),
+    idReserva: "",
+    tipoMovimiento: "directo",
   });
 
-  if ((estado.datos.nombreDestinatario ?? "").toLowerCase().includes("paola")) {
-    const cot = await obtenerCotizacion(estado.datos.fecha ?? fechaHoy());
-    await registrarComision(monto, `Efectivo · ${estado.datos.casa} · ${estado.datos.detalle ?? ""}`, ahora(), cot, "cobro").catch(() => {});
-  }
 
   await ctx.reply(`✅ Ingreso registrado\nEfectivo · ${estado.datos.casa} · ${simbolo}${monto.toLocaleString("es-AR")}\nFecha: ${estado.datos.fecha} · Pagó: ${estado.datos.quienPago}`);
   await ctx.replyButtons("¿Querés registrar algo más?", MENU_BOTONES);
