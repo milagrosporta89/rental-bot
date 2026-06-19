@@ -53,17 +53,6 @@ function parsearFechaSheet(s: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
-function inicioFinSemana(): { lunes: Date; domingo: Date } {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const dow = hoy.getDay(); // 0=Dom
-  const lunes = new Date(hoy);
-  lunes.setDate(hoy.getDate() - (dow === 0 ? 6 : dow - 1));
-  const domingo = new Date(lunes);
-  domingo.setDate(lunes.getDate() + 6);
-  domingo.setHours(23, 59, 59, 999);
-  return { lunes, domingo };
-}
 
 function toReservaPendiente(f: string[], fila: number): ReservaPendiente {
   return {
@@ -81,24 +70,6 @@ function toReservaPendiente(f: string[], fila: number): ReservaPendiente {
   };
 }
 
-export async function listarReservasSemana(): Promise<ReservaPendiente[]> {
-  const filas = await leerFilas();
-  const { lunes, domingo } = inicioFinSemana();
-  const result: ReservaPendiente[] = [];
-  for (let i = 0; i < filas.length; i++) {
-    const f = filas[i];
-    if (!f[0] || f[13] === "COMPLETO") continue;
-    const fecha = parsearFechaSheet(f[7]);
-    if (fecha && fecha >= lunes && fecha <= domingo) {
-      result.push(toReservaPendiente(f, i + 2));
-    }
-  }
-  return result.sort((a, b) => {
-    const fa = parsearFechaSheet(a.fechaEntrada);
-    const fb = parsearFechaSheet(b.fechaEntrada);
-    return (fa?.getTime() ?? 0) - (fb?.getTime() ?? 0);
-  });
-}
 
 export async function buscarReservasPorNombre(nombre: string): Promise<ReservaPendiente[]> {
   const filas = await leerFilas();

@@ -10,8 +10,6 @@ import { onComisionCommand } from "./handlers/comision";
 import { onReservaCommand, onCorregirCommand, onCallback as onCallbackReserva, onText as onTextReserva, onPhoto as onPhotoReserva, onPhotoSinContexto } from "./handlers/reservas";
 import { onManualGasto, onCallback as onCallbackGasto, onText as onTextGasto } from "./handlers/gastos";
 import { onCorregirGastoCommand, onCallbackCorreccion, onTextCorreccion } from "./handlers/correccion";
-import { obtenerDatosReporte } from "./services/sheets";
-import { REPORTE_HTML } from "./reporte-template";
 import { onCallbackEscape } from "./utils";
 
 const app = express();
@@ -181,21 +179,5 @@ async function routeMessage(msg: WaMessage) {
     await sendMenu(ctx);
   }
 }
-
-// ── Reporte en vivo ──────────────────────────────────────────────────────────
-app.get("/reporte", (_req, res) => {
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(REPORTE_HTML);
-});
-
-app.get("/api/reporte", async (_req, res) => {
-  try {
-    const datos = await obtenerDatosReporte();
-    res.json(datos);
-  } catch (err: any) {
-    const msg = err?.response?.data?.error?.message ?? err?.message ?? "Error interno";
-    res.status(500).json({ error: msg });
-  }
-});
 
 app.listen(config.port ?? 3000, () => console.log("Bot WhatsApp iniciado ✓"));

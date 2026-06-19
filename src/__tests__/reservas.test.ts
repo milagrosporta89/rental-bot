@@ -4,7 +4,6 @@ import { onCallback, onText, onPhotoSinContexto, onPhoto, onCorregirCommand } fr
 // ── Mocks de servicios externos ────────────────────────────────────────────
 
 jest.mock('../services/reservas', () => ({
-  listarReservasSemana: jest.fn(),
   buscarReservasPorNombre: jest.fn(),
   buscarReservaPorId: jest.fn(),
   registrarReserva: jest.fn(),
@@ -46,7 +45,6 @@ import * as svcStorage from '../services/storage';
 import * as svcComprobantes from '../services/comprobantes';
 import * as handlerIncome from '../handlers/income';
 
-const mockListarSemana = svcReservas.listarReservasSemana as jest.Mock;
 const mockRegistrarReserva = svcReservas.registrarReserva as jest.Mock;
 const mockRegistrarSaldo = svcReservas.registrarSaldoReserva as jest.Mock;
 const mockGenerarId = svcReservas.generarIdReserva as jest.Mock;
@@ -275,7 +273,6 @@ describe('nueva reserva', () => {
 
 describe('saldo de reserva', () => {
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   async function flujoHastaMonto(ctx: ReturnType<typeof makeCtx>) {
@@ -335,7 +332,6 @@ describe('saldo de reserva', () => {
   });
 
   it('va a búsqueda por nombre si no hay reservas en la semana', async () => {
-    mockListarSemana.mockResolvedValue([]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
 
@@ -344,7 +340,6 @@ describe('saldo de reserva', () => {
 
   it('trata saldoUSD=0 en planilla como dato incompleto y marca COMPLETO solo si el pago es >= saldo', async () => {
     // Simula que la columna M estaba vacía → parseFloat('') = NaN → 0
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 0 })]);
     const ctx = makeCtx(uid());
     await flujoHastaMonto(ctx);
     await texto(ctx, '100 USD');
@@ -399,7 +394,6 @@ describe('procesarFotoEnContexto — error en descarga', () => {
   });
 
   it('avisa al usuario cuando la descarga falla en flujo saldo', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -523,7 +517,6 @@ describe('reiniciar flujo a mitad — estado anterior descartado', () => {
   });
 
   it('res_tipo_saldo en medio de un flujo activo descarta los datos anteriores', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     // Primer intento saldo: llega a elegir reserva
     await boton(ctx, 'res_tipo_saldo');
@@ -783,7 +776,6 @@ describe('foto confirma monto → pide tipo de pago', () => {
 
   it('foto en saldo → foto_ok → elige reserva → pide tipo de pago', async () => {
     mockComp(400, 'USD');
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -797,7 +789,6 @@ describe('foto confirma monto → pide tipo de pago', () => {
 
   it('foto saldo efectivo → registra tipo efectivo', async () => {
     mockComp(400, 'USD');
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -819,7 +810,6 @@ describe('foto confirma monto → pide tipo de pago', () => {
 
 describe('pedirConfirmacionSaldo — equivalente USD para pagos en ARS', () => {
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('muestra equivalente USD cuando el pago es en ARS', async () => {
@@ -864,7 +854,6 @@ describe('cancelar flujo', () => {
   });
 
   it('cancela un saldo antes de confirmar', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva()]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -919,7 +908,6 @@ describe('transferencia sin comprobante pide destinatario', () => {
   });
 
   it('pide destinatario también en flujo saldo y llega a confirmación saldo', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -937,7 +925,6 @@ describe('transferencia sin comprobante pide destinatario', () => {
 
 describe('moneda saldo sin especificar', () => {
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('muestra botones ARS/USD cuando el monto saldo no trae moneda', async () => {
@@ -982,7 +969,6 @@ describe('búsqueda por nombre', () => {
   ];
 
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([]);
   });
 
   it('pide nombre cuando no hay reservas en la semana', async () => {
@@ -993,7 +979,6 @@ describe('búsqueda por nombre', () => {
   });
 
   it('escribe 0 en lista semana → cambia a búsqueda por nombre', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva()]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '0');
@@ -1002,7 +987,6 @@ describe('búsqueda por nombre', () => {
   });
 
   it('número fuera de rango en lista → mensaje de error y repregunta', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva(), makeReserva({ id: '2' })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '5');
@@ -1146,7 +1130,6 @@ describe('comprobante en flujo de saldo', () => {
   }
 
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('foto en res_monto_saldo → extrae monto y muestra botones de confirmación', async () => {
@@ -1208,7 +1191,6 @@ describe('foto enviada antes de elegir tipo', () => {
   });
 
   it('elige "saldo" → procesa la foto pendiente como saldo', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await onPhotoSinContexto(ctx, 'media-pending', 'image/jpeg');
     await boton(ctx, 'res_tipo_saldo');
@@ -1234,7 +1216,6 @@ describe('guardarSaldo — cotización consistente con la confirmación', () => 
   beforeEach(() => {
     // Reset completo para evitar que Once mocks se filtren entre tests
     mockCotizacion.mockReset().mockResolvedValue(1350);
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('saldo en ARS: obtenerCotizacion se llama solo una vez (en confirmación, no en guardar)', async () => {
@@ -1309,7 +1290,6 @@ describe('texto libre durante confirmación', () => {
   });
 
   it('avisa en res_confirmacion_saldo que debe usar los botones', async () => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -1465,7 +1445,6 @@ describe('error al guardar — estado se limpia para poder reintentar', () => {
 
   it('error en guardarSaldo limpia estado y el usuario puede volver a empezar', async () => {
     mockRegistrarSaldo.mockRejectedValueOnce(new Error('Sheets API 500'));
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
     const ctx = makeCtx(uid());
     await boton(ctx, 'res_tipo_saldo');
     await texto(ctx, '1');
@@ -1487,7 +1466,6 @@ describe('error al guardar — estado se limpia para poder reintentar', () => {
 
 describe('pago mayor al saldo — advertencia en confirmación', () => {
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('muestra advertencia cuando el pago USD supera el saldo', async () => {
@@ -1571,7 +1549,6 @@ describe('pago mayor al saldo — advertencia en confirmación', () => {
 
 describe('saldo parcial — confirmación muestra saldo resultante', () => {
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([makeReserva({ saldoUSD: 400 })]);
   });
 
   it('muestra saldo restante en el mensaje de confirmación cuando el pago es parcial', async () => {
@@ -1627,7 +1604,6 @@ describe('búsqueda sin resultado → opciones de acción', () => {
   const mockBuscar = svcReservas.buscarReservasPorNombre as jest.Mock;
 
   beforeEach(() => {
-    mockListarSemana.mockResolvedValue([]);  // sin reservas esta semana → pide nombre
     mockBuscar.mockResolvedValue([]);
   });
 
