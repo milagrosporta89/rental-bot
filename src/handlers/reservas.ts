@@ -48,7 +48,7 @@ interface DatosReserva {
   tipoIngreso?: "transferencia" | "efectivo";
   // Datos extraídos del comprobante para completar columnas de Ingresos
   fechaComprobante?: string;
-  bancoOrigen?: string;
+  bancoDestino?: string;
   nroOperacion?: string;
   quienPago?: string;
   nombreDestinatario?: string;
@@ -231,10 +231,11 @@ async function procesarFotoEnContexto(
   // Guardar datos del comprobante para completar columnas de Ingresos
   estado.datos.comprobanteUrl = comprobanteUrl;
   estado.datos.fechaComprobante = datos.fecha ?? "";
-  estado.datos.bancoOrigen = datos.bancoOrigen ?? "";
+  estado.datos.bancoDestino = datos.bancoDestino ?? "";
   estado.datos.nroOperacion = datos.nroOperacion ?? "";
   estado.datos.quienPago = datos.nombreOrdenante ?? "";
   estado.datos.nombreDestinatario = datos.nombreDestinatario ?? "";
+  estado.datos.tipoIngreso = "transferencia";
 
   const moneda = datos.moneda === "USD" ? "USD" : "ARS";
   if (flujo === "nueva") {
@@ -252,7 +253,7 @@ async function procesarFotoEnContexto(
     datos.fecha              ? `Fecha: ${datos.fecha}` : "",
     datos.nombreOrdenante    ? `De: ${datos.nombreOrdenante}` : "",
     datos.nombreDestinatario ? `Para: ${datos.nombreDestinatario}` : "",
-    datos.bancoOrigen        ? `Banco: ${datos.bancoOrigen}` : "",
+    datos.bancoDestino        ? `Banco: ${datos.bancoDestino}` : "",
     datos.nroOperacion       ? `Op. ${datos.nroOperacion}` : "",
   ].filter(Boolean).join("\n");
 
@@ -442,7 +443,7 @@ async function guardarNuevaReserva(ctx: WaCtx, estado: EstadoReserva) {
       tipo: d.tipoIngreso ?? "transferencia",
       quienPago: d.quienPago || d.nombrePax!,
       nombreDestinatario: d.nombreDestinatario ?? "",
-      bancoOrigen: d.bancoOrigen ?? "",
+      bancoDestino: d.bancoDestino ?? "",
       nroOperacion: d.nroOperacion ?? "",
       detalle: `#${String(id).padStart(3, "0")} Adelanto reserva · whatsapp_directo`,
       registradoPor: nombreWa(ctx.from.name, ctx.from.id),
@@ -506,7 +507,7 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
       tipo: d.tipoIngreso ?? "transferencia",
       quienPago: d.quienPago || info.nombrePax,
       nombreDestinatario: d.nombreDestinatario ?? "",
-      bancoOrigen: d.bancoOrigen ?? "",
+      bancoDestino: d.bancoDestino ?? "",
       nroOperacion: d.nroOperacion ?? "",
       detalle: [
         `#${String(d.nroReserva).padStart(3, "0")} Saldo reserva · whatsapp_directo`,
@@ -670,7 +671,7 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     } else {
       estado.paso = "res_casa";
       estados.set(ctx.from.id, estado);
-      await ctx.replyButtons("¿Qué casa?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
+      await ctx.replyButtons("¿Qué casa querés reservar?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
     }
     return true;
   }
@@ -737,10 +738,10 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       // Foto enviada antes de iniciar el flujo de nueva → continuar desde casa
       estado.paso = "res_casa";
       estados.set(ctx.from.id, estado);
-      await ctx.replyButtons("¿Qué casa?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
+      await ctx.replyButtons("¿Qué casa queres reservar?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
     } else {
-      // Foto enviada en el paso res_monto_adelanto → pedir tipo de pago
-      await pedirTipoPago(ctx, estado);
+      // Comprobante confirmado → tipo y destinatario ya vienen del comprobante, ir directo a confirmación
+      await pedirConfirmacionNueva(ctx, estado);
     }
     return true;
   }
@@ -752,7 +753,7 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     estado.datos.montoAdelantoUSD = undefined;
     estado.datos.montoSaldo = undefined;
     estado.datos.monedaSaldo = undefined;
-    estado.datos.bancoOrigen = undefined;
+    estado.datos.bancoDestino = undefined;
     estado.datos.nroOperacion = undefined;
     estado.datos.quienPago = undefined;
 
@@ -770,7 +771,7 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
       // Foto enviada antes de flujo → continuar desde casa
       estado.paso = "res_casa";
       estados.set(ctx.from.id, estado);
-      await ctx.replyButtons("¿Qué casa?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
+      await ctx.replyButtons("¿Qué casa queres reservar?", CASAS.map(c => ({ id: `res_casa_${c}`, title: c })));
     } else {
       estado.paso = "res_monto_adelanto";
       estados.set(ctx.from.id, estado);

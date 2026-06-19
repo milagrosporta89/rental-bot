@@ -13,6 +13,8 @@ function getSheetsClient() {
 
 const TAB = SHEETS.reservas;
 
+const n = (v: string | undefined | null): string | null => (v == null || v === "") ? null : v;
+
 async function leerFilas(): Promise<string[][]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
@@ -121,7 +123,7 @@ export async function registrarReserva(r: Reserva): Promise<void> {
         r.montoAdelantoUSD,
         r.saldoUSD,
         r.estadoPago,
-        r.comprobanteUrl,
+        n(r.comprobanteUrl),
         r.registradoPor,
         r.timestamp,
         r.cotizacion,

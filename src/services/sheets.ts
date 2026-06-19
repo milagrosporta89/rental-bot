@@ -22,6 +22,9 @@ function mesAnio(fecha: string): string {
   return `${y}-${m.padStart(2, "0")}`;
 }
 
+// Campos opcionales: "" o undefined → null (celda vacía en Sheets, equivalente a NULL en SQL)
+const n = (v: string | undefined | null): string | null => (v == null || v === "") ? null : v;
+
 async function appendResumen(sheets: ReturnType<typeof getSheetsClient>, row: (string | number)[]): Promise<void> {
   const meta = await sheets.spreadsheets.get({ spreadsheetId: config.googleSheetId });
   const sheetMeta = (meta.data.sheets ?? []).find((s: any) => s.properties?.title === SHEETS.resumen) as any;
@@ -58,8 +61,8 @@ async function appendResumen(sheets: ReturnType<typeof getSheetsClient>, row: (s
 
 export async function registrarIngreso(ingreso: Ingreso): Promise<void> {
   const sheets = getSheetsClient();
-  const montoARS = ingreso.moneda === "USD" ? +(ingreso.monto * ingreso.cotizacion).toFixed(2) : ingreso.monto;
-  const montoUSD = ingreso.moneda === "ARS" ? (ingreso.cotizacion > 0 ? +(ingreso.monto / ingreso.cotizacion).toFixed(2) : "") : ingreso.monto;
+  const montoARS = ingreso.moneda === "USD" ? (ingreso.cotizacion > 0 ? +(ingreso.monto * ingreso.cotizacion).toFixed(2) : null) : ingreso.monto;
+  const montoUSD = ingreso.moneda === "ARS" ? (ingreso.cotizacion > 0 ? +(ingreso.monto / ingreso.cotizacion).toFixed(2) : null) : ingreso.monto;
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
     range: `${SHEETS.ingresos}!A:S`,
@@ -67,24 +70,24 @@ export async function registrarIngreso(ingreso: Ingreso): Promise<void> {
     requestBody: {
       values: [[
         ingreso.id, ingreso.fecha, ingreso.casa, ingreso.monto, ingreso.moneda,
-        ingreso.tipo, ingreso.quienPago, ingreso.nombreDestinatario ?? "",
-        ingreso.bancoOrigen, ingreso.nroOperacion, ingreso.detalle,
-        ingreso.registradoPor, ingreso.comprobanteUrl, ingreso.timestamp,
-        ingreso.cotizacion, montoARS, montoUSD, ingreso.idReserva, ingreso.tipoMovimiento,
+        ingreso.tipo, ingreso.quienPago, n(ingreso.nombreDestinatario),
+        n(ingreso.bancoDestino), n(ingreso.nroOperacion), n(ingreso.detalle),
+        ingreso.registradoPor, n(ingreso.comprobanteUrl), ingreso.timestamp,
+        ingreso.cotizacion, montoARS, montoUSD, n(ingreso.idReserva), ingreso.tipoMovimiento,
       ]],
     },
   });
   await appendResumen(sheets, [
-    ingreso.fecha, "reserva", ingreso.detalle,
-    montoARS, montoUSD !== "" ? montoUSD : 0,
+    ingreso.fecha, "reserva", ingreso.detalle ?? "",
+    montoARS ?? 0, montoUSD ?? 0,
     ingreso.nombreDestinatario ?? "", ingreso.quienPago, mesAnio(ingreso.fecha), ingreso.id,
   ]).catch(() => {});
 }
 
 export async function registrarGasto(gasto: Gasto): Promise<void> {
   const sheets = getSheetsClient();
-  const montoARS = gasto.moneda === "USD" ? +(gasto.monto * gasto.cotizacion).toFixed(2) : gasto.monto;
-  const montoUSD = gasto.moneda === "ARS" ? (gasto.cotizacion > 0 ? +(gasto.monto / gasto.cotizacion).toFixed(2) : 0) : gasto.monto;
+  const montoARS = gasto.moneda === "USD" ? (gasto.cotizacion > 0 ? +(gasto.monto * gasto.cotizacion).toFixed(2) : null) : gasto.monto;
+  const montoUSD = gasto.moneda === "ARS" ? (gasto.cotizacion > 0 ? +(gasto.monto / gasto.cotizacion).toFixed(2) : null) : gasto.monto;
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
     range: `${SHEETS.gastos}!A:P`,
@@ -92,16 +95,16 @@ export async function registrarGasto(gasto: Gasto): Promise<void> {
     requestBody: {
       values: [[
         gasto.id, gasto.fecha, gasto.monto, gasto.moneda, gasto.categoria,
-        gasto.pagadoPor, gasto.nombreDestinatario, gasto.bancoOrigen,
-        gasto.nroOperacion, gasto.detalle, gasto.registradoPor,
-        gasto.comprobanteUrl, gasto.timestamp, gasto.cotizacion,
+        gasto.pagadoPor, n(gasto.nombreDestinatario), n(gasto.bancoOrigen),
+        n(gasto.nroOperacion), n(gasto.detalle), gasto.registradoPor,
+        n(gasto.comprobanteUrl), gasto.timestamp, gasto.cotizacion,
         montoARS, montoUSD,
       ]],
     },
   });
   await appendResumen(sheets, [
-    gasto.fecha, gasto.categoria, gasto.detalle,
-    -montoARS, montoUSD !== 0 ? -montoUSD : 0,
+    gasto.fecha, gasto.categoria, gasto.detalle ?? "",
+    -(montoARS ?? 0), montoUSD != null ? -montoUSD : 0,
     "", gasto.pagadoPor, mesAnio(gasto.fecha), gasto.id,
   ]).catch(() => {});
 }

@@ -219,7 +219,7 @@ async function guardarIngreso(ctx: WaCtx, estado: EstadoIngreso, moneda: "ARS" |
     tipo: "transferencia",
     quienPago: resolverNombre(d.nombreOrdenante ?? ""),
     nombreDestinatario: resolverNombre(d.nombreDestinatario ?? ""),
-    bancoOrigen: d.bancoOrigen ?? "",
+    bancoDestino: d.bancoDestino ?? "",
     nroOperacion: d.nroOperacion ?? "",
     detalle: label,
     registradoPor: nombreWa(ctx.from.name, ctx.from.id),

@@ -49,7 +49,7 @@ export interface Ingreso {
   tipo: "transferencia" | "efectivo";
   quienPago: string;
   nombreDestinatario: string;
-  bancoOrigen: string;
+  bancoDestino: string;
   nroOperacion: string;
   detalle: string;
   registradoPor: string;

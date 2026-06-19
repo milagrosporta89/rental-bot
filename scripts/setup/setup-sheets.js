@@ -23,7 +23,7 @@ const TABS = [
     color: [0.07, 0.33, 0.80],
     headers: [
       'id', 'fecha', 'casa', 'monto', 'moneda', 'tipo',
-      'quienPago', 'nombreDestinatario', 'bancoOrigen', 'nroOperacion',
+      'quienPago', 'nombreDestinatario', 'bancoDestino', 'nroOperacion',
       'detalle', 'registradoPor', 'comprobanteUrl', 'timestamp',
       'cotizacion', 'monto_ars', 'monto_usd', 'idReserva', 'tipoMovimiento',
     ],
