@@ -1,23 +1,23 @@
-import fs from "fs";
 import path from "path";
 import {
   generarIdReserva,
   registrarReserva,
   registrarSaldoReserva,
   actualizarCampoReserva,
-  listarReservasSemana,
   listarReservasPendientes,
   buscarReservasPorNombre,
   buscarReservaPorId,
+  verificarSolapamiento,
+  anularReserva,
   ReservaEncontrada,
   ReservaPendiente,
 } from "../services/reservas";
-import { registrarIngreso } from "../services/sheets";
+import { registrarIngreso, registrarAudit } from "../services/sheets";
 import { procesarComprobante } from "../services/comprobantes";
 import { onPhoto as onPhotoIngreso } from "./income";
 import { onPhoto as onPhotoGasto } from "./gastos";
 import { CASAS, titularDeCasa } from "../config";
-import { nombreWa, ahora, generarId, intentarEscape } from "../utils";
+import { nombreWa, ahora, generarId, intentarEscape, esEscapePalabra, pedirConfirmacionEscape, EstadosPersistentes } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
 import { Casa, Titular, WaCtx, MENU_BOTONES } from "../types";
 
@@ -32,7 +32,7 @@ function destinatarioConocido(nombre: string): boolean {
 // ── Estado de conversación ─────────────────────────────────────────────────
 
 interface DatosReserva {
-  tipo?: "nueva" | "saldo";
+  tipo?: "nueva" | "saldo" | "anular";
   casa?: Casa;
   nombrePax?: string;
   cantidadPax?: number;
@@ -55,12 +55,15 @@ interface DatosReserva {
   // Foto enviada sin contexto, pendiente de procesar
   pendingMediaId?: string;
   pendingMimeType?: "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
-  // Rama saldo
+  // Rama saldo / corrección / anulación
   nroReserva?: string;
   reservaInfo?: ReservaEncontrada;
   montoSaldo?: number;
   monedaSaldo?: "ARS" | "USD";
   listaTemp?: ReservaPendiente[];
+  // Cambio pendiente de confirmación (U5)
+  pendingChanges?: Array<{ campo: string; valorAnterior: string; valorNuevo: string }>;
+  pendingLabel?: string;
 }
 
 interface EstadoReserva {
@@ -68,71 +71,7 @@ interface EstadoReserva {
   datos: DatosReserva;
 }
 
-// ── Persistencia del estado de conversación ───────────────────────────────────
-// En tests (NODE_ENV=test) la escritura a disco se deshabilita para no contaminar
-// el sistema de archivos y mantener los tests aislados.
-
 const ESTADOS_FILE = path.join(__dirname, "../../data/estados.json");
-const TTL_MS = 4 * 60 * 60 * 1000; // 4 horas
-
-class EstadosPersistentes<T> {
-  private readonly map = new Map<string, { ts: number; v: T }>();
-  private readonly persist: boolean;
-
-  constructor(private readonly file: string) {
-    this.persist = process.env.NODE_ENV !== "test";
-    if (this.persist) this.cargar();
-  }
-
-  private cargar(): void {
-    try {
-      const raw = fs.readFileSync(this.file, "utf8");
-      const obj = JSON.parse(raw) as Record<string, { ts: number; v: T }>;
-      const ahora = Date.now();
-      for (const [k, entry] of Object.entries(obj)) {
-        if (ahora - entry.ts <= TTL_MS) this.map.set(k, entry);
-      }
-    } catch {
-      // archivo inexistente o corrupto → empezar vacío
-    }
-  }
-
-  private guardar(): void {
-    try {
-      fs.mkdirSync(path.dirname(this.file), { recursive: true });
-      fs.writeFileSync(this.file, JSON.stringify(Object.fromEntries(this.map), null, 2), "utf8");
-    } catch (err) {
-      console.error("[estados] Error guardando estado:", err);
-    }
-  }
-
-  get(key: string): T | undefined {
-    const entry = this.map.get(key);
-    if (!entry) return undefined;
-    if (Date.now() - entry.ts > TTL_MS) {
-      this.map.delete(key);
-      if (this.persist) this.guardar();
-      return undefined;
-    }
-    return entry.v;
-  }
-
-  has(key: string): boolean { return this.get(key) !== undefined; }
-  get size(): number { return this.map.size; }
-
-  set(key: string, value: T): this {
-    this.map.set(key, { ts: Date.now(), v: value });
-    if (this.persist) this.guardar();
-    return this;
-  }
-
-  delete(key: string): boolean {
-    const result = this.map.delete(key);
-    if (result && this.persist) this.guardar();
-    return result;
-  }
-}
-
 const estados = new EstadosPersistentes<EstadoReserva>(ESTADOS_FILE);
 
 // ── Parsers ────────────────────────────────────────────────────────────────
@@ -404,8 +343,9 @@ async function pedirConfirmacionNueva(ctx: WaCtx, estado: EstadoReserva) {
   await ctx.replyButtons(
     `📋 *Resumen de reserva*\n\n${formatearResumenNueva(estado.datos)}`,
     [
-      { id: "res_confirmar", title: "✅ Confirmar" },
-      { id: "res_cancelar", title: "❌ Cancelar" },
+      { id: "res_confirmar",     title: "✅ Confirmar" },
+      { id: "res_editar_nueva",  title: "✏️ Editar" },
+      { id: "res_cancelar",      title: "❌ Cancelar" },
     ]
   );
 }
@@ -451,8 +391,9 @@ async function pedirConfirmacionSaldo(ctx: WaCtx, estado: EstadoReserva) {
       avisoResultante +
       avisoExcedente,
     [
-      { id: "res_confirmar_saldo", title: "✅ Confirmar" },
-      { id: "res_cancelar_saldo", title: "❌ Cancelar" },
+      { id: "res_confirmar_saldo",    title: "✅ Confirmar" },
+      { id: "res_editar_monto_saldo", title: "✏️ Editar monto" },
+      { id: "res_cancelar_saldo",     title: "❌ Cancelar" },
     ]
   );
 }
@@ -503,7 +444,7 @@ async function guardarNuevaReserva(ctx: WaCtx, estado: EstadoReserva) {
       nombreDestinatario: d.nombreDestinatario ?? "",
       bancoOrigen: d.bancoOrigen ?? "",
       nroOperacion: d.nroOperacion ?? "",
-      detalle: `Adelanto reserva #${id} · whatsapp_directo`,
+      detalle: `#${String(id).padStart(3, "0")} Adelanto reserva · whatsapp_directo`,
       registradoPor: nombreWa(ctx.from.name, ctx.from.id),
       comprobanteUrl: d.comprobanteUrl ?? "",
       timestamp: ahora(),
@@ -567,7 +508,10 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
       nombreDestinatario: d.nombreDestinatario ?? "",
       bancoOrigen: d.bancoOrigen ?? "",
       nroOperacion: d.nroOperacion ?? "",
-      detalle: `Saldo reserva #${d.nroReserva} · whatsapp_directo`,
+      detalle: [
+        `#${String(d.nroReserva).padStart(3, "0")} Saldo reserva · whatsapp_directo`,
+        saldoRestanteUSD < 0 ? `excedente USD ${Math.abs(saldoRestanteUSD)}` : "",
+      ].filter(Boolean).join(" · "),
       registradoPor: nombreWa(ctx.from.name, ctx.from.id),
       comprobanteUrl: d.comprobanteUrl ?? "",
       timestamp: ahora(),
@@ -600,6 +544,39 @@ async function guardarSaldo(ctx: WaCtx, estado: EstadoReserva) {
 async function sesionExpirada(ctx: WaCtx) {
   await ctx.reply("La sesión expiró. Iniciá de nuevo desde el menú.");
   await ctx.replyButtons("¿Qué querés hacer?", MENU_BOTONES);
+}
+
+async function pedirConfirmacionCorreccion(ctx: WaCtx, estado: EstadoReserva) {
+  estado.paso = "res_corregir_confirmar";
+  estados.set(ctx.from.id, estado);
+  const info = estado.datos.reservaInfo!;
+  await ctx.replyButtons(
+    `Reserva #${info.id} · ${info.nombrePax}\n\n${estado.datos.pendingLabel}\n\n¿Confirmás el cambio?`,
+    [
+      { id: "res_corregir_ok",             title: "✅ Confirmar" },
+      { id: "res_corregir_cancelar_cambio", title: "❌ Cancelar" },
+    ]
+  );
+}
+
+async function aplicarCambiosReserva(ctx: WaCtx, estado: EstadoReserva) {
+  const info = estado.datos.reservaInfo!;
+  const cambios = estado.datos.pendingChanges ?? [];
+  for (const c of cambios) {
+    await actualizarCampoReserva(info.fila, c.campo as any, c.valorNuevo);
+    await registrarAudit({
+      idRegistro: info.id,
+      tipoRegistro: "reserva",
+      campo: c.campo,
+      valorAnterior: c.valorAnterior,
+      valorNuevo: c.valorNuevo,
+      modificadoPor: nombreWa(ctx.from.name, ctx.from.id),
+      aprobadoPor: nombreWa(ctx.from.name, ctx.from.id),
+    });
+  }
+  estados.delete(ctx.from.id);
+  await ctx.reply(`✅ Cambio aplicado\nReserva #${info.id} · ${info.nombrePax}\n${estado.datos.pendingLabel}`);
+  await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
 }
 
 async function mostrarMenuCorreccion(ctx: WaCtx, info: Pick<ReservaEncontrada, "id" | "casa" | "nombrePax" | "cantidadPax" | "fechaEntrada" | "fechaSalida" | "montoTotalUSD" | "saldoUSD">) {
@@ -876,6 +853,67 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     return true;
   }
 
+  // ── Editar campos antes de confirmar nueva reserva ───────────────────────
+  if (buttonId === "res_editar_nueva") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    await ctx.replyList(
+      "¿Qué campo querés corregir?",
+      [
+        { id: "res_editar_campo_nombre",   title: "👤 Nombre del huésped" },
+        { id: "res_editar_campo_personas", title: "👥 Cantidad de personas" },
+        { id: "res_editar_campo_fechas",   title: "📅 Fechas entrada/salida" },
+        { id: "res_editar_campo_total",    title: "💰 Monto total USD" },
+        { id: "res_editar_campo_adelanto", title: "💳 Monto adelanto" },
+      ]
+    );
+    return true;
+  }
+
+  if (buttonId === "res_editar_campo_nombre") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_nombre_pax";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Nombre del/la huésped principal?");
+    return true;
+  }
+  if (buttonId === "res_editar_campo_personas") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_cantidad_pax";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Cuántas personas?");
+    return true;
+  }
+  if (buttonId === "res_editar_campo_fechas") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_fechas";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Fechas de entrada y salida? (ej: 10/07 - 15/07)");
+    return true;
+  }
+  if (buttonId === "res_editar_campo_total") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_monto_total";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Cuál es el monto total de la reserva en USD?");
+    return true;
+  }
+  if (buttonId === "res_editar_campo_adelanto") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_monto_adelanto";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Cuánto fue el adelanto? (ej: 50000 ARS o 200 USD)");
+    return true;
+  }
+
+  // ── Editar monto antes de confirmar saldo ────────────────────────────────
+  if (buttonId === "res_editar_monto_saldo") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.paso = "res_monto_saldo";
+    estados.set(ctx.from.id, estado);
+    await ctx.reply("¿Cuál es el monto recibido? (ej: 50000 ARS o 200 USD)");
+    return true;
+  }
+
   // ── Confirmar / cancelar nueva reserva ────────────────────────────────────
   if (buttonId === "res_confirmar") {
     if (!estado) { await sesionExpirada(ctx); return true; }
@@ -983,9 +1021,57 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     if (!estado) { await sesionExpirada(ctx); return true; }
     const nuevaCasa = buttonId.replace("res_corregir_casa_", "") as Casa;
     const info = estado.datos.reservaInfo!;
-    await actualizarCampoReserva(info.fila, "casa", nuevaCasa);
+    estado.datos.pendingChanges = [{ campo: "casa", valorAnterior: info.casa, valorNuevo: nuevaCasa }];
+    estado.datos.pendingLabel = `Casa: _${info.casa}_ → *${nuevaCasa}*`;
+    await pedirConfirmacionCorreccion(ctx, estado);
+    return true;
+  }
+
+  // ── Confirmar / cancelar corrección (U5) ──────────────────────────────────
+  if (buttonId === "res_corregir_ok") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    await aplicarCambiosReserva(ctx, estado);
+    return true;
+  }
+
+  if (buttonId === "res_corregir_cancelar_cambio") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    estado.datos.pendingChanges = undefined;
+    estado.datos.pendingLabel = undefined;
+    estado.paso = "res_corregir_campo";
+    estados.set(ctx.from.id, estado);
+    await mostrarMenuCorreccion(ctx, estado.datos.reservaInfo!);
+    return true;
+  }
+
+  // ── Anulación de reserva (F2) ─────────────────────────────────────────────
+  if (buttonId === "res_anular_confirmar") {
+    if (!estado) { await sesionExpirada(ctx); return true; }
+    const info = estado.datos.reservaInfo!;
+    await anularReserva(info.fila);
+    await registrarAudit({
+      idRegistro: info.id,
+      tipoRegistro: "reserva",
+      campo: "estadoPago",
+      valorAnterior: info.estadoPago,
+      valorNuevo: "ANULADO",
+      modificadoPor: nombreWa(ctx.from.name, ctx.from.id),
+      aprobadoPor: nombreWa(ctx.from.name, ctx.from.id),
+    });
     estados.delete(ctx.from.id);
-    await ctx.reply(`✅ Casa actualizada a *${nuevaCasa}*\nReserva #${info.id} · ${info.nombrePax}`);
+    await ctx.reply(
+      `🚫 *Reserva anulada*\n\n` +
+      `#${info.id} · ${info.casa} · ${info.nombrePax}\n` +
+      `${info.fechaEntrada} → ${info.fechaSalida}\n\n` +
+      `Los pagos ya registrados quedan en la hoja de Ingresos. Revisalos manualmente si hay que gestionar un reembolso.`
+    );
+    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    return true;
+  }
+
+  if (buttonId === "res_anular_cancelar") {
+    estados.delete(ctx.from.id);
+    await ctx.reply("Anulación cancelada.");
     await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
     return true;
   }
@@ -995,6 +1081,11 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
 
 export async function onText(ctx: WaCtx): Promise<boolean> {
   const tieneEstado = estados.has(ctx.from.id);
+
+  if (tieneEstado && esEscapePalabra(ctx.text ?? "")) {
+    await pedirConfirmacionEscape(ctx, () => estados.delete(ctx.from.id));
+    return true;
+  }
   if (await intentarEscape(ctx, tieneEstado, () => estados.delete(ctx.from.id))) return true;
 
   const estado = estados.get(ctx.from.id);
@@ -1032,6 +1123,24 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
     if (fechas.noches === -1) {
       await ctx.reply("La fecha de salida debe ser posterior a la de entrada. Revisá el orden.");
       return true;
+    }
+    // F1: verificar solapamiento con otras reservas de la misma casa
+    if (estado.datos.casa) {
+      const solapadas = await verificarSolapamiento(estado.datos.casa, fechas.entrada, fechas.salida);
+      if (solapadas.length > 0) {
+        const lista = solapadas.map(r => `• #${r.id} ${r.nombrePax} · ${r.fechaEntrada} → ${r.fechaSalida}`).join("\n");
+        await ctx.reply(
+          `⚠️ *Posible solapamiento de fechas*\n\n` +
+          `${estado.datos.casa} ya tiene ${solapadas.length === 1 ? "una reserva" : "reservas"} en ese período:\n${lista}\n\n` +
+          `Si igual querés continuar, volvé a ingresar las mismas fechas para confirmar.`
+        );
+        // Guardamos las fechas para que si el usuario las reingresa igual, pase sin avisar
+        estado.datos.fechaEntrada = fechas.entrada;
+        estado.datos.fechaSalida = fechas.salida;
+        estado.datos.cantidadNoches = fechas.noches;
+        estados.set(ctx.from.id, estado);
+        return true;
+      }
     }
     estado.datos.fechaEntrada = fechas.entrada;
     estado.datos.fechaSalida = fechas.salida;
@@ -1244,10 +1353,9 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (estado.paso === "res_corregir_nuevo_nombre") {
     if (!texto) { await ctx.reply("Escribí el nuevo nombre del huésped."); return true; }
     const info = estado.datos.reservaInfo!;
-    await actualizarCampoReserva(info.fila, "nombrePax", texto);
-    estados.delete(ctx.from.id);
-    await ctx.reply(`✅ Nombre actualizado: *${texto}*\nReserva #${info.id} · ${info.casa}`);
-    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    estado.datos.pendingChanges = [{ campo: "nombrePax", valorAnterior: info.nombrePax, valorNuevo: texto }];
+    estado.datos.pendingLabel = `Nombre: _${info.nombrePax}_ → *${texto}*`;
+    await pedirConfirmacionCorreccion(ctx, estado);
     return true;
   }
 
@@ -1262,11 +1370,12 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       return true;
     }
     const info = estado.datos.reservaInfo!;
-    await actualizarCampoReserva(info.fila, "fechaEntrada", fechas.entrada);
-    await actualizarCampoReserva(info.fila, "fechaSalida", fechas.salida);
-    estados.delete(ctx.from.id);
-    await ctx.reply(`✅ Fechas actualizadas\nReserva #${info.id} · ${fechas.entrada} → ${fechas.salida} (${fechas.noches} noches)`);
-    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    estado.datos.pendingChanges = [
+      { campo: "fechaEntrada", valorAnterior: info.fechaEntrada, valorNuevo: fechas.entrada },
+      { campo: "fechaSalida",  valorAnterior: info.fechaSalida,  valorNuevo: fechas.salida  },
+    ];
+    estado.datos.pendingLabel = `Fechas: _${info.fechaEntrada} → ${info.fechaSalida}_ → *${fechas.entrada} → ${fechas.salida}*`;
+    await pedirConfirmacionCorreccion(ctx, estado);
     return true;
   }
 
@@ -1277,10 +1386,15 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       return true;
     }
     const info = estado.datos.reservaInfo!;
-    await actualizarCampoReserva(info.fila, "montoTotalUSD", String(n));
-    estados.delete(ctx.from.id);
-    await ctx.reply(`✅ Monto total actualizado: *USD ${n.toLocaleString("es-AR")}*\nReserva #${info.id} · ${info.nombrePax}`);
-    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    // R1: recalcular saldoUSD como max(0, nuevoTotal - adelanto)
+    const adelantoUSD = info.montoTotalUSD - info.saldoUSD;
+    const nuevoSaldo = Math.max(0, Math.round((n - adelantoUSD) * 100) / 100);
+    estado.datos.pendingChanges = [
+      { campo: "montoTotalUSD", valorAnterior: String(info.montoTotalUSD), valorNuevo: String(n) },
+      { campo: "saldoUSD",      valorAnterior: String(info.saldoUSD),      valorNuevo: String(nuevoSaldo) },
+    ];
+    estado.datos.pendingLabel = `Monto: _USD ${info.montoTotalUSD}_ → *USD ${n}* · Saldo recalculado: *USD ${nuevoSaldo}*`;
+    await pedirConfirmacionCorreccion(ctx, estado);
     return true;
   }
 
@@ -1291,15 +1405,82 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
       return true;
     }
     const info = estado.datos.reservaInfo!;
-    await actualizarCampoReserva(info.fila, "cantidadPax", String(n));
-    estados.delete(ctx.from.id);
-    await ctx.reply(`✅ Cantidad actualizada: *${n} personas*\nReserva #${info.id} · ${info.nombrePax}`);
-    await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+    estado.datos.pendingChanges = [{ campo: "cantidadPax", valorAnterior: String(info.cantidadPax), valorNuevo: String(n) }];
+    estado.datos.pendingLabel = `Personas: _${info.cantidadPax}_ → *${n}*`;
+    await pedirConfirmacionCorreccion(ctx, estado);
+    return true;
+  }
+
+  // ── Flujo de anulación (F2) ───────────────────────────────────────────────
+  if (estado.paso === "res_anular_buscar") {
+    if (!texto) { await ctx.reply("Escribí el número o nombre de la reserva."); return true; }
+    let reserva: ReservaEncontrada | null = null;
+    if (/^\d+$/.test(texto)) reserva = await buscarReservaPorId(texto);
+    if (!reserva) {
+      const resultados = await buscarReservasPorNombre(texto);
+      if (resultados.length === 1) reserva = resultados[0];
+      else if (resultados.length > 1) {
+        estado.datos.listaTemp = resultados;
+        estado.paso = "res_anular_elegir";
+        estados.set(ctx.from.id, estado);
+        const lista = resultados.map((r, i) => `${i + 1}. #${r.id} · ${r.casa} · ${r.nombrePax}`).join("\n");
+        await ctx.reply(`Encontré varias reservas:\n\n${lista}\n\nEscribí el número:`);
+        return true;
+      }
+    }
+    if (!reserva) {
+      await ctx.reply(`No encontré ninguna reserva para "${texto}". Intentá con otro nombre o número.`);
+      return true;
+    }
+    if (reserva.estadoPago === "ANULADO") {
+      await ctx.reply(`La reserva #${reserva.id} ya está anulada.`);
+      await ctx.replyButtons("¿Querés hacer algo más?", MENU_BOTONES);
+      return true;
+    }
+    estado.datos.reservaInfo = reserva;
+    estado.paso = "res_anular_confirmar_paso";
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `¿Anular esta reserva?\n\n` +
+      `#${reserva.id} · ${reserva.casa} · ${reserva.nombrePax}\n` +
+      `${reserva.fechaEntrada} → ${reserva.fechaSalida}\n` +
+      `Total: USD ${reserva.montoTotalUSD} · Saldo: USD ${reserva.saldoUSD}\n\n` +
+      `⚠️ Los pagos ya registrados quedan en Ingresos. Si hay que gestionar un reembolso, se hace por separado.`,
+      [
+        { id: "res_anular_confirmar", title: "🚫 Sí, anular" },
+        { id: "res_anular_cancelar",  title: "❌ No, cancelar" },
+      ]
+    );
+    return true;
+  }
+
+  if (estado.paso === "res_anular_elegir") {
+    const idx = parseInt(texto, 10) - 1;
+    const lista = estado.datos.listaTemp ?? [];
+    if (isNaN(idx) || idx < 0 || idx >= lista.length) {
+      await ctx.reply(`Ingresá un número entre 1 y ${lista.length}.`);
+      return true;
+    }
+    const reserva = lista[idx];
+    estado.datos.reservaInfo = reserva;
+    estado.datos.listaTemp = undefined;
+    estado.paso = "res_anular_confirmar_paso";
+    estados.set(ctx.from.id, estado);
+    await ctx.replyButtons(
+      `¿Anular esta reserva?\n\n` +
+      `#${reserva.id} · ${reserva.casa} · ${reserva.nombrePax}\n` +
+      `${reserva.fechaEntrada} → ${reserva.fechaSalida}\n` +
+      `Total: USD ${reserva.montoTotalUSD} · Saldo: USD ${reserva.saldoUSD}`,
+      [
+        { id: "res_anular_confirmar", title: "🚫 Sí, anular" },
+        { id: "res_anular_cancelar",  title: "❌ No, cancelar" },
+      ]
+    );
     return true;
   }
 
   // Pasos donde el usuario debe usar los botones, no texto libre
-  const PASOS_SOLO_BOTONES = ["res_confirmacion", "res_confirmacion_saldo", "res_confirmar_monto_foto", "res_corregir_campo", "res_sin_resultado", "res_quien_recibio"];
+  const PASOS_SOLO_BOTONES = ["res_confirmacion", "res_confirmacion_saldo", "res_confirmar_monto_foto", "res_corregir_campo", "res_corregir_confirmar", "res_anular_confirmar_paso", "res_sin_resultado", "res_quien_recibio"];
   if (PASOS_SOLO_BOTONES.includes(estado.paso)) {
     await ctx.reply("Usá los botones de arriba para continuar.");
     return true;

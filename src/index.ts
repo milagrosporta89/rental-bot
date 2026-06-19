@@ -12,6 +12,7 @@ import { onManualGasto, onCallback as onCallbackGasto, onText as onTextGasto } f
 import { onCorregirGastoCommand, onCallbackCorreccion, onTextCorreccion } from "./handlers/correccion";
 import { obtenerDatosReporte } from "./services/sheets";
 import { REPORTE_HTML } from "./reporte-template";
+import { onCallbackEscape } from "./utils";
 
 const app = express();
 app.use(express.json());
@@ -150,6 +151,7 @@ async function routeMessage(msg: WaMessage) {
     if (id === "menu_reportar_saldo") { await onReportarSaldoCommand(ctx); return; }
     if (id === "menu_reserva") { await onReservaCommand(ctx); return; }
 
+    if (await onCallbackEscape(ctx, id)) return;
     if (await onCallbackIngreso(ctx, id)) return;
     if (await onCallbackCash(ctx, id)) return;
     if (await onCallbackBalance(ctx, id)) return;

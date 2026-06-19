@@ -84,6 +84,13 @@ const TABS = [
     ],
     moneyColumns: [],
   },
+  {
+    name: 'Resumen',
+    color: [0.18, 0.18, 0.18],
+    headers: ['Fecha', 'Categoría', 'Detalle', 'Monto ARS', 'Monto USD', 'Destinatario', 'Pagado por', 'Mes', 'id'],
+    createTable: true,
+    moneyColumns: [],
+  },
 ];
 
 async function crearObtenerTab(nombre) {
@@ -151,6 +158,7 @@ function buildRequests(sheetId, numCols, [r, g, b], moneyColumns) {
   return requests;
 }
 
+
 async function run() {
   const allRequests = [];
 
@@ -164,8 +172,33 @@ async function run() {
       requestBody: { values: [tab.headers] },
     });
 
-    allRequests.push(...buildRequests(sheetId, tab.headers.length, tab.color, tab.moneyColumns));
-    console.log(`✓ ${tab.name.padEnd(16)} ${tab.headers.length} cols, ${tab.moneyColumns.length} cols de moneda`);
+    if (tab.createTable) {
+      // Crear tabla dinámica para el Resumen (quita filtros previos si existen)
+      const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+      const sheetMeta = meta.data.sheets.find(s => s.properties.sheetId === sheetId);
+      const existingTables = sheetMeta?.tables ?? [];
+      const tableRequests = [];
+      for (const t of existingTables) tableRequests.push({ deleteTable: { tableId: t.tableId } });
+      tableRequests.push({ clearBasicFilter: { sheetId } });
+      tableRequests.push({
+        addTable: {
+          table: {
+            name: tab.name,
+            range: { sheetId, startRowIndex: 0, startColumnIndex: 0, endRowIndex: 1, endColumnIndex: tab.headers.length },
+          },
+        },
+      });
+      tableRequests.push({
+        updateSheetProperties: {
+          properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
+          fields: 'gridProperties.frozenRowCount',
+        },
+      });
+      await sheets.spreadsheets.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { requests: tableRequests } });
+    } else {
+      allRequests.push(...buildRequests(sheetId, tab.headers.length, tab.color, tab.moneyColumns));
+    }
+    console.log(`✓ ${tab.name.padEnd(16)} ${tab.headers.length} cols`);
   }
 
   await sheets.spreadsheets.batchUpdate({

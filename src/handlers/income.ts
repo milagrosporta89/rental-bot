@@ -3,7 +3,7 @@ import { obtenerCotizacion } from "../services/dolar";
 import { procesarComprobante } from "../services/comprobantes";
 import { resolverNombre } from "../config";
 import { CASAS } from "../config";
-import { nombreWa, ahora, generarId } from "../utils";
+import { nombreWa, ahora, generarId, esEscapePalabra, pedirConfirmacionEscape } from "../utils";
 import { formatearResumenComprobante, manejarCorreccion } from "./common";
 import { Casa, DatosComprobante, WaCtx, MENU_BOTONES } from "../types";
 
@@ -139,6 +139,11 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (!estado) return false;
 
   const texto = ctx.text?.trim() ?? "";
+
+  if (esEscapePalabra(texto) && estado.paso !== "corrigiendo") {
+    await pedirConfirmacionEscape(ctx, () => estados.delete(ctx.from.id));
+    return true;
+  }
 
   if (await manejarCorreccion(ctx, texto, estado, async (e) => {
     estados.set(ctx.from.id, e);

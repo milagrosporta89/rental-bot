@@ -17,65 +17,93 @@ function getSheetsClient() {
   return google.sheets({ version: "v4", auth: getAuth() });
 }
 
+function mesAnio(fecha: string): string {
+  const [, m, y] = fecha.split("/");
+  return `${y}-${m.padStart(2, "0")}`;
+}
+
+async function appendResumen(sheets: ReturnType<typeof getSheetsClient>, row: (string | number)[]): Promise<void> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: config.googleSheetId });
+  const sheetMeta = (meta.data.sheets ?? []).find((s: any) => s.properties?.title === SHEETS.resumen) as any;
+  if (!sheetMeta) return;
+
+  const table = sheetMeta.tables?.[0] as any;
+  if (!table) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: config.googleSheetId,
+      range: `${SHEETS.resumen}!A:I`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [row] },
+    });
+    return;
+  }
+
+  const { tableId, name, range } = table;
+  const endRowIndex: number = range.endRowIndex;
+  await Promise.all([
+    sheets.spreadsheets.values.update({
+      spreadsheetId: config.googleSheetId,
+      range: `${SHEETS.resumen}!A${endRowIndex + 1}:I${endRowIndex + 1}`,
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values: [row] },
+    }),
+    sheets.spreadsheets.batchUpdate({
+      spreadsheetId: config.googleSheetId,
+      requestBody: {
+        requests: [{ updateTable: { table: { tableId, name, range: { ...range, endRowIndex: endRowIndex + 1, endColumnIndex: 9 } }, fields: "range" } }] as any,
+      },
+    }),
+  ]);
+}
+
 export async function registrarIngreso(ingreso: Ingreso): Promise<void> {
   const sheets = getSheetsClient();
+  const montoARS = ingreso.moneda === "USD" ? +(ingreso.monto * ingreso.cotizacion).toFixed(2) : ingreso.monto;
+  const montoUSD = ingreso.moneda === "ARS" ? (ingreso.cotizacion > 0 ? +(ingreso.monto / ingreso.cotizacion).toFixed(2) : "") : ingreso.monto;
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
     range: `${SHEETS.ingresos}!A:S`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
-        ingreso.id,
-        ingreso.fecha,
-        ingreso.casa,
-        ingreso.monto,
-        ingreso.moneda,
-        ingreso.tipo,
-        ingreso.quienPago,
-        ingreso.nombreDestinatario ?? "",
-        ingreso.bancoOrigen,
-        ingreso.nroOperacion,
-        ingreso.detalle,
-        ingreso.registradoPor,
-        ingreso.comprobanteUrl,
-        ingreso.timestamp,
-        ingreso.cotizacion,
-        ingreso.moneda === "USD" ? +(ingreso.monto * ingreso.cotizacion).toFixed(2) : ingreso.monto,
-        ingreso.moneda === "ARS" ? (ingreso.cotizacion > 0 ? +(ingreso.monto / ingreso.cotizacion).toFixed(2) : "") : ingreso.monto,
-        ingreso.idReserva,
-        ingreso.tipoMovimiento,
+        ingreso.id, ingreso.fecha, ingreso.casa, ingreso.monto, ingreso.moneda,
+        ingreso.tipo, ingreso.quienPago, ingreso.nombreDestinatario ?? "",
+        ingreso.bancoOrigen, ingreso.nroOperacion, ingreso.detalle,
+        ingreso.registradoPor, ingreso.comprobanteUrl, ingreso.timestamp,
+        ingreso.cotizacion, montoARS, montoUSD, ingreso.idReserva, ingreso.tipoMovimiento,
       ]],
     },
   });
+  await appendResumen(sheets, [
+    ingreso.fecha, "reserva", ingreso.detalle,
+    montoARS, montoUSD !== "" ? montoUSD : 0,
+    ingreso.nombreDestinatario ?? "", ingreso.quienPago, mesAnio(ingreso.fecha), ingreso.id,
+  ]).catch(() => {});
 }
 
 export async function registrarGasto(gasto: Gasto): Promise<void> {
   const sheets = getSheetsClient();
+  const montoARS = gasto.moneda === "USD" ? +(gasto.monto * gasto.cotizacion).toFixed(2) : gasto.monto;
+  const montoUSD = gasto.moneda === "ARS" ? (gasto.cotizacion > 0 ? +(gasto.monto / gasto.cotizacion).toFixed(2) : 0) : gasto.monto;
   await sheets.spreadsheets.values.append({
     spreadsheetId: config.googleSheetId,
     range: `${SHEETS.gastos}!A:P`,
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [[
-        gasto.id,
-        gasto.fecha,
-        gasto.monto,
-        gasto.moneda,
-        gasto.categoria,
-        gasto.pagadoPor,
-        gasto.nombreDestinatario,
-        gasto.bancoOrigen,
-        gasto.nroOperacion,
-        gasto.detalle,
-        gasto.registradoPor,
-        gasto.comprobanteUrl,
-        gasto.timestamp,
-        gasto.cotizacion,
-        gasto.moneda === "USD" ? +(gasto.monto * gasto.cotizacion).toFixed(2) : gasto.monto,
-        gasto.moneda === "ARS" ? (gasto.cotizacion > 0 ? +(gasto.monto / gasto.cotizacion).toFixed(2) : "") : gasto.monto,
+        gasto.id, gasto.fecha, gasto.monto, gasto.moneda, gasto.categoria,
+        gasto.pagadoPor, gasto.nombreDestinatario, gasto.bancoOrigen,
+        gasto.nroOperacion, gasto.detalle, gasto.registradoPor,
+        gasto.comprobanteUrl, gasto.timestamp, gasto.cotizacion,
+        montoARS, montoUSD,
       ]],
     },
   });
+  await appendResumen(sheets, [
+    gasto.fecha, gasto.categoria, gasto.detalle,
+    -montoARS, montoUSD !== 0 ? -montoUSD : 0,
+    "", gasto.pagadoPor, mesAnio(gasto.fecha), gasto.id,
+  ]).catch(() => {});
 }
 
 export async function buscarGastoDuplicado(nroOperacion: string): Promise<{

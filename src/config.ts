@@ -53,6 +53,7 @@ export const SHEETS = {
   saldosReales: "SaldosReales",
   reservas: "Reservas",
   historial: "Historial",
+  resumen: "Resumen",
 };
 
 export function titularDeCasa(casa: string): Titular | null {

@@ -1,7 +1,7 @@
 import { registrarIngreso } from "../services/sheets";
 import { CASAS } from "../config";
 import { Casa, EstadoConversacion, Titular, WaCtx, MENU_BOTONES } from "../types";
-import { validarFecha, validarMonto, nombreWa, ahora, fechaHoy, generarId } from "../utils";
+import { validarFecha, validarMonto, nombreWa, ahora, fechaHoy, generarId, esEscapePalabra, pedirConfirmacionEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
 
 const estados = new Map<string, EstadoConversacion>();
@@ -129,6 +129,12 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (!estado) return false;
 
   const texto = ctx.text?.trim() ?? "";
+
+  // Escape con confirmación
+  if (esEscapePalabra(texto)) {
+    await pedirConfirmacionEscape(ctx, () => estados.delete(ctx.from.id));
+    return true;
+  }
 
   // Nombre manual de quien pagó
   if (estado.paso === "ingreso_quien_manual") {

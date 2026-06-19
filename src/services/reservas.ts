@@ -106,7 +106,7 @@ export async function buscarReservasPorNombre(nombre: string): Promise<ReservaPe
   const result: ReservaPendiente[] = [];
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
-    if (!f[0] || f[13] === "COMPLETO") continue;
+    if (!f[0] || f[13] === "COMPLETO" || f[13] === "ANULADO") continue;
     const pax = (f[4] ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     if (pax.includes(norm)) result.push(toReservaPendiente(f, i + 2));
   }
@@ -118,7 +118,7 @@ export async function listarReservasPendientes(): Promise<ReservaPendiente[]> {
   const result: ReservaPendiente[] = [];
   for (let i = 0; i < filas.length; i++) {
     const f = filas[i];
-    if (!f[0] || f[13] === "COMPLETO") continue;
+    if (!f[0] || f[13] === "COMPLETO" || f[13] === "ANULADO") continue;
     result.push(toReservaPendiente(f, i + 2));
   }
   return result.sort((a, b) => {
@@ -197,7 +197,7 @@ export async function buscarReservaPorId(id: string): Promise<ReservaEncontrada 
 }
 
 // Columnas editables según layout de la planilla Reservas
-export type CampoReservaEditable = "casa" | "nombrePax" | "cantidadPax" | "fechaEntrada" | "fechaSalida" | "montoTotalUSD";
+export type CampoReservaEditable = "casa" | "nombrePax" | "cantidadPax" | "fechaEntrada" | "fechaSalida" | "montoTotalUSD" | "saldoUSD" | "estadoPago";
 const COLUMNA_CAMPO: Record<CampoReservaEditable, string> = {
   casa: "C",
   nombrePax: "E",
@@ -205,6 +205,8 @@ const COLUMNA_CAMPO: Record<CampoReservaEditable, string> = {
   fechaEntrada: "H",
   fechaSalida: "I",
   montoTotalUSD: "J",
+  saldoUSD: "M",
+  estadoPago: "N",
 };
 
 export async function actualizarCampoReserva(
@@ -219,6 +221,40 @@ export async function actualizarCampoReserva(
     range: `${TAB}!${col}${fila}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [[valor]] },
+  });
+}
+
+export async function verificarSolapamiento(
+  casa: string,
+  fechaEntrada: string,
+  fechaSalida: string,
+  excludeId?: string
+): Promise<ReservaPendiente[]> {
+  const filas = await leerFilas();
+  const entrada = parsearFechaSheet(fechaEntrada);
+  const salida  = parsearFechaSheet(fechaSalida);
+  if (!entrada || !salida) return [];
+  const result: ReservaPendiente[] = [];
+  for (let i = 0; i < filas.length; i++) {
+    const f = filas[i];
+    if (!f[0] || f[2] !== casa || f[13] === "ANULADO") continue;
+    if (excludeId && f[0] === excludeId) continue;
+    const e = parsearFechaSheet(f[7]);
+    const s = parsearFechaSheet(f[8]);
+    if (!e || !s) continue;
+    // solapamiento: entrada < s && salida > e
+    if (entrada < s && salida > e) result.push(toReservaPendiente(f, i + 2));
+  }
+  return result;
+}
+
+export async function anularReserva(fila: number): Promise<void> {
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.googleSheetId,
+    range: `${TAB}!N${fila}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [["ANULADO"]] },
   });
 }
 

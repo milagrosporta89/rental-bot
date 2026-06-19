@@ -1,7 +1,7 @@
 import { registrarGasto } from "../services/sheets";
 import { obtenerCotizacion } from "../services/dolar";
 import { procesarComprobante } from "../services/comprobantes";
-import { nombreWa, ahora, fechaHoy, validarFecha, validarMonto, generarId } from "../utils";
+import { nombreWa, ahora, fechaHoy, validarFecha, validarMonto, generarId, esEscapePalabra, pedirConfirmacionEscape } from "../utils";
 import { formatearResumenComprobante, detectarTitular, manejarCorreccion } from "./common";
 import { CategoriaGasto, DatosComprobante, Titular, WaCtx, MENU_BOTONES } from "../types";
 import { resolverNombre } from "../config";
@@ -230,6 +230,12 @@ export async function onText(ctx: WaCtx): Promise<boolean> {
   if (!estado) return false;
 
   const texto = ctx.text?.trim() ?? "";
+
+  // Escape con confirmación (todos los pasos de texto excepto corrección)
+  if (esEscapePalabra(texto) && estado.paso !== "corrigiendo") {
+    await pedirConfirmacionEscape(ctx, () => estados.delete(ctx.from.id));
+    return true;
+  }
 
   // Corrección de comprobante
   if (await manejarCorreccion(ctx, texto, estado, async (e) => {

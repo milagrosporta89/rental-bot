@@ -1,4 +1,60 @@
+import fs from "fs";
+import path from "path";
 import { WaCtx, MENU_BOTONES } from "./types";
+
+// ── Estado persistente con TTL ────────────────────────────────────────────────
+
+const TTL_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+export class EstadosPersistentes<T> {
+  private readonly map = new Map<string, { ts: number; v: T }>();
+  private readonly persist: boolean;
+
+  constructor(private readonly file: string) {
+    this.persist = process.env.NODE_ENV !== "test";
+    if (this.persist) this.cargar();
+  }
+
+  private cargar(): void {
+    try {
+      const raw = fs.readFileSync(this.file, "utf8");
+      const obj = JSON.parse(raw) as Record<string, { ts: number; v: T }>;
+      const ahora = Date.now();
+      for (const [k, entry] of Object.entries(obj)) {
+        if (ahora - entry.ts <= TTL_MS) this.map.set(k, entry);
+      }
+    } catch { /* archivo inexistente o corrupto → empezar vacío */ }
+  }
+
+  private guardar(): void {
+    try {
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file, JSON.stringify(Object.fromEntries(this.map), null, 2), "utf8");
+    } catch (err) { console.error("[estados] Error guardando estado:", err); }
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.map.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.ts > TTL_MS) { this.map.delete(key); if (this.persist) this.guardar(); return undefined; }
+    return entry.v;
+  }
+
+  has(key: string): boolean { return this.get(key) !== undefined; }
+  get size(): number { return this.map.size; }
+
+  set(key: string, value: T): this {
+    this.map.set(key, { ts: Date.now(), v: value });
+    if (this.persist) this.guardar();
+    return this;
+  }
+
+  delete(key: string): boolean {
+    const result = this.map.delete(key);
+    if (result && this.persist) this.guardar();
+    return result;
+  }
+}
 
 // Palabras que siempre sacan del flujo activo (con o sin estado previo)
 const PALABRAS_ESCAPE = new Set(["cancelar", "salir", "menu", "menú", "volver", "inicio", "start"]);
@@ -89,4 +145,37 @@ export function fechaHoy(): string {
 
 export function nombreWa(name: string, phone: string): string {
   return name && name !== phone ? name : phone;
+}
+
+// ── Escape con confirmación ───────────────────────────────────────────────────
+
+const _escapePendiente = new Map<string, () => void>();
+
+export function esEscapePalabra(texto: string): boolean {
+  return PALABRAS_ESCAPE.has(normalizar(texto));
+}
+
+export async function pedirConfirmacionEscape(ctx: WaCtx, onAbandonar: () => void): Promise<void> {
+  _escapePendiente.set(ctx.from.id, onAbandonar);
+  await ctx.replyButtons(
+    "¿Querés abandonar la carga?",
+    [
+      { id: "escape_abandonar_si", title: "Sí, abandonar" },
+      { id: "escape_abandonar_no", title: "No, continuar" },
+    ]
+  );
+}
+
+export async function onCallbackEscape(ctx: WaCtx, buttonId: string): Promise<boolean> {
+  if (buttonId !== "escape_abandonar_si" && buttonId !== "escape_abandonar_no") return false;
+  const cb = _escapePendiente.get(ctx.from.id);
+  if (!cb) return false;
+  _escapePendiente.delete(ctx.from.id);
+  if (buttonId === "escape_abandonar_si") {
+    cb();
+    await ctx.replyButtons("Carga cancelada. ¿Qué querés hacer?", MENU_BOTONES);
+  } else {
+    await ctx.reply("Ok, seguimos. Continuá con lo que estabas cargando 👍");
+  }
+  return true;
 }

@@ -84,7 +84,7 @@ export interface SaldoReal {
   timestamp: string;
 }
 
-export type EstadoPagoReserva = "ADELANTO_RECIBIDO" | "SALDO_RECIBIDO" | "COMPLETO";
+export type EstadoPagoReserva = "ADELANTO_RECIBIDO" | "SALDO_RECIBIDO" | "COMPLETO" | "ANULADO";
 
 export interface Reserva {
   id: string;               // TMP-YYYY-NNNN
