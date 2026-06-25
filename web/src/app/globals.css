@@ -52,9 +52,9 @@ body {
 }
 
 
-/* Highlight del primer click (selección en curso) */
-.fc-sel-highlight.fc-bg-event {
-  opacity: 0.18 !important;
+/* Highlight de la selección en curso (dos clicks para elegir rango) — más intenso que el celeste por defecto de FullCalendar */
+.fc-highlight {
+  background-color: rgba(99, 102, 241, 0.35) !important;
 }
 
 /* FullCalendar — cursor pointer en área seleccionable */
@@ -88,6 +88,33 @@ body {
 /* Chip apilado (solapamiento): ajusta al sublane de ~20px */
 .fc-timeline-event.fc-event-stacked {
   height: 20px !important;
+}
+
+/* Reserva tentativa: franja rayada a la izquierda del chip, en el color de la casa */
+.fc-timeline-event.fc-event-tentativa {
+  position: relative;
+}
+
+.fc-timeline-event.fc-event-tentativa::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  border-radius: 5px 0 0 5px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    currentColor 0px,
+    currentColor 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.9;
+}
+
+.fc-timeline-event.fc-event-tentativa .fc-event-main {
+  padding-left: 10px;
 }
 
 .fc-timeline-event .fc-event-main {

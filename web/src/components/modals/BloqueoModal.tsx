@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
-import { MotivoBloqueo } from '@/lib/types'
+import { Bloqueo, MotivoBloqueo } from '@/lib/types'
 import { toISO, toDDMMYYYY } from '@/lib/dates'
-
-const REGISTRADO_POR = 'Milagros'
+import { crearBloqueo, editarBloqueo } from '@/app/actions/bloqueos'
 
 interface Props {
+  bloqueo?: Bloqueo
   casa?: string
   fechaDesde?: string
   fechaHasta?: string
@@ -21,14 +20,13 @@ interface Props {
   onSaved: () => void
 }
 
-export function BloqueoModal({ casa, fechaDesde, fechaHasta, onClose, onSaved }: Props) {
-  const supabase = createClient()
+export function BloqueoModal({ bloqueo, casa, fechaDesde, fechaHasta, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
-    casa: casa ?? '1',
-    fecha_desde: fechaDesde ?? '',
-    fecha_hasta: fechaHasta ?? '',
-    motivo: 'limpieza' as MotivoBloqueo,
-    notas: '',
+    casa: bloqueo?.casa ?? casa ?? '1',
+    fecha_desde: bloqueo?.fecha_desde ?? fechaDesde ?? '',
+    fecha_hasta: bloqueo?.fecha_hasta ?? fechaHasta ?? '',
+    motivo: bloqueo?.motivo ?? ('limpieza' as MotivoBloqueo),
+    notas: bloqueo?.notas ?? '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -43,19 +41,17 @@ export function BloqueoModal({ casa, fechaDesde, fechaHasta, onClose, onSaved }:
 
     setLoading(true)
     try {
-      await supabase.from('bloqueos').insert({
-        id: `BLQ-${Date.now()}`,
+      const payload = {
         casa: form.casa,
         fecha_desde: form.fecha_desde,
         fecha_hasta: form.fecha_hasta,
         motivo: form.motivo,
         notas: form.notas.trim() || null,
-        registrado_por: REGISTRADO_POR,
-        timestamp: new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }),
-      })
+      }
+      bloqueo ? await editarBloqueo(bloqueo.id, payload) : await crearBloqueo(payload)
       onSaved()
-    } catch {
-      setError('Error al guardar. Intentá de nuevo.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al guardar. Intentá de nuevo.')
     } finally {
       setLoading(false)
     }
@@ -65,7 +61,7 @@ export function BloqueoModal({ casa, fechaDesde, fechaHasta, onClose, onSaved }:
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle className="text-slate-700 font-medium">Bloquear fechas</DialogTitle>
+          <DialogTitle className="text-slate-700 font-medium">{bloqueo ? 'Editar bloqueo' : 'Bloquear fechas'}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 pt-2">
@@ -132,7 +128,7 @@ export function BloqueoModal({ casa, fechaDesde, fechaHasta, onClose, onSaved }:
             Cancelar
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={loading} className="cursor-pointer">
-            {loading ? 'Guardando…' : 'Bloquear'}
+            {loading ? 'Guardando…' : bloqueo ? 'Guardar' : 'Bloquear'}
           </Button>
         </div>
       </DialogContent>

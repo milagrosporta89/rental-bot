@@ -4,13 +4,14 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { parse, addDays, format, isValid } from 'date-fns'
-import { ChevronRight, Calendar, ArrowLeft, Upload, X, Loader2 } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Calendar, ArrowLeft, Upload, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toISO, toDDMMYYYY, calcularNoches, hoy } from '@/lib/dates'
+import { formatUSD } from '@/lib/utils'
 import { CASA_LABELS, EstadoPago, Plataforma } from '@/lib/types'
 import { crearReserva } from '@/app/actions/reservas'
 import { crearIngreso } from '@/app/actions/ingresos'
@@ -129,7 +130,7 @@ function NuevaReservaForm() {
 
   const montoUSD = s2.moneda === 'USD' ? montoNum : (cotizNum > 0 ? montoNum / cotizNum : 0)
   const montoARS = s2.moneda === 'ARS' ? montoNum : montoNum * cotizNum
-  const saldoRestante = Math.max(0, totalUSD - montoUSD)
+  const saldoRestante = totalUSD - montoUSD
 
   // ── Upload comprobante ─────────────────────────────────────────────────────
 
@@ -426,7 +427,6 @@ function NuevaReservaForm() {
                   <SelectContent>
                     <SelectItem value="directo">Directo</SelectItem>
                     <SelectItem value="airbnb">Airbnb</SelectItem>
-                    <SelectItem value="booking">Booking</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -435,7 +435,7 @@ function NuevaReservaForm() {
               <div className="col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Monto total *</Label>
                 <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 focus-within:ring-1 focus-within:ring-ring">
-                  <span className="text-xs text-slate-400 shrink-0">USD</span>
+                  <span className="text-sm text-slate-600 shrink-0">USD</span>
                   <input
                     type="number" min={0} step={0.01}
                     value={s1.monto_total_usd}
@@ -497,11 +497,11 @@ function NuevaReservaForm() {
             <p className="text-xs text-slate-400 mb-4">Paso 2 de 2 · Registrar el pago de la reserva</p>
 
             {/* Resumen paso 1 (solo lectura) */}
-            <div className="bg-slate-50 rounded-lg border border-slate-100 px-4 py-3 mb-5 text-sm text-slate-600 flex flex-wrap gap-x-6 gap-y-1">
+            <div className="bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 mb-5 text-sm text-slate-600 flex flex-wrap gap-x-6 gap-y-1">
               <span><span className="text-slate-400 text-xs">Casa</span> {CASA_LABELS[casaNum] ?? casaNum}</span>
               <span><span className="text-slate-400 text-xs">Huésped</span> {s1.nombre_pax}</span>
               <span><span className="text-slate-400 text-xs">Fechas</span> {s1.fecha_entrada} → {s1.fecha_salida}</span>
-              <span><span className="text-slate-400 text-xs">Total</span> USD {parseFloat(s1.monto_total_usd || '0').toLocaleString('es-AR')}</span>
+              <span><span className="text-slate-400 text-xs">Total</span> {formatUSD(parseFloat(s1.monto_total_usd || '0'))}</span>
             </div>
 
             <div className="grid grid-cols-4 gap-x-3 gap-y-4">
@@ -527,7 +527,7 @@ function NuevaReservaForm() {
                   <div className="flex items-center gap-2">
                     {uploadState === 'done' && comprobanteUrl && (
                       <a href={comprobanteUrl} target="_blank" rel="noopener noreferrer">
-                        <img src={comprobanteUrl} alt="comprobante" className="h-12 w-auto rounded border border-slate-100 object-cover" />
+                        <img src={comprobanteUrl} alt="comprobante" className="h-12 w-auto rounded border border-slate-200 object-cover" />
                       </a>
                     )}
                     <span className={`text-xs ${uploadState === 'error' ? 'text-red-500' : 'text-emerald-600'}`}>
@@ -586,7 +586,7 @@ function NuevaReservaForm() {
 
               {/* Tipo de movimiento */}
               <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Tipo *</Label>
+                <Label className="text-xs text-slate-500">Tipo de pago *</Label>
                 <Select
                   value={s2.tipo_movimiento}
                   onValueChange={v => set2('tipo_movimiento', v as 'adelanto' | 'saldo')}
@@ -643,7 +643,7 @@ function NuevaReservaForm() {
 
               {/* Calculados */}
               {montoNum > 0 && (
-                <div className="col-span-4 bg-slate-50 rounded-lg border border-slate-100 px-4 py-3 space-y-1 text-xs">
+                <div className="col-span-4 bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-1 text-xs">
                   <div className="flex justify-between text-slate-500">
                     <span>Equivalente ARS</span>
                     <span className="tabular-nums font-medium text-slate-700">
@@ -653,15 +653,21 @@ function NuevaReservaForm() {
                   <div className="flex justify-between text-slate-500">
                     <span>Equivalente USD</span>
                     <span className="tabular-nums font-medium text-slate-700">
-                      USD {montoUSD.toFixed(2)}
+                      {formatUSD(montoUSD)}
                     </span>
                   </div>
-                  <div className="flex justify-between text-slate-500 border-t border-slate-100 pt-1 mt-1">
+                  <div className="flex justify-between text-slate-500 border-t border-slate-200 pt-1 mt-1">
                     <span>Saldo después de este pago</span>
-                    <span className={`tabular-nums font-medium ${saldoRestante > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      USD {saldoRestante.toFixed(2)}
+                    <span className={`flex items-center gap-1 tabular-nums font-medium ${saldoRestante > 0 ? 'text-amber-600' : saldoRestante < 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {saldoRestante < 0 && <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+                      {formatUSD(saldoRestante)}
                     </span>
                   </div>
+                  {saldoRestante < 0 && (
+                    <p className="text-amber-600 pt-0.5">
+                      Este pago supera el saldo pendiente y va a generar una diferencia a favor del huésped.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

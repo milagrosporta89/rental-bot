@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "use:staging": "node -e \"require('fs').copyFileSync('.env.staging.local','.env.local')\" && echo Apuntando a STAGING",
+    "use:prod": "node -e \"require('fs').copyFileSync('.env.prod.local','.env.local')\" && echo Apuntando a PRODUCCION"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.21",

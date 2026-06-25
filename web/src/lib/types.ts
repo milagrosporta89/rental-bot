@@ -1,6 +1,6 @@
 export type EstadoPago = 'debe' | 'parcial' | 'pagado'
 export type EstadoReserva = 'tentativa' | 'confirmada' | 'cancelada'
-export type Plataforma = 'directo' | 'airbnb' | 'booking'
+export type Plataforma = 'directo' | 'airbnb'
 export type MotivoBloqueo = 'limpieza' | 'mantenimiento' | 'uso_personal' | 'otro'
 
 export interface Reserva {
@@ -89,11 +89,11 @@ export const CASA_TITULAR: Record<string, string> = {
 }
 
 export const CASA_COLORES: Record<string, string> = {
-  '1': '#6366f1',
-  '2': '#10b981',
-  '3': '#f59e0b',
-  '4': '#ef4444',
-  '5': '#8b5cf6',
+  '1': '#6366f1',  // índigo
+  '2': '#10b981',  // esmeralda
+  '3': '#f59e0b',  // ámbar
+  '4': '#ef4444',  // rojo
+  '5': '#0ea5e9',  // sky (azul cielo)
 }
 
 export const CASA_LABELS: Record<string, string> = {
@@ -102,4 +102,34 @@ export const CASA_LABELS: Record<string, string> = {
   '3': 'Casa 3',
   '4': 'Casa 4',
   '5': 'Casa 5',
+}
+
+export const PLATAFORMA_LABEL: Record<string, string> = {
+  directo: 'Directo',
+  airbnb: 'Airbnb',
+}
+
+// Estado "visual" = estado_reserva + "terminada" (derivado de la fecha, nunca se guarda ni se elige)
+export const ESTADO_VISUAL_LABEL: Record<string, string> = {
+  tentativa: 'Tentativa',
+  confirmada: 'Confirmada',
+  cancelada: 'Cancelada',
+  en_curso: 'En curso',
+  terminada: 'Terminada',
+}
+
+export const ESTADO_VISUAL_BADGE: Record<string, string> = {
+  confirmada: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  tentativa: 'bg-amber-50 text-amber-700 border border-amber-200',
+  cancelada: 'bg-red-50 text-red-600 border border-red-200',
+  en_curso: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  terminada: 'bg-slate-100 text-slate-500 border border-slate-200',
+}
+
+export const ESTADO_VISUAL_COLOR: Record<string, string> = {
+  confirmada: 'text-emerald-600',
+  tentativa: 'text-amber-600',
+  cancelada: 'text-slate-400',
+  en_curso: 'text-indigo-600',
+  terminada: 'text-slate-500',
 }

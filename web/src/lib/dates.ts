@@ -35,6 +35,29 @@ export function hoy(): string {
   return format(new Date(), DD_MM_YYYY)
 }
 
+/** Hoy en YYYY-MM-DD */
+export function hoyISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** Terminada = el checkout ya pasó. El día del checkout todavía no cuenta como terminada. */
+export function esTerminada(fechaSalida: string): boolean {
+  return toISO(fechaSalida) < hoyISO()
+}
+
+/** En curso = ya pasó el check-in y todavía no terminó la estadía (incluye el día de checkout) */
+export function esEnCurso(fechaEntrada: string, fechaSalida: string): boolean {
+  return toISO(fechaEntrada) <= hoyISO() && !esTerminada(fechaSalida)
+}
+
+/** Estado a mostrar: cancelada siempre gana, después terminada, después en curso, sino el estado real */
+export function estadoVisual(estadoReserva: string | null | undefined, fechaEntrada: string, fechaSalida: string): string {
+  if (estadoReserva === 'cancelada') return 'cancelada'
+  if (esTerminada(fechaSalida)) return 'terminada'
+  if (esEnCurso(fechaEntrada, fechaSalida)) return 'en_curso'
+  return estadoReserva ?? 'confirmada'
+}
+
 /** Verifica si dos rangos se solapan (DD/MM/YYYY) */
 export function solapan(
   a: { desde: string; hasta: string },

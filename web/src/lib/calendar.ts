@@ -7,11 +7,15 @@ function casaId(casa: string): string {
   return m ? m[0] : casa
 }
 
-function hexToRgba(hex: string, alpha: number): string {
+/** Aplana un color hex + alpha sobre blanco — devuelve hex sólido sin transparencia */
+function blendOnWhite(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+  const ro = Math.round(255 * (1 - alpha) + r * alpha)
+  const go = Math.round(255 * (1 - alpha) + g * alpha)
+  const bo = Math.round(255 * (1 - alpha) + b * alpha)
+  return `#${ro.toString(16).padStart(2, '0')}${go.toString(16).padStart(2, '0')}${bo.toString(16).padStart(2, '0')}`
 }
 
 function addOneDay(iso: string): string {
@@ -26,15 +30,20 @@ export function reservaToEvent(r: Reserva): CalendarEvent {
   const tentativa = r.estado_reserva === 'tentativa'
   const deudor = r.estado_pago === 'debe' || r.estado_pago === 'parcial'
 
+  // Confirmada: fondo muy suave (≈ color al 13%, igual que los chips de la tabla)
+  // Tentativa:  fondo un poco más visible para distinguirla sin usar transparencia real
+  const bgAlpha = tentativa ? 0.22 : 0.13
+  const borderAlpha = tentativa ? 0.38 : 0.25
+
   return {
     id: r.id,
     resourceId: id,
     title: `${deudor ? '● ' : ''}${r.nombre_pax}`,
     start: toISO(r.fecha_entrada),
     end: addOneDay(toISO(r.fecha_salida)),
-    backgroundColor: tentativa ? hexToRgba(color, 0.45) : color,
-    borderColor: color,
-    textColor: '#ffffff',
+    backgroundColor: blendOnWhite(color, bgAlpha),
+    borderColor: blendOnWhite(color, borderAlpha),
+    textColor: color,
     extendedProps: { tipo: 'reserva', reserva: r },
   }
 }
@@ -46,9 +55,9 @@ export function bloqueoToEvent(b: Bloqueo): CalendarEvent {
     title: `⊘ ${b.motivo.replace('_', ' ')}`,
     start: toISO(b.fecha_desde),
     end: toISO(b.fecha_hasta),
-    backgroundColor: '#374151',
-    borderColor: '#374151',
-    textColor: '#9ca3af',
+    backgroundColor: '#f1f5f9',
+    borderColor: '#cbd5e1',
+    textColor: '#64748b',
     extendedProps: { tipo: 'bloqueo', bloqueo: b },
   }
 }

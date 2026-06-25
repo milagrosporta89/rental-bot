@@ -102,3 +102,13 @@ export async function editarReserva(
     )
   }
 }
+
+export async function editarEstadoReserva(id: string, estado: string): Promise<void> {
+  const supabase = createAdminClient()
+  // Al cancelar ya no queda nada por cobrar — el monto original y los pagos ya hechos quedan intactos en su historial
+  const updates: Record<string, unknown> = estado === 'cancelada'
+    ? { estado_reserva: estado, saldo_usd: 0 }
+    : { estado_reserva: estado }
+  const { error } = await supabase.from('reservas').update(updates).eq('id', id)
+  if (error) throw new Error(error.message)
+}

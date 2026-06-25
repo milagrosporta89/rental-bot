@@ -1,17 +1,21 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Reserva, CASA_COLORES } from '@/lib/types'
-import { ReservaModal } from '@/components/modals/ReservaModal'
+import { Reserva, CASA_COLORES, PLATAFORMA_LABEL, ESTADO_VISUAL_BADGE, ESTADO_VISUAL_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
-import { Search, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { toISO } from '@/lib/dates'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Search, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { toISO, estadoVisual, esTerminada, esEnCurso } from '@/lib/dates'
+import { formatUSD as usd } from '@/lib/utils'
+import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzados } from './FiltrosModal'
 
 const supabase = createClient()
-const PAGE_SIZE = 20
+const PAGE_SIZE_OPTIONS = [10, 18, 25, 50]
 
-type Tab = 'proximas' | 'terminadas'
+type Filtro = 'proximas' | 'en_curso' | 'terminadas' | 'canceladas'
+type SortBy = 'fecha' | 'casa' | 'plataforma'
 type SortDir = 'asc' | 'desc'
 
 function casaNum(casa: string): string {
@@ -38,33 +42,6 @@ function matchFiltro(r: Reserva, q: string): boolean {
   )
 }
 
-function usd(n: number | null | undefined): string {
-  if (n == null) return '—'
-  return `USD ${Math.round(n).toLocaleString('es-AR')}`
-}
-
-const ESTADO_BADGE: Record<string, string> = {
-  confirmada: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  tentativa:  'bg-amber-50 text-amber-700 border border-amber-200',
-  cancelada:  'bg-slate-100 text-slate-400 border border-slate-200',
-}
-
-const ESTADO_LABEL: Record<string, string> = {
-  confirmada: 'Confirmada',
-  tentativa:  'Tentativa',
-  cancelada:  'Cancelada',
-}
-
-const PAGO_DOT: Record<string, string> = {
-  debe:    'bg-red-400',
-  parcial: 'bg-amber-400',
-  pagado:  'bg-emerald-400',
-}
-
-const PAGO_LABEL: Record<string, string> = {
-  debe: 'Sin pago', parcial: 'Seña', pagado: 'Pagado',
-}
-
 function WAIcon() {
   return (
     <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current" aria-hidden="true">
@@ -74,12 +51,16 @@ function WAIcon() {
 }
 
 export function ReservasTable() {
+  const router = useRouter()
   const [reservas, setReservas] = useState<Reserva[]>([])
-  const [modalReserva, setModalReserva] = useState<Reserva | null>(null)
   const [q, setQ] = useState('')
-  const [tab, setTab] = useState<Tab>('proximas')
+  const [filtros, setFiltros] = useState<Set<Filtro>>(new Set(['proximas', 'en_curso']))
+  const [sortBy, setSortBy] = useState<SortBy>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(18)
+  const [filtrosModalOpen, setFiltrosModalOpen] = useState(false)
+  const [filtrosAvanzados, setFiltrosAvanzados] = useState<FiltrosAvanzados>(filtrosAvanzadosVacios())
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/calendar-data')
@@ -97,120 +78,193 @@ export function ReservasTable() {
     return () => { supabase.removeChannel(ch) }
   }, [cargar])
 
-  // Resetear página cuando cambia filtro, tab o sort
-  useEffect(() => { setPage(0) }, [q, tab, sortDir])
+  useEffect(() => { setPage(0) }, [q, filtros, filtrosAvanzados, sortBy, sortDir, pageSize])
 
-  const hoyISO = new Date().toISOString().slice(0, 10)
-  const filtradas = reservas.filter(r => matchFiltro(r, q))
-  const proximas   = filtradas.filter(r => toISO(r.fecha_salida) >= hoyISO)
-  const terminadas = filtradas.filter(r => toISO(r.fecha_salida) <  hoyISO)
+  const porBusqueda = reservas.filter(r => matchFiltro(r, q))
 
-  const lista = (tab === 'proximas' ? proximas : terminadas)
+  const lista = porBusqueda
+    .filter(r => {
+      if (filtros.size === 0) return true
+      if (r.estado_reserva === 'cancelada') return filtros.has('canceladas')
+      if (esTerminada(r.fecha_salida)) return filtros.has('terminadas')
+      if (esEnCurso(r.fecha_entrada, r.fecha_salida)) return filtros.has('en_curso')
+      return filtros.has('proximas')
+    })
+    .filter(r => {
+      const { fechaDesde, fechaHasta, casas, plataformas } = filtrosAvanzados
+      if (casas.size > 0 && !casas.has(casaNum(r.casa))) return false
+      if (plataformas.size > 0 && !plataformas.has(r.plataforma)) return false
+      if (fechaDesde && toISO(r.fecha_salida) < fechaDesde) return false
+      if (fechaHasta && toISO(r.fecha_entrada) > fechaHasta) return false
+      return true
+    })
     .slice()
     .sort((a, b) => {
-      const cmp = toISO(a.fecha_entrada).localeCompare(toISO(b.fecha_entrada))
+      const cmp = sortBy === 'casa'
+        ? Number(casaNum(a.casa)) - Number(casaNum(b.casa))
+        : sortBy === 'plataforma'
+          ? (PLATAFORMA_LABEL[a.plataforma] ?? a.plataforma).localeCompare(PLATAFORMA_LABEL[b.plataforma] ?? b.plataforma)
+          : toISO(a.fecha_entrada).localeCompare(toISO(b.fecha_entrada))
       return sortDir === 'asc' ? cmp : -cmp
     })
 
-  const totalPages = Math.ceil(lista.length / PAGE_SIZE)
-  const pagina = lista.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(lista.length / pageSize))
+  const pagina = lista.slice(page * pageSize, (page + 1) * pageSize)
 
-  function switchTab(t: Tab) {
-    setTab(t)
-    setSortDir(t === 'proximas' ? 'asc' : 'desc')
+  function toggleFiltro(f: Filtro) {
+    setFiltros(prev => {
+      const next = new Set(prev)
+      next.has(f) ? next.delete(f) : next.add(f)
+      return next
+    })
   }
 
-  function toggleSort() {
-    setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+  function toggleSort(by: SortBy) {
+    if (sortBy === by) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(by)
+      setSortDir('asc')
+    }
   }
 
   const COLS = 9
 
   return (
-    <div className="flex flex-col h-full">
+    <>
+    <div className="h-full overflow-y-auto px-8 py-4 pb-8">
+    <div className="max-w-6xl mx-auto">
+
+      <h1 className="text-lg font-semibold text-slate-800 mb-4">Resumen de reservas</h1>
 
       {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 flex-wrap">
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-          <Input
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por nombre, casa, estado…"
-            className="pl-8 text-sm h-8"
-          />
+      <div className="pb-5 space-y-3.5">
+        <div className="flex items-center gap-5 flex-wrap">
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <Input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Buscar por nombre, casa, estado…"
+              className="pl-8 text-sm h-8"
+            />
+          </div>
+
+          <button
+            onClick={() => setFiltrosModalOpen(true)}
+            className="relative flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filtros
+            {contarFiltrosActivos(filtrosAvanzados) > 0 && (
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-semibold">
+                {contarFiltrosActivos(filtrosAvanzados)}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
-          {(['proximas', 'terminadas'] as Tab[]).map(t => {
-            const count = t === 'proximas' ? proximas.length : terminadas.length
-            const active = tab === t
-            return (
-              <button
-                key={t}
-                onClick={() => switchTab(t)}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors duration-150 cursor-pointer ${
-                  active
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {t === 'proximas' ? 'Próximas' : 'Terminadas'}
-                <span className={`ml-1.5 text-xs ${active ? 'text-slate-400' : 'text-slate-400'}`}>
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+        {/* Chips de filtro */}
+        <div className="space-y-1.5">
+          <span className="block text-xs text-slate-500">Filtros rápidos:</span>
+          <div className="flex items-center gap-2">
+            {([
+              { id: 'en_curso',   label: 'En curso' },
+              { id: 'proximas',   label: 'Próximas' },
+              { id: 'terminadas', label: 'Terminadas' },
+              { id: 'canceladas', label: 'Canceladas' },
+            ] as { id: Filtro; label: string }[]).map(({ id, label }) => {
+              const active = filtros.has(id)
+              return (
+                <button
+                  key={id}
+                  onClick={() => toggleFiltro(id)}
+                  aria-pressed={active}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    active
+                      ? 'bg-indigo-600 border-indigo-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                  }`}
+                >
+                  {label}
+                  {active && <Check className="w-3 h-3" />}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
 
+      <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+
       {/* Tabla */}
-      <div className="flex-1 overflow-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
-          <thead className="sticky top-0 bg-white z-10">
-            <tr className="border-b border-slate-100">
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">Titular</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">Casa</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">
+          <thead className="sticky top-0 bg-slate-100 z-10">
+            <tr className="border-b border-slate-200">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Titular</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                 <button
-                  onClick={toggleSort}
-                  className="flex items-center gap-1 hover:text-slate-600 transition-colors cursor-pointer"
+                  onClick={() => toggleSort('casa')}
+                  aria-label={`Ordenar por casa, ${sortBy === 'casa' && sortDir === 'asc' ? 'descendente' : 'ascendente'}`}
+                  className="flex items-center gap-1 -mx-1 px-1 rounded hover:text-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 >
-                  Fechas
-                  {sortDir === 'asc'
-                    ? <ArrowUp className="w-3 h-3" />
-                    : <ArrowDown className="w-3 h-3" />}
+                  Casa
+                  {sortBy === 'casa'
+                    ? (sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} /> : <ArrowDown className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} />)
+                    : <ChevronsUpDown className="w-3 h-3 text-slate-400" />}
                 </button>
               </th>
-              <th className="px-4 py-2.5 text-center text-xs font-medium text-slate-400 whitespace-nowrap">Noches</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-400 whitespace-nowrap">Total</th>
-              <th className="px-4 py-2.5 text-right text-xs font-medium text-slate-400 whitespace-nowrap">Saldo</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">Estado</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">Pago</th>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-slate-400 whitespace-nowrap">WA</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                <button
+                  onClick={() => toggleSort('fecha')}
+                  aria-label={`Ordenar por fecha, ${sortBy === 'fecha' && sortDir === 'asc' ? 'descendente' : 'ascendente'}`}
+                  className="flex items-center gap-1 -mx-1 px-1 rounded hover:text-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                >
+                  Fechas
+                  {sortBy === 'fecha'
+                    ? (sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} /> : <ArrowDown className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} />)
+                    : <ChevronsUpDown className="w-3 h-3 text-slate-400" />}
+                </button>
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Noches</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Total</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Saldo</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                <button
+                  onClick={() => toggleSort('plataforma')}
+                  aria-label={`Ordenar por plataforma, ${sortBy === 'plataforma' && sortDir === 'asc' ? 'descendente' : 'ascendente'}`}
+                  className="flex items-center gap-1 -mx-1 px-1 rounded hover:text-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                >
+                  Plataforma
+                  {sortBy === 'plataforma'
+                    ? (sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} /> : <ArrowDown className="w-3.5 h-3.5 text-slate-800" strokeWidth={2.5} />)
+                    : <ChevronsUpDown className="w-3 h-3 text-slate-400" />}
+                </button>
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Estado</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">WA</th>
             </tr>
           </thead>
           <tbody>
             {pagina.length === 0 ? (
               <tr>
                 <td colSpan={COLS} className="py-16 text-center text-sm text-slate-400">
-                  {q ? 'Sin resultados' : tab === 'proximas' ? 'No hay reservas próximas' : 'No hay reservas terminadas'}
+                  {q ? 'Sin resultados' : 'No hay reservas para los filtros seleccionados'}
                 </td>
               </tr>
             ) : pagina.map(r => {
               const num = casaNum(r.casa)
               const color = CASA_COLORES[num] ?? '#94a3b8'
-              const estado = r.estado_reserva ?? 'confirmada'
+              const estado = estadoVisual(r.estado_reserva, r.fecha_entrada, r.fecha_salida)
               const waNum = r.telefono?.replace(/\D/g, '')
               const saldoPendiente = (r.saldo_usd ?? 0) > 0
 
               return (
                 <tr
                   key={r.id}
-                  onClick={() => setModalReserva(r)}
-                  className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors duration-150"
+                  onClick={() => router.push(`/reservas/${r.id}`)}
+                  className="border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition-colors duration-150"
                 >
                   <td className="px-4 py-2.5 font-medium text-slate-800">{r.nombre_pax}</td>
 
@@ -231,27 +285,24 @@ export function ReservasTable() {
                     {r.cantidad_noches}
                   </td>
 
-                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-700 text-xs">
+                  <td className="px-4 py-2.5 text-left tabular-nums text-slate-700 text-xs">
                     {usd(r.monto_total_usd)}
                   </td>
 
-                  <td className="px-4 py-2.5 text-right tabular-nums text-xs">
+                  <td className="px-4 py-2.5 text-left tabular-nums text-xs">
                     <span className={saldoPendiente ? 'text-red-500 font-medium' : 'text-slate-400'}>
                       {usd(r.saldo_usd)}
                     </span>
                   </td>
 
-                  <td className="px-4 py-2.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ESTADO_BADGE[estado] ?? ESTADO_BADGE.confirmada}`}>
-                      {ESTADO_LABEL[estado] ?? estado}
-                    </span>
+                  <td className="px-4 py-2.5 text-slate-600 text-xs">
+                    {PLATAFORMA_LABEL[r.plataforma] ?? r.plataforma}
                   </td>
 
                   <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${PAGO_DOT[r.estado_pago] ?? 'bg-slate-300'}`} />
-                      <span className="text-slate-600 text-xs">{PAGO_LABEL[r.estado_pago] ?? r.estado_pago}</span>
-                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ESTADO_VISUAL_BADGE[estado] ?? ESTADO_VISUAL_BADGE.confirmada}`}>
+                      {ESTADO_VISUAL_LABEL[estado] ?? estado}
+                    </span>
                   </td>
 
                   <td className="px-4 py-2.5">
@@ -276,52 +327,57 @@ export function ReservasTable() {
       </div>
 
       {/* Paginador */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-100 bg-white shrink-0">
-          <span className="text-xs text-slate-400">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, lista.length)} de {lista.length}
+      <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-100 shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-slate-500">
+            {lista.length === 0 ? '0 de 0' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, lista.length)} de ${lista.length}`}
           </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-7 h-7 rounded text-xs cursor-pointer transition-colors ${
-                  i === page
-                    ? 'bg-indigo-600 text-white font-medium'
-                    : 'text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
-              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-500">Mostrar</span>
+            <Select value={String(pageSize)} onValueChange={v => setPageSize(Number(v))}>
+              <SelectTrigger aria-label="Cantidad de registros por página" className="h-7 w-16 text-xs bg-white"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map(n => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      )}
 
-      {modalReserva && (
-        <ReservaModal
-          mode="edit"
-          reserva={modalReserva}
-          reservas={reservas}
-          onClose={() => setModalReserva(null)}
-          onSaved={() => { setModalReserva(null); }}
-        />
-      )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            aria-label="Página anterior"
+            className="flex items-center justify-center w-8 h-8 rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-slate-600 font-medium px-1 whitespace-nowrap tabular-nums" aria-live="polite">
+            Página {page + 1} de {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            aria-label="Página siguiente"
+            className="flex items-center justify-center w-8 h-8 rounded-md border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
     </div>
+    </div>
+    </div>
+
+    <FiltrosModal
+      open={filtrosModalOpen}
+      onClose={() => setFiltrosModalOpen(false)}
+      value={filtrosAvanzados}
+      onChange={setFiltrosAvanzados}
+    />
+    </>
   )
 }

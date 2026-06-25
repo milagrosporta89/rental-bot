@@ -12,6 +12,7 @@ import { reservaToEvent, bloqueoToEvent } from '@/lib/calendar'
 import { toDDMMYYYY } from '@/lib/dates'
 import { BloqueoModal } from '@/components/modals/BloqueoModal'
 import { ReservaModal } from '@/components/modals/ReservaModal'
+import { ReservaTooltip } from '@/components/calendario/ReservaTooltip'
 import { Button } from '@/components/ui/button'
 import { Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -30,6 +31,11 @@ function addDaysISO(iso: string, n: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+function todayISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function CalendarView() {
   const calRef = useRef<FullCalendar>(null)
   const supabase = createClient()
@@ -46,7 +52,8 @@ export function CalendarView() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [reservas, setReservas] = useState<Reserva[]>([])
   const [modal, setModal] = useState<ModalState | null>(null)
-  const [bloqueoOpen, setBloqueoOpen] = useState(false)
+  const [bloqueoModal, setBloqueoModal] = useState<{ bloqueo?: Bloqueo } | null>(null)
+  const [tooltip, setTooltip] = useState<{ reserva: Reserva; x: number; y: number } | null>(null)
   const [navDate, setNavDate] = useState(new Date())
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerYear, setPickerYear] = useState(new Date().getFullYear())
@@ -84,7 +91,10 @@ export function CalendarView() {
     const res = await fetch('/api/calendar-data')
     const { reservas: rs, bloqueos: bs } = await res.json() as { reservas: Reserva[]; bloqueos: Bloqueo[] }
     setReservas(rs)
-    setEvents([...rs.map(reservaToEvent), ...bs.map(bloqueoToEvent)])
+    setEvents([
+      ...rs.filter(r => r.estado_reserva !== 'cancelada').map(reservaToEvent),
+      ...bs.map(bloqueoToEvent),
+    ])
   }, [])
 
   useEffect(() => {
@@ -129,6 +139,7 @@ export function CalendarView() {
 
   const handleDateClick = useCallback((arg: DateClickArg) => {
     const fechaISO = arg.dateStr.slice(0, 10)
+    if (fechaISO < todayISO()) return
     const resourceId = (arg.resource as { id: string } | null)?.id ?? '1'
     const t = tap1Ref.current
 
@@ -181,14 +192,65 @@ export function CalendarView() {
 
   const handleEventClick = useCallback((arg: EventClickArg) => {
     const props = arg.event.extendedProps as CalendarEvent['extendedProps']
-    if (props.tipo === 'bloqueo') return
     clearSelection()
+    setTooltip(null)
+    if (props.tipo === 'bloqueo') {
+      setBloqueoModal({ bloqueo: props.bloqueo! })
+      return
+    }
     setModal({ mode: 'view', reserva: props.reserva! })
   }, [clearSelection])
 
+  const handleEventMouseEnter = useCallback((info: { event: { extendedProps: unknown }; el: HTMLElement }) => {
+    const props = info.event.extendedProps as CalendarEvent['extendedProps']
+    if (props.tipo !== 'reserva' || !props.reserva) return
+    const rect = info.el.getBoundingClientRect()
+    setTooltip({ reserva: props.reserva, x: rect.left + rect.width / 2, y: rect.bottom + 6 })
+  }, [])
+
+  const handleEventMouseLeave = useCallback(() => setTooltip(null), [])
+
+  const handleEventClassNames = useCallback((arg: { event: { extendedProps: unknown } }) => {
+    const props = arg.event.extendedProps as CalendarEvent['extendedProps']
+    return props.tipo === 'reserva' && props.reserva?.estado_reserva === 'tentativa'
+      ? ['fc-event-tentativa']
+      : []
+  }, [])
+
+  const handleEventDidMount = useCallback((info: any) => {
+    const { start, end } = info.event
+    const res = info.event.getResources?.()[0]?.id
+    if (!start || !end || !res) return
+
+    const overlapping = info.view.calendar.getEvents().filter((ev: any) => {
+      if (ev.id === info.event.id) return false
+      if (ev.getResources?.()[0]?.id !== res) return false
+      const s = ev.start, e = ev.end
+      return !!s && !!e && s < end && e > start
+    })
+
+    const harness = info.el.closest('.fc-timeline-event-harness') as HTMLElement | null
+    // CSS agrega margin-top: 4px al harness — compensar en todos los cálculos de top
+    const CSS_MARGIN = 4
+
+    if (overlapping.length === 0) {
+      // Chip único: agregar 4px extra al top (además del CSS margin)
+      if (harness) harness.style.top = '4px'
+    } else {
+      info.el.classList.add('fc-event-stacked')
+      const group = [info.event, ...overlapping].sort(
+        (a: any, b: any) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0) || a.id.localeCompare(b.id)
+      )
+      const myPos = group.findIndex((ev: any) => ev.id === info.event.id)
+      const sublaneH = Math.floor(40 / group.length)
+      // Restamos CSS_MARGIN para que margin-top no empuje el chip fuera del lane
+      if (harness) harness.style.top = `${myPos * sublaneH - CSS_MARGIN}px`
+    }
+  }, [])
+
   const handleSaved = useCallback(() => {
     setModal(null)
-    setBloqueoOpen(false)
+    setBloqueoModal(null)
     calRef.current?.getApi().unselect()
     loadData()
   }, [loadData])
@@ -196,7 +258,7 @@ export function CalendarView() {
   return (
     <div className="flex flex-col h-full" onMouseMove={handleMouseMove}>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200">
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate('prev')}
@@ -268,7 +330,7 @@ export function CalendarView() {
             variant="outline"
             size="sm"
             className="text-slate-500 border-slate-200 text-xs cursor-pointer"
-            onClick={() => setBloqueoOpen(true)}
+            onClick={() => setBloqueoModal({})}
           >
             <Lock className="w-3.5 h-3.5 mr-1.5" />
             Bloquear fechas
@@ -276,17 +338,21 @@ export function CalendarView() {
         </div>
       </div>
 
-      {/* Banner de selección activa */}
-      {tap1 && (
-        <div className="bg-indigo-50 border-b border-indigo-100 px-4 py-2 text-xs text-indigo-600 flex items-center justify-between">
-          <span>
-            Casa {tap1.resourceId} · desde {toDDMMYYYY(tap1.fechaISO)} — hacé click en la fecha de salida
-          </span>
-          <button onClick={clearSelection} className="ml-3 text-indigo-400 hover:text-indigo-600 cursor-pointer">
-            ✕
-          </button>
-        </div>
-      )}
+      {/* Banner de selección activa — el contenedor queda siempre reservado para que el calendario no se reposicione */}
+      <div className={`h-9 px-4 flex items-center justify-between text-xs transition-colors ${
+        tap1 ? 'bg-indigo-50 border-b border-indigo-100 text-indigo-600' : 'border-b border-transparent'
+      }`}>
+        {tap1 && (
+          <>
+            <span>
+              Casa {tap1.resourceId} · desde {toDDMMYYYY(tap1.fechaISO)} — hacé click en la fecha de salida
+            </span>
+            <button onClick={clearSelection} className="ml-3 text-indigo-400 hover:text-indigo-600 cursor-pointer">
+              ✕
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Calendar */}
       <div className="px-2 pb-2">
@@ -306,37 +372,11 @@ export function CalendarView() {
             selectMirror={false}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
+            eventMouseEnter={handleEventMouseEnter}
+            eventMouseLeave={handleEventMouseLeave}
             eventOverlap
-            eventDidMount={(info) => {
-              const { start, end } = info.event
-              const res = (info.event as any).getResources?.()[0]?.id
-              if (!start || !end || !res) return
-
-              const overlapping = info.view.calendar.getEvents().filter(ev => {
-                if (ev.id === info.event.id) return false
-                if ((ev as any).getResources?.()[0]?.id !== res) return false
-                const s = ev.start, e = ev.end
-                return !!s && !!e && s < end && e > start
-              })
-
-              const harness = info.el.closest('.fc-timeline-event-harness') as HTMLElement | null
-              // CSS agrega margin-top: 4px al harness — compensar en todos los cálculos de top
-              const CSS_MARGIN = 4
-
-              if (overlapping.length === 0) {
-                // Chip único: agregar 4px extra al top (además del CSS margin)
-                if (harness) harness.style.top = '4px'
-              } else {
-                info.el.classList.add('fc-event-stacked')
-                const group = [info.event, ...overlapping].sort(
-                  (a, b) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0) || a.id.localeCompare(b.id)
-                )
-                const myPos = group.findIndex(ev => ev.id === info.event.id)
-                const sublaneH = Math.floor(40 / group.length)
-                // Restamos CSS_MARGIN para que margin-top no empuje el chip fuera del lane
-                if (harness) harness.style.top = `${myPos * sublaneH - CSS_MARGIN}px`
-              }
-            }}
+            eventClassNames={handleEventClassNames}
+            eventDidMount={handleEventDidMount}
             contentHeight="auto"
             slotMinWidth={35}
             locale="es"
@@ -347,18 +387,22 @@ export function CalendarView() {
         )}
       </div>
 
+      {tooltip && <ReservaTooltip reserva={tooltip.reserva} x={tooltip.x} y={tooltip.y} />}
+
       {modal && (
         <ReservaModal
           {...modal}
           reservas={reservas}
           onClose={() => setModal(null)}
           onSaved={handleSaved}
+          onRefresh={loadData}
         />
       )}
 
-      {bloqueoOpen && (
+      {bloqueoModal && (
         <BloqueoModal
-          onClose={() => setBloqueoOpen(false)}
+          bloqueo={bloqueoModal.bloqueo}
+          onClose={() => setBloqueoModal(null)}
           onSaved={handleSaved}
         />
       )}
