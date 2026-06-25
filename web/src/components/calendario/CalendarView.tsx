@@ -38,6 +38,9 @@ function todayISO(): string {
 
 export function CalendarView() {
   const calRef = useRef<FullCalendar>(null)
+  const calWrapperRef = useRef<HTMLDivElement>(null)
+  const leftShadowRef = useRef<HTMLDivElement>(null)
+  const rightShadowRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const rafRef = useRef<number | null>(null)
   const hoverRef = useRef<string | null>(null)
@@ -106,6 +109,49 @@ export function CalendarView() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [loadData])
+
+  // Sombras a los costados del timeline que avisan si hay más para scrollear horizontalmente
+  useEffect(() => {
+    if (!mounted) return
+    const wrapperEl = calWrapperRef.current
+    const rootEl = (calRef.current?.getApi() as unknown as { el: HTMLElement } | undefined)?.el
+    const scroller = rootEl?.querySelector<HTMLElement>('.fc-scroller:has(.fc-timeline-body)')
+    if (!wrapperEl || !scroller) return
+
+    function posicionar() {
+      const wrapperRect = wrapperEl!.getBoundingClientRect()
+      const scrollerRect = scroller!.getBoundingClientRect()
+      const shadowWidth = 24
+      if (leftShadowRef.current) {
+        leftShadowRef.current.style.left = `${scrollerRect.left - wrapperRect.left}px`
+        leftShadowRef.current.style.top = `${scrollerRect.top - wrapperRect.top}px`
+        leftShadowRef.current.style.height = `${scrollerRect.height}px`
+      }
+      if (rightShadowRef.current) {
+        rightShadowRef.current.style.left = `${scrollerRect.right - wrapperRect.left - shadowWidth}px`
+        rightShadowRef.current.style.top = `${scrollerRect.top - wrapperRect.top}px`
+        rightShadowRef.current.style.height = `${scrollerRect.height}px`
+      }
+    }
+
+    function actualizarOpacidad() {
+      const max = scroller!.scrollWidth - scroller!.clientWidth
+      if (leftShadowRef.current) leftShadowRef.current.style.opacity = scroller!.scrollLeft > 2 ? '1' : '0'
+      if (rightShadowRef.current) rightShadowRef.current.style.opacity = max > 2 && scroller!.scrollLeft < max - 2 ? '1' : '0'
+    }
+
+    posicionar()
+    actualizarOpacidad()
+    scroller.addEventListener('scroll', actualizarOpacidad, { passive: true })
+    const ro = new ResizeObserver(() => { posicionar(); actualizarOpacidad() })
+    ro.observe(scroller)
+    ro.observe(wrapperEl)
+
+    return () => {
+      scroller.removeEventListener('scroll', actualizarOpacidad)
+      ro.disconnect()
+    }
+  }, [mounted, events])
 
   const clearSelection = useCallback(() => {
     setTap1(null)
@@ -257,6 +303,8 @@ export function CalendarView() {
 
   return (
     <div className="flex flex-col h-full" onMouseMove={handleMouseMove}>
+      <h1 className="px-4 pt-4 pb-1 text-lg font-semibold text-slate-800">Ocupación por casa</h1>
+
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200">
         <div className="flex items-center gap-1">
@@ -355,7 +403,17 @@ export function CalendarView() {
       </div>
 
       {/* Calendar */}
-      <div className="px-2 pb-2">
+      <div ref={calWrapperRef} className="relative px-6 pb-4">
+        <div
+          ref={leftShadowRef}
+          className="pointer-events-none absolute z-10 w-6 opacity-0 transition-opacity duration-150"
+          style={{ background: 'linear-gradient(to right, rgba(15,23,42,0.12), transparent)' }}
+        />
+        <div
+          ref={rightShadowRef}
+          className="pointer-events-none absolute z-10 w-6 opacity-0 transition-opacity duration-150"
+          style={{ background: 'linear-gradient(to left, rgba(15,23,42,0.12), transparent)' }}
+        />
         {mounted && (
           <FullCalendar
             ref={calRef}

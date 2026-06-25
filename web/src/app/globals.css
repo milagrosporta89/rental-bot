@@ -150,3 +150,65 @@ body {
 .fc-timeline-header-row:first-child .fc-timeline-slot {
   border-bottom: none !important;
 }
+
+/* Línea debajo de la fila de números del día, separándola del cuerpo del calendario */
+.fc-timeline-header-row:nth-child(2) .fc-timeline-slot {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+/* Celda superior izquierda (esquina "Casa"): trama hatch en vez de la palabra */
+.fc-datagrid-header .fc-datagrid-cell-main {
+  display: none;
+}
+
+.fc-datagrid-header .fc-datagrid-cell-frame {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #cbd5e1 0px,
+    #cbd5e1 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+/* El scroller del header del timeline no tiene nada para scrollear (FullCalendar lo fuerza
+   con overflow-x: scroll solo para alinearse con el del cuerpo) — se oculta solo visualmente,
+   el sincronismo de scroll sigue funcionando igual */
+.fc-scroller:has(.fc-timeline-header) {
+  scrollbar-width: none;
+}
+
+.fc-scroller:has(.fc-timeline-header)::-webkit-scrollbar {
+  display: none;
+}
+
+/* La columna "Casa" (header y cuerpo) nunca tiene contenido propio para scrollear horizontalmente,
+   pero FullCalendar le pisa un overflow-x: scroll por inline style para alinearla con el timeline.
+   Lo forzamos a hidden con !important para pisar ese inline style. */
+.fc-scroller:has(.fc-datagrid-header),
+.fc-scroller:has(.fc-datagrid-body) {
+  overflow-x: hidden !important;
+}
+
+/* Scroll del cuerpo del calendario: más fino y acorde a la paleta */
+.fc-scroller:has(.fc-timeline-body) {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar {
+  height: 8px;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}

@@ -142,7 +142,7 @@ export default async function ReservaDetailPage({ params }: { params: Promise<{ 
             </div>
           )}
 
-          <PagosSection pagos={pagos} reservaId={r.id} cancelada={r.estado_reserva === 'cancelada'} />
+          <PagosSection pagos={pagos} reservaId={r.id} reserva={r} cancelada={r.estado_reserva === 'cancelada'} />
         </div>
       </div>
     </div>
