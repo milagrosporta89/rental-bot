@@ -4,6 +4,24 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 3) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Agente 3 (Developer) completado** → commit `90cbbb8` `[agent-dev] formulario base sin estilos` (15 archivos, `tsc --noEmit` y eslint sin errores, verificado independientemente).
+
+- Nuevo: `web/src/app/actions/gastos.ts` (`crearGasto`, `buscarGastoDuplicado`), `web/src/app/gastos/page.tsx`, 8 componentes en `web/src/components/gastos/` (1:1 con el component_tree del Designer), `web/src/hooks/useGastoSubmit.ts`.
+- Modificado: `web/src/lib/types.ts` (tipo `Gasto`, `CategoriaGasto`, `CATEGORIA_GASTO_LABEL`, `TITULARES_PAGADOR`), `web/src/app/api/cotizacion/route.ts` (ahora acepta `?fecha=`, usa el endpoint historical de bluelytics cuando no es hoy — réplica de `src/services/dolar.ts`), `web/src/app/api/comprobante/route.ts` (acepta `tipo: 'gasto'|'ingreso'`), `NavTabs.tsx` (tab "Gastos").
+- `cotizacion`/`monto_ars`/`monto_usd` se calculan enteramente en el server action, nunca en el cliente — consistente con la corrección de Mili.
+
+**TODOs dejados por el Developer:**
+- `gastos.ts:6` — registrado_por hardcodeado, reemplazar con login.
+- `gastos.ts:30` — el fetch a `/api/cotizacion` desde el server action usa `http://localhost:3000` como fallback si no hay `NEXT_PUBLIC_BASE_URL`. Funciona en dev, pero es un auto-llamado HTTP a la propia app — más prolijo sería factorizar la lógica de cotización a una función compartida en `lib/` que use tanto la ruta API como la server action, sin pasar por HTTP. Lo anoto para que QA lo evalúe como mejora, no es bloqueante.
+- `FormularioGasto.tsx:33` — el OCR no infiere `pagado_por`, queda siempre editable en el camino de comprobante.
+
+**Pendiente / próximo paso:**
+- Mostrar a Mili para aprobación → si aprueba, arrancar **Agente 4 (QA)**.
+
+---
+
 ## 2026-06-26 (cont. 2) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Correcciones de Mili sobre PO y Designer ya commiteados (antes de aprobar, en revisión):**
