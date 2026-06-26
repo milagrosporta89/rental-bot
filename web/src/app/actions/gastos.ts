@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toISO } from '@/lib/dates'
+import { obtenerCotizacion } from '@/lib/cotizacion'
 
 // TODO: confirmar con Mili — reemplazar cuando exista login
 const REGISTRADO_POR = 'Milagros'
@@ -24,18 +25,6 @@ export interface GastoDuplicado {
   categoria: string
   monto: number
   pagado_por: string
-}
-
-async function obtenerCotizacion(fechaISO: string): Promise<number> {
-  // TODO: confirmar con Mili — usar URL absoluta vía env var en vez de localhost si esto corre fuera de Next (e.g. en un cron)
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
-  try {
-    const res = await fetch(`${base}/api/cotizacion?fecha=${fechaISO}`, { cache: 'no-store' })
-    const data = await res.json() as { cotizacion: number }
-    return data.cotizacion ?? 0
-  } catch {
-    return 0
-  }
 }
 
 /** Equivalente a buscarGastoDuplicado del bot (src/services/sheets.ts), pero contra Supabase */

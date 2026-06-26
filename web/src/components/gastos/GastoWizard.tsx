@@ -170,7 +170,8 @@ export function GastoWizard() {
       categoria: form.categoria === 'otro' ? form.categoriaOtro.trim() : form.categoria,
       pagado_por: form.pagadoPor === 'otro' ? form.pagadoPorOtro.trim() : form.pagadoPor,
       nombre_destinatario: nn(form.nombre_destinatario),
-      banco_origen: nn(form.banco_origen),
+      // Igual que el bot (src/handlers/gastos.ts): el camino manual no tiene comprobante, se asume efectivo
+      banco_origen: camino === 'manual' ? 'Efectivo' : nn(form.banco_origen),
       nro_operacion: nn(form.nro_operacion),
       detalle: nn(form.detalle),
       comprobante_url: comprobanteUrl || null,
