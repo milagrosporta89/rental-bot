@@ -4,6 +4,16 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 14) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Consistencia entre features** → commit `e2b010e`: el mismo cambio de label-arriba-del-buscador que se hizo en `GastosTable.tsx` se replicó en `ReservasTable.tsx` (pedido explícito de Mili, "ya que estamos").
+
+⚠️ Nota: este commit toca `reservas/ReservasTable.tsx`, fuera del alcance estricto de la feature gastos, pero vive en esta misma rama (`feature/expense-ui`) porque surgió en el flujo de esta sesión. No afecta nada del pipeline de gastos — al mergear, este fix viaja junto.
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 13) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Editar y eliminar gastos** → commit `b8521dc` (código) + `187d130` (po-output.json).
