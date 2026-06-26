@@ -18,38 +18,35 @@
         "nombre_destinatario (solo visible si vino de OCR, readonly)",
         "banco_origen (solo visible si vino de OCR, readonly)",
         "nro_operacion (solo visible si vino de OCR, readonly)",
-        "categoria (siempre editable, obligatorio, no viene del OCR)",
-        "categoria_otro (editable, solo visible si categoria === 'otro')",
-        "pagado_por (siempre editable, obligatorio)",
+        "categoria (siempre editable, obligatorio, no viene del OCR, sin texto libre para 'otro')",
+        "pagado_por (siempre editable, obligatorio, con texto libre si es 'Otro')",
         "detalle (siempre editable, opcional)"
       ],
-      "user_action": "Una sola pantalla: el dropzone de comprobante está siempre arriba (opcional) y el resto del formulario siempre abajo. Si sube un comprobante, fecha/monto/moneda/destinatario/banco/nro_operación se autocompletan y quedan readonly; si no sube nada, completa todo a mano (banco_origen se asume 'Efectivo'). Click en 'Continuar'.",
-      "next_step": "2 si hay nro_operacion duplicado; 3 en cualquier otro caso"
+      "user_action": "Breadcrumb (Gastos > Nuevo gasto) + botón de volver a /gastos arriba de todo, y debajo el stepper de 3 pasos (Carga / Confirmación / Listo) marcando este como el paso 1 activo. El dropzone de comprobante está siempre arriba (opcional) y el resto del formulario siempre abajo. Si sube un comprobante, fecha/monto/moneda/destinatario/banco/nro_operación se autocompletan y quedan readonly; si no sube nada, completa todo a mano (banco_origen se asume 'Efectivo'). Si el comprobante resulta duplicado, aparece una advertencia inline en esta misma pantalla (no se navega a otra) y se bloquea 'Continuar' hasta que se quite el archivo. Click en 'Continuar'.",
+      "next_step": 2
     },
     {
       "step": 2,
-      "screen": "ValidacionDuplicado",
-      "fields_shown": ["nro_operacion (solo lectura, del comprobante recién subido)"],
-      "user_action": "Pantalla intermedia automática (sin input del usuario): el sistema chequea si nro_operacion ya existe en Supabase. Si existe, se bloquea el avance y se muestra el gasto duplicado encontrado (fecha, categoria, monto, pagado_por) con opción de quitar el comprobante y reintentar (vuelve al step 1, dropzone vacío, resto del formulario intacto).",
-      "next_step": "3 si no hay duplicado; vuelve a 1 si decide reintentar con otro archivo o pasar a carga manual"
-    },
-    {
-      "step": 3,
       "screen": "Confirmacion",
       "fields_shown": [
         "categoria",
         "monto",
-        "moneda",
-        "monto_ars o monto_usd (calculado, solo lectura — la cotizacion usada no se muestra, se resuelve en el servidor según la fecha del gasto)",
         "fecha",
         "pagado_por",
         "detalle",
         "nombre_destinatario (solo si vino de comprobante)",
         "banco_origen (solo si vino de comprobante)",
         "nro_operacion (solo si vino de comprobante)",
-        "comprobante_url (thumbnail/link, solo si vino de comprobante)"
+        "comprobante_url (link 'Ver archivo', solo si vino de comprobante)"
       ],
-      "user_action": "Revisa el resumen completo. Puede volver atrás a editar (vuelve al step 1, con el comprobante y los datos tal como estaban) o confirmar. Al confirmar se persiste en Supabase tabla gastos.",
+      "user_action": "Stepper en paso 2 activo (paso 1 con check). Tarjeta con el mismo lenguaje visual del comprobante de pago de ingresos (web/src/lib/recibo.ts): filas de label/valor alineadas en la misma línea, separadas por una línea fina — pero sin logo y sin generar ninguna imagen, vive directo en la pantalla como HTML. Revisa el resumen. Puede volver atrás a editar (vuelve al step 1, con el comprobante y los datos tal como estaban) o confirmar. Al confirmar se persiste en Supabase tabla gastos.",
+      "next_step": 3
+    },
+    {
+      "step": 3,
+      "screen": "Exito",
+      "fields_shown": [],
+      "user_action": "Stepper en paso 3 activo (pasos 1 y 2 con check). Ícono de check grande, mensaje de éxito, y un botón 'Continuar' — recién al presionarlo se redirige a la tabla de gastos (/gastos). No hay redirect automático ni toast: el paso de éxito es parte del flujo, no una notificación aparte.",
       "next_step": null
     }
   ],
@@ -62,9 +59,15 @@
     },
     {
       "component": "GastoWizard",
-      "children": ["ComprobanteDropzone", "DuplicadoBloqueo", "FormularioGasto", "ConfirmacionGasto"],
+      "children": ["Stepper", "ComprobanteDropzone", "DuplicadoBloqueo", "FormularioGasto", "ConfirmacionGasto", "PantallaExito"],
       "props": [],
       "states": ["idle", "loading", "error", "success"]
+    },
+    {
+      "component": "Stepper",
+      "children": [],
+      "props": ["actual"],
+      "states": ["idle"]
     },
     {
       "component": "ComprobanteDropzone",
@@ -75,8 +78,8 @@
     {
       "component": "DuplicadoBloqueo",
       "children": [],
-      "props": ["gastoExistente", "onReintentar"],
-      "states": ["idle", "error"]
+      "props": ["gastoExistente"],
+      "states": ["idle"]
     },
     {
       "component": "FormularioGasto",
@@ -87,7 +90,7 @@
     {
       "component": "CategoriaSelect",
       "children": [],
-      "props": ["value", "otroValue", "onChange", "onChangeOtro"],
+      "props": ["value", "onChange"],
       "states": ["idle", "error"]
     },
     {
@@ -101,6 +104,12 @@
       "children": [],
       "props": ["resumen", "onVolver", "onConfirmar", "loading"],
       "states": ["idle", "loading", "error", "success"]
+    },
+    {
+      "component": "PantallaExito",
+      "children": [],
+      "props": ["onContinuar"],
+      "states": ["idle"]
     }
   ],
   "validations_per_step": {
@@ -108,21 +117,21 @@
       "El archivo del dropzone, si se sube, debe ser JPG, PNG, WEBP o PDF",
       "Mientras uploadState es 'uploading' no se puede subir otro archivo en paralelo",
       "Si uploadState es 'error', se informa el error y se permite reintentar con otro archivo sin perder el resto del formulario",
-      "categoria es obligatoria; si es 'otro' se exige categoria_otro no vacío",
+      "Si hay un nro_operacion duplicado detectado, se bloquea 'Continuar' con una advertencia inline hasta que se quite el comprobante",
+      "categoria es obligatoria. NO se exige (ni se pide) texto libre si es 'otro' — se guarda el valor 'otro' tal cual",
       "monto debe ser numérico y mayor a 0",
       "moneda solo puede ser ARS o USD",
       "fecha es obligatoria, formato día/mes/año, no puede ser futura",
-      "pagado_por es obligatorio; si es 'Otro' se exige texto libre no vacío"
+      "pagado_por es obligatorio; si es 'Otro' se exige texto libre no vacío (a diferencia de categoria, acá sí aplica texto libre)"
     ],
     "step_2": [
-      "Si nro_operacion del comprobante ya existe en la tabla gastos, se bloquea el avance al step 3 y se muestra el detalle del gasto duplicado (fecha, categoria, monto, pagado_por)",
-      "Esta validación corre antes de la pantalla de confirmación, nunca después"
+      "No se permite confirmar si algún campo obligatorio quedó vacío (se vuelve al paso 1 a corregir)",
+      "El gasto no se inserta en Supabase hasta que el usuario presiona 'Confirmar gasto'",
+      "registrado_por no se pide ni se muestra en esta pantalla; se asigna como placeholder al momento de persistir"
     ],
     "step_3": [
-      "No se permite confirmar si algún campo obligatorio quedó vacío (se vuelve al paso anterior a corregir)",
-      "El gasto no se inserta en Supabase hasta que el usuario presiona 'Confirmar'",
-      "registrado_por no se pide ni se muestra en esta pantalla; se asigna como placeholder al momento de persistir"
+      "No avanza a la tabla hasta que el usuario presiona 'Continuar' — sin redirect automático"
     ]
   },
-  "_revision_nota": "Rediseño aprobado por Mili: el toggle 'Carga manual / Subir comprobante' (steps 1/2a/2b/4a originales) complejizaba innecesariamente el flujo. Se reemplazó por una sola pantalla con el dropzone siempre visible arriba (opcional) y el resto del formulario siempre abajo — subir o no un comprobante decide solo si los campos se autocompletan, no cambia de pantalla ni de componente. Se eliminó SeleccionCaminoToggle.tsx del component_tree y del código."
+  "_revision_nota": "Cuarta revisión, aprobada por Mili. Cambios sobre la revisión anterior: (1) la validación de duplicado pasa de ser un step aparte a una advertencia inline dentro del step 1 — navegar a otra pantalla para avisar un duplicado era un paso de más; (2) se agrega Stepper (3 pasos: Carga/Confirmación/Listo) + breadcrumb + botón volver; (3) el feedback de éxito post-confirmación deja de ser un toast con redirect automático y pasa a ser un step propio del wizard (PantallaExito) con botón 'Continuar' explícito; (4) ConfirmacionGasto se rediseña visualmente como el comprobante de pago de ingresos (filas label/valor alineadas) pero sin imagen ni logo, vive como HTML en la pantalla; (5) categoria 'otro' pierde el texto libre por motivos de normalización de datos (ver business_rules en po-output.json) — pagado_por SÍ mantiene texto libre para 'Otro' porque ahí se trata de nombres de personas, no de una taxonomía fija; (6) los dropdowns de categoria y pagado_por limitan su altura visible (~5-6 opciones) en vez de desplegarse completos."
 }

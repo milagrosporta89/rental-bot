@@ -8,7 +8,7 @@
       "acceptance_criteria": [
         "El formulario pide: categoría, monto, moneda, fecha, pagado_por y detalle (opcional), igual que el flujo manual del bot",
         "Los campos nombre_destinatario, banco_origen y nro_operacion NO se piden en este camino (el bot manual nunca los captura)",
-        "Si la categoría elegida es 'otro', se muestra un campo de texto libre para nombrar la categoría",
+        "Si la categoría elegida es 'otro', NO se pide texto libre adicional (ver business_rules) — se guarda literalmente 'otro'",
         "El monto debe ser numérico y mayor a 0; si no, se muestra error y no se permite continuar",
         "La fecha no puede ser futura; se valida formato día/mes/año",
         "La moneda solo puede ser ARS o USD",
@@ -52,7 +52,8 @@
       "acceptance_criteria": [
         "La confirmación es obligatoria en ambos caminos (manual y comprobante) — a diferencia del bot, que hoy no la muestra en el camino de comprobante",
         "La pantalla de confirmación muestra todos los campos editables y el usuario puede volver atrás a corregirlos antes de confirmar",
-        "El gasto no se inserta en Supabase hasta que el usuario presiona confirmar"
+        "El gasto no se inserta en Supabase hasta que el usuario presiona confirmar",
+        "Tras confirmar, hay un paso explícito de éxito (ícono de check + mensaje) dentro del mismo flujo antes de volver a la tabla — no alcanza con un toast o un simple redirect, el usuario necesita una señal clara de que se guardó"
       ]
     }
   ],
@@ -89,7 +90,7 @@
       "name": "categoria",
       "type": "select",
       "required": true,
-      "validation": "una de las 12 categorías de CategoriaGasto (limpieza, jardinero, lavanderia, expensas, luz, gas, mantenimiento, internet, marketing, impuestos, comision, otro); si es 'otro' requiere texto libre adicional",
+      "validation": "una de las 12 categorías de CategoriaGasto (limpieza, jardinero, lavanderia, expensas, luz, gas, mantenimiento, internet, marketing, impuestos, comision, otro); sin texto libre para 'otro' — ver business_rules",
       "source_in_bot": "paso 'seleccionar_categoria' (botones), en ambos caminos del bot"
     },
     {
@@ -179,8 +180,9 @@
     "registrado_por queda hardcodeado como placeholder (TODO) hasta que se implemente login; no se implementa autenticación real en esta iteración.",
     "El bot reemplaza el flujo de 'corrección por texto libre' de comprobantes mal leídos (escribir 'fecha 15/06/2026' por chat) por edición directa de los campos en el formulario web, ya que los campos quedan expuestos en pantalla y no hace falta un mini-lenguaje de comandos de texto.",
     "Las categorías disponibles en la web son las 12 de CategoriaGasto, incluyendo jardinero y comision, que el bot no mostraba en sus botones pero sí existen en el dominio.",
-    "Si se elige la categoría 'otro', se debe pedir un texto libre adicional para nombrar la categoría, igual que en el bot.",
-    "cotizacion no es un campo del formulario en ningún camino (ni manual ni comprobante): se calcula automáticamente en el servidor al guardar, usando la cotización de la fecha del gasto (no la fecha de registro). Corrección de Mili sobre el diseño inicial, que la mostraba como editable — el dato es para análisis posterior, no para decidir al momento de la carga."
+    "cotizacion no es un campo del formulario en ningún camino (ni manual ni comprobante): se calcula automáticamente en el servidor al guardar, usando la cotización de la fecha del gasto (no la fecha de registro). Corrección de Mili sobre el diseño inicial, que la mostraba como editable — el dato es para análisis posterior, no para decidir al momento de la carga.",
+    "La categoría 'otro' NO tiene texto libre — a diferencia del bot. Permitir nombrar una categoría nueva libremente rompe la normalización necesaria para análisis posterior (los nombres divergirían: 'seguro', 'Seguro', 'seguros del auto', etc. nunca se agruparían). Si se necesita una categoría nueva, se agrega al enum CATEGORIA_GASTO_LABEL — es una tarea de desarrollo, no un campo de formulario. Corrección de Mili sobre el diseño inicial.",
+    "La validación de duplicado (US-03) se muestra como advertencia inline en la misma pantalla de carga, nunca navegando a otra pantalla — corrección de Mili: cambiar de pantalla para avisar un duplicado es un paso de más."
   ],
   "out_of_scope": [
     "Sincronización o escritura en Google Sheets: la web es Supabase-only.",
