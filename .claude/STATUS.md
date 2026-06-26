@@ -4,6 +4,21 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 15) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Tres ajustes de UX** → commit `c6e4387`:
+- En modo edición el CTA dice "Guardar cambios" (título de la tarjeta de confirmación + botón), no "Confirmar gasto". `FormularioGasto` suma un botón "Volver" (variant outline) junto a "Continuar" cuando está editando.
+- Campo Monto con prefijo dinámico `USD`/`$` según la moneda, mismo patrón que `pago/page.tsx`.
+- Tabla: se reemplazó el menú de tres puntos por dos íconos directos (lápiz/tacho), sin dropdown. Columna "Acciones" sin texto visible (sr-only).
+
+Verificado con Playwright: prefijo cambia a "USD" al elegir dólares, pantalla de edición muestra "Volver" + datos precargados, confirmación dice "Guardar cambios" en título y botón.
+
+**⚠️ Observación, no accionada:** durante esta verificación noté que la fila original "$5.080 Lavandería Paola" (la primera que confirmaste como real al principio de esta sesión) ya no está en la tabla. Ninguno de mis scripts de esta ronda ni de rondas anteriores la tocó — es probable que la hayas editado o eliminado vos misma usando el botón que justo terminamos de construir. Lo dejo anotado por transparencia, no asumí nada y no toqué la base por este motivo.
+
+**Pendiente / próximo paso:** confirmar si la fila de $5.080 faltante es esperada. Decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 14) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Consistencia entre features** → commit `e2b010e`: el mismo cambio de label-arriba-del-buscador que se hizo en `GastosTable.tsx` se replicó en `ReservasTable.tsx` (pedido explícito de Mili, "ya que estamos").
