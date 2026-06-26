@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toISO } from '@/lib/dates'
 import { obtenerCotizacion } from '@/lib/cotizacion'
+import type { Gasto } from '@/lib/types'
 
 // TODO: confirmar con Mili — reemplazar cuando exista login
 const REGISTRADO_POR = 'Milagros'
@@ -79,5 +80,41 @@ export async function crearGasto(payload: GastoPayload): Promise<void> {
     timestamp,
   })
   if (error?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)
+  if (error) throw new Error(error.message)
+}
+
+export async function obtenerGasto(id: string): Promise<Gasto | null> {
+  const supabase = createAdminClient()
+  const { data } = await supabase.from('gastos').select('*').eq('id', id).single()
+  return data as Gasto | null
+}
+
+export async function editarGasto(id: string, payload: GastoPayload): Promise<void> {
+  if (!payload.monto || payload.monto <= 0) {
+    throw new Error('El monto debe ser mayor a 0.')
+  }
+  const fechaISO = toISO(payload.fecha)
+  if (fechaISO > new Date().toISOString().slice(0, 10)) {
+    throw new Error('La fecha del gasto no puede ser futura.')
+  }
+
+  // Recalcula cotizacion/monto_ars/monto_usd con la fecha (posiblemente nueva) del gasto
+  const cotizacion = await obtenerCotizacion(fechaISO)
+  const monto_ars = payload.moneda === 'USD' ? (cotizacion > 0 ? +(payload.monto * cotizacion).toFixed(2) : null) : payload.monto
+  const monto_usd = payload.moneda === 'ARS' ? (cotizacion > 0 ? +(payload.monto / cotizacion).toFixed(2) : null) : payload.monto
+
+  const supabase = createAdminClient()
+  const { error } = await supabase.from('gastos').update({
+    ...payload,
+    cotizacion,
+    monto_ars,
+    monto_usd,
+  }).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function eliminarGasto(id: string): Promise<void> {
+  const supabase = createAdminClient()
+  const { error } = await supabase.from('gastos').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }

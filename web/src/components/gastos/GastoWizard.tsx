@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
-import { buscarGastoDuplicado } from '@/app/actions/gastos'
+import { buscarGastoDuplicado, obtenerGasto } from '@/app/actions/gastos'
 import type { GastoDuplicado, GastoPayload } from '@/app/actions/gastos'
 import { useGastoSubmit } from '@/hooks/useGastoSubmit'
 import { Stepper } from './Stepper'
@@ -37,8 +37,11 @@ function toTitleCase(s: string) {
 
 export function GastoWizard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get('edit')
   const { submit, loading, error: submitError } = useGastoSubmit()
 
+  const [cargandoEdicion, setCargandoEdicion] = useState(!!editId)
   const [paso, setPaso] = useState<Paso>('carga')
   const [form, setForm] = useState<GastoFormState>(FORM_INICIAL)
   const [fromComprobante, setFromComprobante] = useState(false)
@@ -47,12 +50,37 @@ export function GastoWizard() {
   const [duplicado, setDuplicado] = useState<GastoDuplicado | null>(null)
   const [formError, setFormError] = useState('')
 
+  // Modo edición: precarga los datos del gasto existente. Sin dropzone — editar es para
+  // corregir un dato, no para reemplazar el comprobante original.
+  useEffect(() => {
+    if (!editId) return
+    obtenerGasto(editId).then(g => {
+      if (!g) { setCargandoEdicion(false); return }
+      const tieneComprobante = Boolean(g.nro_operacion || g.comprobante_url)
+      setFromComprobante(tieneComprobante)
+      setComprobanteUrl(g.comprobante_url ?? '')
+      setForm({
+        categoria: g.categoria,
+        monto: String(g.monto),
+        moneda: (g.moneda === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
+        fecha: toISO(g.fecha),
+        pagadoPor: g.pagado_por,
+        pagadoPorOtro: '',
+        nombre_destinatario: g.nombre_destinatario ?? '',
+        banco_origen: g.banco_origen ?? '',
+        nro_operacion: g.nro_operacion ?? '',
+        detalle: g.detalle ?? '',
+      })
+      setCargandoEdicion(false)
+    })
+  }, [editId])
+
   function onChange(k: keyof GastoFormState, v: string) {
     setForm(prev => ({ ...prev, [k]: v }))
     setFormError('')
   }
 
-  // ── Comprobante (opcional) ───────────────────────────────────────────
+  // ── Comprobante (opcional, solo en alta nueva) ──────────────────────
   async function handleFile(file: File) {
     setUploadState('uploading')
     setDuplicado(null)
@@ -107,7 +135,7 @@ export function GastoWizard() {
     }))
   }
 
-  // readonly para campos que vinieron de un comprobante recién subido (mismo criterio que pago/page.tsx)
+  // readonly para campos que vinieron de un comprobante (recién subido, o ya existente al editar)
   function ro(field: keyof GastoFormState): boolean {
     if (!fromComprobante) return false
     const editables: (keyof GastoFormState)[] = ['categoria', 'pagadoPor', 'pagadoPorOtro', 'detalle', 'fecha']
@@ -173,7 +201,7 @@ export function GastoWizard() {
   }
 
   async function confirmar() {
-    const ok = await submit(buildPayload())
+    const ok = await submit(buildPayload(), editId ?? undefined)
     if (ok) setPaso('exito')
   }
 
@@ -190,32 +218,42 @@ export function GastoWizard() {
     comprobante_url: comprobanteUrl,
   }
 
+  if (cargandoEdicion) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-slate-400 gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" /> Cargando…
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center gap-1.5 text-xs text-slate-400">
         <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
         <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600 font-medium">Nuevo gasto</span>
+        <span className="text-slate-600 font-medium">{editId ? 'Editar gasto' : 'Nuevo gasto'}</span>
       </div>
 
       <Stepper actual={PASO_NUM[paso]} />
 
       {paso === 'carga' && (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <ComprobanteDropzone
-              uploadState={uploadState}
-              comprobanteUrl={comprobanteUrl}
-              onFile={handleFile}
-              onRemove={removeComprobante}
-            />
-            {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
-            {!fromComprobante && !duplicado && (
-              <p className="text-[11px] text-slate-400">
-                Si subís el comprobante, completamos los datos automáticamente.
-              </p>
-            )}
-          </div>
+          {!editId && (
+            <div className="space-y-2">
+              <ComprobanteDropzone
+                uploadState={uploadState}
+                comprobanteUrl={comprobanteUrl}
+                onFile={handleFile}
+                onRemove={removeComprobante}
+              />
+              {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
+              {!fromComprobante && !duplicado && (
+                <p className="text-[11px] text-slate-400">
+                  Si subís el comprobante, completamos los datos automáticamente.
+                </p>
+              )}
+            </div>
+          )}
 
           <FormularioGasto
             form={form}
@@ -239,7 +277,10 @@ export function GastoWizard() {
       )}
 
       {paso === 'exito' && (
-        <PantallaExito onContinuar={() => router.push('/gastos')} />
+        <PantallaExito
+          mensaje={editId ? 'Gasto actualizado correctamente' : 'Gasto registrado correctamente'}
+          onContinuar={() => router.push('/gastos')}
+        />
       )}
     </div>
   )

@@ -2,12 +2,16 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Gasto, CategoriaGasto, CATEGORIA_GASTO_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Search, Plus, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Search, Plus, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
 import { toISO } from '@/lib/dates'
+import { eliminarGasto } from '@/app/actions/gastos'
 import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzadosGastos } from './FiltrosModal'
 
 const supabase = createClient()
@@ -37,6 +41,7 @@ function matchBusqueda(g: Gasto, q: string): boolean {
 }
 
 export function GastosTable() {
+  const router = useRouter()
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [q, setQ] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('fecha')
@@ -45,6 +50,9 @@ export function GastosTable() {
   const [pageSize, setPageSize] = useState(18)
   const [filtrosModalOpen, setFiltrosModalOpen] = useState(false)
   const [filtrosAvanzados, setFiltrosAvanzados] = useState<FiltrosAvanzadosGastos>(filtrosAvanzadosVacios())
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/gastos-data')
@@ -95,7 +103,18 @@ export function GastosTable() {
     }
   }
 
-  const COLS = 6
+  async function handleEliminar(id: string) {
+    setEliminando(true)
+    try {
+      await eliminarGasto(id)
+    } finally {
+      setEliminando(false)
+      setConfirmDeleteId(null)
+    }
+  }
+
+  const gastoAEliminar = gastos.find(g => g.id === confirmDeleteId)
+  const COLS = 7
 
   return (
     <div className="h-full overflow-y-auto px-8 py-4 pb-8">
@@ -175,6 +194,7 @@ export function GastosTable() {
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Pagado por</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Detalle</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Método de pago</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,6 +214,45 @@ export function GastosTable() {
                     <td className="px-4 py-2.5 text-slate-600 text-xs">{g.pagado_por}</td>
                     <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{g.detalle || '—'}</td>
                     <td className="px-4 py-2.5 text-slate-600 text-xs">{metodoPago(g)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}
+                          className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
+                          aria-label="Más acciones"
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === g.id}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+
+                        {openMenuId === g.id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                            <div
+                              role="menu"
+                              className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50"
+                            >
+                              <button
+                                role="menuitem"
+                                onClick={() => { setOpenMenuId(null); router.push(`/gastos/nuevo?edit=${g.id}`) }}
+                                className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
+                              >
+                                Editar
+                              </button>
+                              <div className="my-1 border-t border-slate-100" />
+                              <button
+                                role="menuitem"
+                                onClick={() => { setOpenMenuId(null); setConfirmDeleteId(g.id) }}
+                                className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -253,6 +312,37 @@ export function GastosTable() {
         value={filtrosAvanzados}
         onChange={setFiltrosAvanzados}
       />
+
+      <Dialog open={confirmDeleteId !== null} onOpenChange={open => !open && setConfirmDeleteId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar gasto</DialogTitle>
+            <DialogDescription>
+              {gastoAEliminar && (
+                <>
+                  {categoriaLabel(gastoAEliminar.categoria)} · {gastoAEliminar.moneda === 'USD' ? 'USD' : '$'} {gastoAEliminar.monto.toLocaleString('es-AR')}
+                  {' · '}{gastoAEliminar.pagado_por}
+                  <br />
+                </>
+              )}
+              Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={eliminando}
+              onClick={() => confirmDeleteId && handleEliminar(confirmDeleteId)}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
