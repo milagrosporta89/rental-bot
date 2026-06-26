@@ -1,0 +1,192 @@
+{
+  "user_stories": [
+    {
+      "id": "US-01",
+      "as_a": "administrador",
+      "i_want": "cargar un gasto manualmente completando un formulario paso a paso",
+      "so_that": "pueda registrar gastos que no tienen comprobante digital (ej: pago en efectivo) directamente desde la web",
+      "acceptance_criteria": [
+        "El formulario pide: categoría, monto, moneda, fecha, pagado_por y detalle (opcional), igual que el flujo manual del bot",
+        "Los campos nombre_destinatario, banco_origen y nro_operacion NO se piden en este camino (el bot manual nunca los captura)",
+        "Si la categoría elegida es 'otro', se muestra un campo de texto libre para nombrar la categoría",
+        "El monto debe ser numérico y mayor a 0; si no, se muestra error y no se permite continuar",
+        "La fecha no puede ser futura; se valida formato día/mes/año",
+        "La moneda solo puede ser ARS o USD",
+        "pagado_por se elige entre los 5 titulares fijos o 'Otro' con texto libre",
+        "Antes de guardar se muestra una pantalla de confirmación con el resumen de todos los datos ingresados",
+        "El gasto solo se persiste en Supabase (tabla gastos) después de que el usuario confirma",
+        "Tras guardar, monto_ars o monto_usd se calculan automáticamente según la moneda y la cotización"
+      ]
+    },
+    {
+      "id": "US-02",
+      "as_a": "administrador",
+      "i_want": "cargar un gasto subiendo una foto o PDF del comprobante y que el sistema extraiga los datos automáticamente vía OCR",
+      "so_that": "no tenga que tipear manualmente los datos de transferencias o pagos que ya tienen comprobante digital",
+      "acceptance_criteria": [
+        "Existe un dropzone con estados idle/uploading/done/error, replicando el patrón visual de web/src/app/reservas/[id]/pago/page.tsx",
+        "Al subir el archivo se llama a un endpoint que devuelve { datos, url } y autocompleta los campos del formulario",
+        "Los campos autocompletados por OCR (fecha, monto, moneda, nombre_destinatario, banco_origen, nro_operacion) quedan readonly tras la extracción",
+        "cotizacion, detalle, fecha y pagado_por permanecen editables incluso después del autocompletado, igual que en el flujo de ingresos existente",
+        "Si el OCR no puede leer el comprobante, se informa el error y se permite reintentar con otro archivo",
+        "Antes de guardar se pide seleccionar la categoría del gasto (no viene del OCR) y, si corresponde, pagado_por (si no se pudo inferir el titular)",
+        "Se muestra la misma pantalla de confirmación obligatoria que en el camino manual antes de persistir el gasto"
+      ]
+    },
+    {
+      "id": "US-03",
+      "as_a": "administrador",
+      "i_want": "que el sistema impida guardar un gasto por comprobante si el número de operación ya fue registrado antes",
+      "so_that": "no se dupliquen gastos por cargar el mismo comprobante dos veces, preservando la integridad de los datos financieros",
+      "acceptance_criteria": [
+        "Al subir un comprobante con un nro_operacion que ya existe en la tabla gastos, se bloquea el alta y se muestra el detalle del gasto duplicado encontrado (fecha, categoría, monto, pagado_por)",
+        "Esta validación corre antes de llegar a la pantalla de confirmación",
+        "El camino manual no aplica esta validación porque no captura nro_operacion"
+      ]
+    },
+    {
+      "id": "US-04",
+      "as_a": "administrador",
+      "i_want": "ver una pantalla de confirmación con el resumen completo del gasto antes de que se guarde, sin importar si vino de carga manual o de comprobante",
+      "so_that": "pueda revisar y corregir cualquier dato antes de que quede persistido en Supabase",
+      "acceptance_criteria": [
+        "La confirmación es obligatoria en ambos caminos (manual y comprobante) — a diferencia del bot, que hoy no la muestra en el camino de comprobante",
+        "La pantalla de confirmación muestra todos los campos editables y el usuario puede volver atrás a corregirlos antes de confirmar",
+        "El gasto no se inserta en Supabase hasta que el usuario presiona confirmar"
+      ]
+    }
+  ],
+  "form_fields": [
+    {
+      "name": "id",
+      "type": "text",
+      "required": false,
+      "validation": "auto-generado, no editable por el usuario",
+      "source_in_bot": "N/A - generado por el sistema (generarId)"
+    },
+    {
+      "name": "fecha",
+      "type": "date",
+      "required": true,
+      "validation": "formato día/mes/año; no puede ser una fecha futura",
+      "source_in_bot": "paso 'gasto_fecha' en flujo manual; autocompletado por OCR en flujo comprobante"
+    },
+    {
+      "name": "monto",
+      "type": "number",
+      "required": true,
+      "validation": "numérico, mayor a 0 (no negativo, no cero)",
+      "source_in_bot": "paso 'gasto_monto' en flujo manual; autocompletado por OCR en flujo comprobante"
+    },
+    {
+      "name": "moneda",
+      "type": "select",
+      "required": true,
+      "validation": "ARS o USD",
+      "source_in_bot": "paso 'gasto_moneda' (botones) en flujo manual; autocompletado por OCR en flujo comprobante"
+    },
+    {
+      "name": "categoria",
+      "type": "select",
+      "required": true,
+      "validation": "una de las 12 categorías de CategoriaGasto (limpieza, jardinero, lavanderia, expensas, luz, gas, mantenimiento, internet, marketing, impuestos, comision, otro); si es 'otro' requiere texto libre adicional",
+      "source_in_bot": "paso 'seleccionar_categoria' (botones), en ambos caminos del bot"
+    },
+    {
+      "name": "pagado_por",
+      "type": "select",
+      "required": true,
+      "validation": "uno de los 5 titulares fijos (Francisco, Milagros, Inés, Fernando, Paola) o texto libre si se elige 'Otro'",
+      "source_in_bot": "paso 'seleccionar_quien' (botones) en ambos caminos del bot"
+    },
+    {
+      "name": "nombre_destinatario",
+      "type": "text",
+      "required": false,
+      "validation": "solo se completa cuando hay comprobante; readonly tras OCR",
+      "source_in_bot": "N/A - solo OCR"
+    },
+    {
+      "name": "banco_origen",
+      "type": "text",
+      "required": false,
+      "validation": "solo se completa cuando hay comprobante; readonly tras OCR. En flujo manual el bot lo guarda como 'Efectivo' por defecto",
+      "source_in_bot": "N/A - solo OCR"
+    },
+    {
+      "name": "nro_operacion",
+      "type": "text",
+      "required": false,
+      "validation": "solo se completa cuando hay comprobante; readonly tras OCR; se usa para detectar duplicados antes de guardar",
+      "source_in_bot": "N/A - solo OCR"
+    },
+    {
+      "name": "detalle",
+      "type": "text",
+      "required": false,
+      "validation": "texto libre opcional",
+      "source_in_bot": "paso 'pedir_descripcion' en ambos caminos del bot"
+    },
+    {
+      "name": "registrado_por",
+      "type": "text",
+      "required": true,
+      "validation": "TODO/placeholder hardcodeado hasta que exista login; no se implementa auth en esta iteración",
+      "source_in_bot": "N/A - nuevo en web (en el bot se infiere automáticamente del remitente de WhatsApp)"
+    },
+    {
+      "name": "comprobante_url",
+      "type": "file",
+      "required": false,
+      "validation": "auto-generado al subir el archivo a storage; no editable manualmente. Solo presente en el camino de comprobante",
+      "source_in_bot": "N/A - solo OCR (subida del archivo de comprobante)"
+    },
+    {
+      "name": "timestamp",
+      "type": "text",
+      "required": false,
+      "validation": "auto-generado, no editable por el usuario",
+      "source_in_bot": "N/A - generado por el sistema al momento de guardar"
+    },
+    {
+      "name": "cotizacion",
+      "type": "number",
+      "required": true,
+      "validation": "numérico mayor a 0; se puede prellenar automáticamente desde /api/cotizacion pero queda editable",
+      "source_in_bot": "obtenida automáticamente vía obtenerCotizacion(fecha) en ambos caminos del bot; en la web es editable"
+    },
+    {
+      "name": "monto_ars",
+      "type": "number",
+      "required": false,
+      "validation": "auto-generado, no editable por el usuario; se calcula como monto * cotizacion cuando moneda es USD",
+      "source_in_bot": "N/A - calculado por el sistema"
+    },
+    {
+      "name": "monto_usd",
+      "type": "number",
+      "required": false,
+      "validation": "auto-generado, no editable por el usuario; se calcula como monto / cotizacion cuando moneda es ARS y cotizacion > 0",
+      "source_in_bot": "N/A - calculado por el sistema"
+    }
+  ],
+  "business_rules": [
+    "La persistencia es exclusivamente en Supabase, tabla gastos. Se ignora completamente Google Sheets en la web, aunque el bot hoy siga escribiendo ahí.",
+    "El flujo manual nunca captura nombre_destinatario, banco_origen ni nro_operacion; estos tres campos solo se completan vía OCR de comprobante.",
+    "Si moneda es USD, monto_ars se calcula como monto * cotizacion. Si moneda es ARS, monto_usd se calcula como monto / cotizacion (solo cuando cotizacion > 0).",
+    "Antes de guardar un gasto proveniente de comprobante, se debe verificar que el nro_operacion no exista ya en la tabla gastos; si existe, se bloquea el alta y se informa el duplicado encontrado. Esta regla se mantiene como criterio de aceptación aunque el endpoint equivalente de ingresos en la web hoy no la implemente — es una mejora intencional para gastos.",
+    "La pantalla de confirmación es obligatoria siempre, sin excepción, tanto para carga manual como para carga por comprobante. Esto difiere del bot actual, que no muestra confirmación en el camino de comprobante; se unifica el comportamiento en la web por pedido explícito de Mili.",
+    "registrado_por queda hardcodeado como placeholder (TODO) hasta que se implemente login; no se implementa autenticación real en esta iteración.",
+    "El bot reemplaza el flujo de 'corrección por texto libre' de comprobantes mal leídos (escribir 'fecha 15/06/2026' por chat) por edición directa de los campos en el formulario web, ya que los campos quedan expuestos en pantalla y no hace falta un mini-lenguaje de comandos de texto.",
+    "Las categorías disponibles en la web son las 12 de CategoriaGasto, incluyendo jardinero y comision, que el bot no mostraba en sus botones pero sí existen en el dominio.",
+    "Si se elige la categoría 'otro', se debe pedir un texto libre adicional para nombrar la categoría, igual que en el bot."
+  ],
+  "out_of_scope": [
+    "Sincronización o escritura en Google Sheets: la web es Supabase-only.",
+    "Login y autenticación real: solo se usa un valor hardcodeado/placeholder para registrado_por en esta iteración.",
+    "El flujo de corrección de comprobantes por texto libre (escribir 'campo valor' por chat) que tiene el bot: se reemplaza por edición directa de los campos del formulario, que es más simple y no requiere parsear comandos de texto.",
+    "Notificaciones o mensajes de WhatsApp tras guardar el gasto (el bot envía un mensaje de confirmación al usuario; la web no necesita replicar esto, solo mostrar feedback en pantalla).",
+    "Edición o borrado de gastos ya guardados: esta iteración cubre únicamente el alta de nuevos gastos.",
+    "Reportes, totales o dashboards de gastos: quedan fuera de esta iteración, que se limita al formulario de carga."
+  ]
+}
