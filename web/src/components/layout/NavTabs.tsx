@@ -37,7 +37,9 @@ export function NavTabs() {
         })}
 
         <a
-          href="#"
+          href="https://temporalias.lovable.app/"
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors duration-150"
         >
           Dashboard <ArrowUpRight className="w-3.5 h-3.5" />
