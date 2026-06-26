@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { buscarGastoDuplicado } from '@/app/actions/gastos'
 import type { GastoDuplicado, GastoPayload } from '@/app/actions/gastos'
@@ -192,19 +192,10 @@ export function GastoWizard() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => router.push('/gastos')}
-          aria-label="Volver a gastos"
-          className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4" />
-        </button>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
-          <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-600 font-medium">Nuevo gasto</span>
-        </div>
+      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
+        <ChevronRight className="w-3 h-3" />
+        <span className="text-slate-600 font-medium">Nuevo gasto</span>
       </div>
 
       <Stepper actual={PASO_NUM[paso]} />
@@ -220,8 +211,8 @@ export function GastoWizard() {
             />
             {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
             {!fromComprobante && !duplicado && (
-              <p className="text-xs text-slate-400">
-                Si subís el comprobante completamos fecha, monto, moneda y los demás datos automáticamente. Si no, completá el formulario a mano.
+              <p className="text-[11px] text-slate-400">
+                Si subís el comprobante, completamos los datos automáticamente.
               </p>
             )}
           </div>

@@ -80,7 +80,7 @@ function Fila({ label, valor, ultima }: { label: string; valor: ReactNode; ultim
   return (
     <div className={`flex justify-between items-baseline gap-3 py-2.5 ${ultima ? '' : 'border-b border-slate-50'}`}>
       <span className="text-sm text-slate-500">{label}</span>
-      <span className="text-base font-semibold text-slate-800 text-right">{valor}</span>
+      <span className="text-sm font-semibold text-slate-800 text-right">{valor}</span>
     </div>
   )
 }
