@@ -4,6 +4,20 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 8) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Mili: el toggle manual/comprobante complejizaba innecesariamente el flujo.** Se simplificó a una sola pantalla → commit `c0e58a8`:
+- Dropzone de comprobante siempre visible arriba (opcional), resto del formulario siempre visible abajo.
+- Subir un archivo solo decide si los campos se autocompletan (readonly) o se llenan a mano. Sin comprobante, `banco_origen` se asume `'Efectivo'`.
+- Se eliminó `SeleccionCaminoToggle.tsx` (sin uso) y el tipo `Camino` por completo.
+- `designer-output.json` actualizado para reflejar el flujo real (steps 1/2a/2b/4a originales colapsados en un solo step 1), con `_revision_nota` explicando el cambio respecto del diseño aprobado originalmente.
+
+**Aviso de proceso, atendido:** Mili notó que `viewer.html` no reflejaba los últimos cambios — correcto, no lo regeneré después de los commits de la tabla de gastos ni de las correcciones de UX anteriores. Es un generador on-demand, no un dashboard en vivo; no se actualiza solo. Reforzar: correr `node scripts/pipeline-viewer.mjs` después de CUALQUIER commit relevante, no solo en las 4 fases formales del pipeline — quedó dicho en `run-pipeline.md` pero no se vino cumpliendo en las rondas de fixes directos.
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`. Confirmar con Mili si quiere que el visor se regenere automáticamente (ej. con `node --watch`) en vez de manualmente.
+
+---
+
 ## 2026-06-26 (cont. 7) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Feedback de uso real de Mili sobre el wizard + tabla, atendido en commit `8c4ba86`:**
