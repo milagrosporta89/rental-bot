@@ -40,6 +40,39 @@ export interface Bloqueo {
   timestamp: string
 }
 
+export type CategoriaGasto =
+  | 'limpieza'
+  | 'jardinero'
+  | 'lavanderia'
+  | 'expensas'
+  | 'luz'
+  | 'gas'
+  | 'mantenimiento'
+  | 'internet'
+  | 'marketing'
+  | 'impuestos'
+  | 'comision'
+  | 'otro'
+
+export interface Gasto {
+  id: string
+  fecha: string
+  monto: number
+  moneda: string
+  categoria: string
+  pagado_por: string
+  nombre_destinatario: string | null
+  banco_origen: string | null
+  nro_operacion: string | null
+  detalle: string | null
+  registrado_por: string
+  comprobante_url: string | null
+  timestamp: string
+  cotizacion: number
+  monto_ars: number | null
+  monto_usd: number | null
+}
+
 export interface Ingreso {
   id: string
   fecha: string
@@ -108,6 +141,23 @@ export const PLATAFORMA_LABEL: Record<string, string> = {
   directo: 'Directo',
   airbnb: 'Airbnb',
 }
+
+export const CATEGORIA_GASTO_LABEL: Record<CategoriaGasto, string> = {
+  limpieza: 'Limpieza',
+  jardinero: 'Jardinero',
+  lavanderia: 'Lavandería',
+  expensas: 'Expensas',
+  luz: 'Luz',
+  gas: 'Gas',
+  mantenimiento: 'Mantenimiento',
+  internet: 'Internet',
+  marketing: 'Marketing',
+  impuestos: 'Impuestos',
+  comision: 'Comisión',
+  otro: 'Otro',
+}
+
+export const TITULARES_PAGADOR = ['Francisco', 'Milagros', 'Inés', 'Fernando', 'Paola'] as const
 
 // Estado "visual" = estado_reserva + "terminada" (derivado de la fecha, nunca se guarda ni se elige)
 export const ESTADO_VISUAL_LABEL: Record<string, string> = {

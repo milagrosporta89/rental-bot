@@ -48,6 +48,9 @@ export async function POST(req: NextRequest) {
   const file = form.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 })
 
+  // Tipo de comprobante (ingreso|gasto) determina el prefijo de archivo. Default 'ingreso' para no romper los callers existentes.
+  const tipo = (form.get('tipo') as string) === 'gasto' ? 'gasto' : 'ingreso'
+
   const bytes = await file.arrayBuffer()
   const base64 = Buffer.from(bytes).toString('base64')
   const mediaType = file.type as MediaType
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   // Guardar en VM (misma lógica que services/storage.ts del bot)
   const fechaStr = (datos.fecha ?? '').replace(/\//g, '-') || String(Date.now())
-  const nombre = `ingreso_${fechaStr}_${datos.nroOperacion || Date.now()}`
+  const nombre = `${tipo}_${fechaStr}_${datos.nroOperacion || Date.now()}`
   const url = await subirComprobante(base64, mediaType, nombre).catch(() => '')
 
   return NextResponse.json({ datos, url })

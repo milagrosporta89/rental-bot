@@ -7,6 +7,7 @@ import { ArrowUpRight } from 'lucide-react'
 const tabs = [
   { label: 'Calendario', href: '/calendario' },
   { label: 'Reservas', href: '/reservas' },
+  { label: 'Gastos', href: '/gastos' },
 ]
 
 export function NavTabs() {
