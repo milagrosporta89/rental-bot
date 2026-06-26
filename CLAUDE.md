@@ -22,3 +22,7 @@ Reglas:
 - Si un cambio es complejo, preguntá: "¿Realmente necesitás X, o Y ya lo cubre?"
 
 No aplica pereza en: validación en los límites de confianza (input del usuario, webhooks de Meta), manejo de errores que previenen pérdida de datos en Google Sheets, seguridad.
+
+## Replicar flujos del bot a la web
+
+Para construir UI web de un flujo que ya existe en el bot de WhatsApp, hay un pipeline de agentes ya armado: ver `.claude/CONTEXT.md` (contexto y reglas), `.claude/PIPELINE.md` (las 4 fases) y los comandos `/explore <feature>` y `/run-pipeline <feature>`. El estado de la última sesión está en `.claude/STATUS.md`.
