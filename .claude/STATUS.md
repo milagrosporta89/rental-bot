@@ -4,6 +4,21 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 5) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Atendidas las 3 sugerencias menores de QA** → commit `1e4df2c`:
+- `banco_origen` ahora es `'Efectivo'` por defecto en el camino manual (paridad con el bot).
+- `web/src/lib/cotizacion.ts` (nuevo): lógica de cotización extraída de `api/cotizacion/route.ts`, importada directo en `actions/gastos.ts` — elimina el auto-fetch HTTP a la propia API y el fallback a `localhost:3000`.
+- `supabase/migrations/003_unique_nro_operacion_gastos.sql` (nuevo): UNIQUE index parcial sobre `nro_operacion`, mismo patrón que la migración 002 de `ingresos`.
+
+`tsc --noEmit` confirmado limpio después de los 3 fixes.
+
+**⚠️ Acción manual pendiente fuera de este repo:** la migración `003` es solo el archivo `.sql` — igual que 001 y 002, no hay tooling de migraciones automático en este proyecto. Para que el UNIQUE constraint exista realmente en la base, alguien tiene que correr ese SQL a mano en el SQL Editor de Supabase. No tengo una connection string de Postgres ni acceso a la Management API de Supabase para aplicarlo yo mismo, solo el cliente REST con la service role key (que no ejecuta DDL arbitrario).
+
+**Pendiente / próximo paso:** correr la migración 003 en Supabase. Después: decidir pasada de estilos vs. merge a `master` tal como está.
+
+---
+
 ## 2026-06-26 (cont. 4) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Agente 4 (QA) completado** → commit `88a4368` `[agent-qa] revisión completada` → `.claude/artifacts/qa-output.json`. **`summary: PASS`** — las 4 user stories pasan, `critical_missing` vacío. `tsc --noEmit` confirmado limpio otra vez de forma independiente.
