@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, LogOut } from 'lucide-react'
+import { logout } from '@/app/login/actions'
 
 const tabs = [
   { label: 'Calendario', href: '/calendario' },
@@ -10,7 +11,7 @@ const tabs = [
   { label: 'Gastos', href: '/gastos' },
 ]
 
-export function NavTabs() {
+export function NavTabs({ nombreUsuario }: { nombreUsuario: string }) {
   const pathname = usePathname()
 
   return (
@@ -32,12 +33,28 @@ export function NavTabs() {
             </Link>
           )
         })}
-        <a
-          href="#"
-          className="ml-auto flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150"
-        >
-          Dashboard <ArrowUpRight className="w-3.5 h-3.5" />
-        </a>
+
+        <div className="ml-auto flex items-center gap-4">
+          <a
+            href="#"
+            className="flex items-center gap-1 text-sm text-slate-400 hover:text-slate-600 transition-colors duration-150"
+          >
+            Dashboard <ArrowUpRight className="w-3.5 h-3.5" />
+          </a>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-slate-500">{nombreUsuario}</span>
+            <form action={logout}>
+              <button
+                type="submit"
+                aria-label="Cerrar sesión"
+                className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </header>
   )

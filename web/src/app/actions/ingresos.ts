@@ -2,9 +2,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { esTerminada } from '@/lib/dates'
+import { registradoPorActual } from '@/lib/auth'
 import type { Ingreso } from '@/lib/types'
-
-const REGISTRADO_POR = 'Milagros'
 
 export interface IngresoPayload {
   id_reserva: string | null
@@ -48,6 +47,7 @@ async function recalcularSaldo(reservaId: string): Promise<void> {
 }
 
 export async function crearIngreso(payload: IngresoPayload): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const id = `ING-${Date.now()}`
   const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
@@ -56,7 +56,7 @@ export async function crearIngreso(payload: IngresoPayload): Promise<void> {
     ...payload,
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (error?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)
@@ -68,6 +68,7 @@ export async function registrarPago(
   reservaId: string,
   payload: IngresoPayload
 ): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
 
   const { data: reservaActual } = await supabase.from('reservas').select('estado_reserva').eq('id', reservaId).single()
@@ -82,7 +83,7 @@ export async function registrarPago(
     ...payload,
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (ie?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)
@@ -121,6 +122,7 @@ export async function eliminarIngreso(id: string, reservaId: string): Promise<vo
 
 /** Mueve un pago de una reserva cancelada a otra reserva ya creada */
 export async function trasladarPago(ingresoId: string, reservaDestinoId: string): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
 
   const { data: ingreso } = await supabase.from('ingresos').select('id_reserva').eq('id', ingresoId).single()
@@ -161,12 +163,12 @@ export async function trasladarPago(ingresoId: string, reservaDestinoId: string)
     {
       timestamp, id_registro: reservaOrigenId, tipo_registro: 'reserva', campo: 'pago_trasladado',
       valor_anterior: ingresoId, valor_nuevo: `trasladado a reserva ${reservaDestinoId}`,
-      modificado_por: REGISTRADO_POR, aprobado_por: REGISTRADO_POR,
+      modificado_por: registrado_por, aprobado_por: registrado_por,
     },
     {
       timestamp, id_registro: reservaDestinoId, tipo_registro: 'reserva', campo: 'pago_trasladado',
       valor_anterior: ingresoId, valor_nuevo: `recibido desde reserva ${reservaOrigenId}`,
-      modificado_por: REGISTRADO_POR, aprobado_por: REGISTRADO_POR,
+      modificado_por: registrado_por, aprobado_por: registrado_por,
     },
   ])
 }

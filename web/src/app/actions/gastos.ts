@@ -3,10 +3,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toISO } from '@/lib/dates'
 import { obtenerCotizacion } from '@/lib/cotizacion'
+import { registradoPorActual } from '@/lib/auth'
 import type { Gasto } from '@/lib/types'
-
-// TODO: confirmar con Mili — reemplazar cuando exista login
-const REGISTRADO_POR = 'Milagros'
 
 export interface GastoPayload {
   fecha: string // DD/MM/YYYY
@@ -66,6 +64,7 @@ export async function crearGasto(payload: GastoPayload): Promise<void> {
   const monto_ars = payload.moneda === 'USD' ? (cotizacion > 0 ? +(payload.monto * cotizacion).toFixed(2) : null) : payload.monto
   const monto_usd = payload.moneda === 'ARS' ? (cotizacion > 0 ? +(payload.monto / cotizacion).toFixed(2) : null) : payload.monto
 
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const id = `GAS-${Date.now()}`
   const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
@@ -76,7 +75,7 @@ export async function crearGasto(payload: GastoPayload): Promise<void> {
     cotizacion,
     monto_ars,
     monto_usd,
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (error?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)

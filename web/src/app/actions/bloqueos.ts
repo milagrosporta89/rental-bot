@@ -1,8 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-
-const REGISTRADO_POR = 'Milagros'
+import { registradoPorActual } from '@/lib/auth'
 
 export interface BloqueoPayload {
   casa: string
@@ -13,11 +12,12 @@ export interface BloqueoPayload {
 }
 
 export async function crearBloqueo(payload: BloqueoPayload): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const { error } = await supabase.from('bloqueos').insert({
     ...payload,
     id: `BLQ-${Date.now()}`,
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
   })
   if (error) throw new Error(error.message)
 }

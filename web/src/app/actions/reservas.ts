@@ -2,9 +2,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toDDMMYYYY } from '@/lib/dates'
+import { registradoPorActual } from '@/lib/auth'
 import { CASA_TITULAR } from '@/lib/types'
-
-const REGISTRADO_POR = 'Milagros'
 
 async function getNextId(supabase: ReturnType<typeof createAdminClient>): Promise<string> {
   const { data } = await supabase.from('reservas').select('id')
@@ -35,6 +34,7 @@ function toTitleCase(s: string): string {
 }
 
 export async function crearReserva(payload: ReservaPayload): Promise<{ id: string }> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const id = await getNextId(supabase)
   const now = new Date()
@@ -51,7 +51,7 @@ export async function crearReserva(payload: ReservaPayload): Promise<{ id: strin
     nombre_pax,
     id,
     fecha_registro: toDDMMYYYY(now.toISOString().slice(0, 10)),
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (error) throw new Error(error.message)
@@ -63,8 +63,8 @@ export async function crearReserva(payload: ReservaPayload): Promise<{ id: strin
     campo: 'creacion',
     valor_anterior: null,
     valor_nuevo: id,
-    modificado_por: REGISTRADO_POR,
-    aprobado_por: REGISTRADO_POR,
+    modificado_por: registrado_por,
+    aprobado_por: registrado_por,
   })
 
   return { id }
@@ -75,12 +75,13 @@ export async function editarReserva(
   payload: ReservaPayload,
   anterior: Record<string, unknown>
 ): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const casaNum = payload.casa.replace(/\D/g, '')
   const casa = casaNum ? `Casa ${casaNum}` : payload.casa
   const titular = CASA_TITULAR[casaNum] ?? payload.titular
   const nombre_pax = toTitleCase(payload.nombre_pax)
-  const { error } = await supabase.from('reservas').update({ ...payload, casa, titular, nombre_pax, registrado_por: REGISTRADO_POR }).eq('id', id)
+  const { error } = await supabase.from('reservas').update({ ...payload, casa, titular, nombre_pax, registrado_por }).eq('id', id)
   if (error) throw new Error(error.message)
 
   const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
@@ -96,8 +97,8 @@ export async function editarReserva(
         campo,
         valor_anterior: String(anterior[campo] ?? ''),
         valor_nuevo: String(payload[campo] ?? ''),
-        modificado_por: REGISTRADO_POR,
-        aprobado_por: REGISTRADO_POR,
+        modificado_por: registrado_por,
+        aprobado_por: registrado_por,
       }))
     )
   }
