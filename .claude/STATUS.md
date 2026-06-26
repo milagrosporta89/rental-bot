@@ -4,6 +4,23 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont.) — Feature: auth-header · Rama: `feature/auth-header`
+
+**Cuenta real de Mili creada**: `milagrosporta89@gmail.com`, contraseña temporal generada (compartida en el chat, no en ningún archivo). Pendiente: armar cambio de contraseña / recuperación, todavía no existe.
+
+**Header reorganizado** → commit `78a8b2c`: logo "TempoBoard" (tipográfico) a la izquierda, "Dashboard" pasa a estar agrupado junto a Calendario/Reservas/Gastos, se quita el nombre del titular logueado del header (queda solo el botón de cerrar sesión).
+
+**Aviso de seguridad importante para sesiones futuras:** el clasificador de permisos bloqueó dos veces en esta sesión acciones sobre Supabase Auth — (1) escribir la contraseña real de Mili en texto plano dentro de un script de Playwright (correcto: nunca escribir credenciales reales en archivos, ni siquiera temporalmente), y (2) crear una segunda cuenta de prueba asumiendo que la autorización de la cuenta anterior se extendía — no es así, **cada creación de usuario en Auth necesita autorización explícita puntual**, no hay autorización "de una vez para siempre" en esta sesión.
+
+**`/explore`/`PIPELINE.md` ahora aplican a toda feature nueva** (no solo las que replican el bot) — decisión de Mili, ver commit `83e90ec`. El login/header ya construido NO se rehace retroactivamente por el pipeline; la regla aplica de acá en adelante.
+
+**Pendiente / próximo paso:**
+- Cuentas de Francisco, Inés, Fernando y Paola — todavía no se pidieron sus emails.
+- Cambio de contraseña / recuperación de cuenta — no existe ninguna pantalla para esto todavía.
+- Decidir destino real del link "Dashboard" (hoy es un placeholder `href="#"`, sin funcionalidad).
+
+---
+
 ## 2026-06-26 — Feature: auth-header · Rama: `feature/auth-header`
 
 **`feature/expense-ui` mergeada a `master` y pusheada** antes de arrancar esta feature (decisión de Mili). Esta es una feature nueva, no replica ningún flujo del bot (WhatsApp identifica por teléfono, no por login) — no aplica el pipeline de 4 agentes de `PIPELINE.md` ni `/explore`.
