@@ -4,6 +4,16 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 11) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Dos ajustes más** → commit `c32e87b`:
+- Categorías del dropdown ordenadas alfabéticamente (`localeCompare('es')` sobre el label, no el orden del enum). "Otro" cae naturalmente al final sin necesidad de caso especial.
+- Tipografía de `ConfirmacionGasto` reducida una vez más (`text-sm` → `text-xs`) — Mili confirmó que seguía grande tras el ajuste anterior.
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 10) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Ajustes finos de UI** → commit `f443b6b`:
