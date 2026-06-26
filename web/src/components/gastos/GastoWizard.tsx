@@ -1,21 +1,25 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { buscarGastoDuplicado } from '@/app/actions/gastos'
 import type { GastoDuplicado, GastoPayload } from '@/app/actions/gastos'
 import { useGastoSubmit } from '@/hooks/useGastoSubmit'
+import { Stepper } from './Stepper'
 import { ComprobanteDropzone, type UploadState } from './ComprobanteDropzone'
 import { DuplicadoBloqueo } from './DuplicadoBloqueo'
 import { FormularioGasto, type GastoFormState } from './FormularioGasto'
 import { ConfirmacionGasto, type ResumenGasto } from './ConfirmacionGasto'
+import { PantallaExito } from './PantallaExito'
 
-type Paso = 'carga' | 'duplicado' | 'confirmacion'
+type Paso = 'carga' | 'confirmacion' | 'exito'
+const PASO_NUM: Record<Paso, 1 | 2 | 3> = { carga: 1, confirmacion: 2, exito: 3 }
 
 const FORM_INICIAL: GastoFormState = {
   categoria: '',
-  categoriaOtro: '',
   monto: '',
   moneda: 'ARS',
   fecha: new Date().toISOString().slice(0, 10),
@@ -51,6 +55,7 @@ export function GastoWizard() {
   // ── Comprobante (opcional) ───────────────────────────────────────────
   async function handleFile(file: File) {
     setUploadState('uploading')
+    setDuplicado(null)
     const fd = new FormData()
     fd.append('file', file)
     fd.append('tipo', 'gasto')
@@ -74,21 +79,18 @@ export function GastoWizard() {
         fecha:               datos.fecha ? toISO(datos.fecha) : prev.fecha,
       }))
 
-      // Validación de duplicado (step 3a): corre antes de llegar al formulario/confirmación
+      // Validación de duplicado: advertencia inline en la misma pantalla, no una pantalla aparte
       if (datos.nroOperacion) {
         const existente = await buscarGastoDuplicado(datos.nroOperacion)
-        if (existente) {
-          setDuplicado(existente)
-          setPaso('duplicado')
-        }
+        if (existente) setDuplicado(existente)
       }
     } catch {
       setUploadState('error')
     }
   }
 
-  // Quita el comprobante cargado (por error de elección, o tras un duplicado) y vuelve
-  // al dropzone vacío — el resto del formulario sigue disponible para completar a mano
+  // Quita el comprobante cargado (por error de elección, o tras un duplicado) — el resto
+  // del formulario sigue disponible para completar a mano
   function removeComprobante() {
     setComprobanteUrl('')
     setUploadState('idle')
@@ -103,23 +105,22 @@ export function GastoWizard() {
       nro_operacion: '',
       fecha: new Date().toISOString().slice(0, 10),
     }))
-    setPaso('carga')
   }
 
   // readonly para campos que vinieron de un comprobante recién subido (mismo criterio que pago/page.tsx)
   function ro(field: keyof GastoFormState): boolean {
     if (!fromComprobante) return false
-    const editables: (keyof GastoFormState)[] = ['categoria', 'categoriaOtro', 'pagadoPor', 'pagadoPorOtro', 'detalle', 'fecha']
+    const editables: (keyof GastoFormState)[] = ['categoria', 'pagadoPor', 'pagadoPorOtro', 'detalle', 'fecha']
     return !editables.includes(field)
   }
 
   // ── Validación previa a confirmación ────────────────────────────────
   function validarFormulario(): boolean {
-    const montoNum = parseFloat(form.monto) || 0
-    if (form.categoria === 'otro' && !form.categoriaOtro.trim()) {
-      setFormError('Ingresá el nombre de la categoría.')
+    if (duplicado) {
+      setFormError('Quitá el comprobante duplicado antes de continuar.')
       return false
     }
+    const montoNum = parseFloat(form.monto) || 0
     if (!form.categoria) {
       setFormError('La categoría es obligatoria.')
       return false
@@ -160,7 +161,7 @@ export function GastoWizard() {
       fecha: toDDMMYYYY(form.fecha),
       monto: montoNum,
       moneda: form.moneda,
-      categoria: form.categoria === 'otro' ? form.categoriaOtro.trim() : form.categoria,
+      categoria: form.categoria,
       pagado_por: form.pagadoPor === 'otro' ? form.pagadoPorOtro.trim() : form.pagadoPor,
       nombre_destinatario: nn(form.nombre_destinatario),
       // Igual que el bot (src/handlers/gastos.ts): sin comprobante se asume efectivo
@@ -173,11 +174,11 @@ export function GastoWizard() {
 
   async function confirmar() {
     const ok = await submit(buildPayload())
-    if (ok) router.push('/gastos?creado=1')
+    if (ok) setPaso('exito')
   }
 
   const resumen: ResumenGasto = {
-    categoria: form.categoria === 'otro' ? form.categoriaOtro : form.categoria,
+    categoria: form.categoria,
     monto: parseFloat(form.monto) || 0,
     moneda: form.moneda,
     fecha: toDDMMYYYY(form.fecha),
@@ -191,18 +192,34 @@ export function GastoWizard() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <h1 className="text-lg font-semibold text-slate-800">Cargar gasto</h1>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => router.push('/gastos')}
+          aria-label="Volver a gastos"
+          className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-slate-600 font-medium">Nuevo gasto</span>
+        </div>
+      </div>
+
+      <Stepper actual={PASO_NUM[paso]} />
 
       {paso === 'carga' && (
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <ComprobanteDropzone
               uploadState={uploadState}
               comprobanteUrl={comprobanteUrl}
               onFile={handleFile}
               onRemove={removeComprobante}
             />
-            {!fromComprobante && (
+            {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
+            {!fromComprobante && !duplicado && (
               <p className="text-xs text-slate-400">
                 Si subís el comprobante completamos fecha, monto, moneda y los demás datos automáticamente. Si no, completá el formulario a mano.
               </p>
@@ -220,10 +237,6 @@ export function GastoWizard() {
         </div>
       )}
 
-      {paso === 'duplicado' && duplicado && (
-        <DuplicadoBloqueo gastoExistente={duplicado} onReintentar={removeComprobante} />
-      )}
-
       {paso === 'confirmacion' && (
         <ConfirmacionGasto
           resumen={resumen}
@@ -232,6 +245,10 @@ export function GastoWizard() {
           loading={loading}
           error={submitError}
         />
+      )}
+
+      {paso === 'exito' && (
+        <PantallaExito onContinuar={() => router.push('/gastos')} />
       )}
     </div>
   )

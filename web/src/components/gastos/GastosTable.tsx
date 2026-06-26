@@ -1,12 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Gasto, CategoriaGasto, CATEGORIA_GASTO_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
-import { Toast } from '@/components/ui/toast'
 import { Search, Plus, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toISO } from '@/lib/dates'
 
@@ -37,15 +35,12 @@ function matchBusqueda(g: Gasto, q: string): boolean {
 }
 
 export function GastosTable() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
   const [gastos, setGastos] = useState<Gasto[]>([])
   const [q, setQ] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(18)
-  const [mostrarToast, setMostrarToast] = useState(searchParams.get('creado') === '1')
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/gastos-data')
@@ -64,13 +59,6 @@ export function GastosTable() {
   }, [cargar])
 
   useEffect(() => { setPage(0) }, [q, sortBy, sortDir, pageSize])
-
-  // Limpia el ?creado=1 de la URL apenas se monta, sin agregar una entrada al historial
-  // (el auto-cierre del toast lo maneja el propio componente Toast)
-  useEffect(() => {
-    if (!mostrarToast) return
-    router.replace('/gastos')
-  }, [mostrarToast, router])
 
   const lista = gastos
     .filter(g => matchBusqueda(g, q))
@@ -110,10 +98,6 @@ export function GastosTable() {
             Nuevo gasto
           </Link>
         </div>
-
-        {mostrarToast && (
-          <Toast message="Gasto registrado correctamente." onClose={() => setMostrarToast(false)} />
-        )}
 
         {/* Toolbar */}
         <div className="pb-4">

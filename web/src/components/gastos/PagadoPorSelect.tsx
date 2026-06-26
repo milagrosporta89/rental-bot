@@ -28,7 +28,7 @@ export function PagadoPorSelect({ value, otroValue, readonly, onChange, onChange
       <Label className="text-xs text-slate-500">Pagado por *</Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí quién pagó" /></SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-56">
           {TITULARES_PAGADOR.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           <SelectItem value="otro">Otro…</SelectItem>
         </SelectContent>

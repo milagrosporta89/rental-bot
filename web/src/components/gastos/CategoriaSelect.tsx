@@ -1,4 +1,3 @@
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CATEGORIA_GASTO_LABEL, CategoriaGasto } from '@/lib/types'
@@ -7,32 +6,24 @@ const CATEGORIAS = Object.keys(CATEGORIA_GASTO_LABEL) as CategoriaGasto[]
 
 interface Props {
   value: string
-  otroValue: string
   onChange: (v: string) => void
-  onChangeOtro: (v: string) => void
 }
 
-export function CategoriaSelect({ value, otroValue, onChange, onChangeOtro }: Props) {
+// "Otro" no tiene texto libre a propósito: una categoría nueva rompe la normalización
+// para análisis posterior. Si hace falta una categoría que no está, se agrega al enum
+// (CATEGORIA_GASTO_LABEL) — eso requiere a desarrollo, no es un campo de formulario.
+export function CategoriaSelect({ value, onChange }: Props) {
   return (
     <div className="space-y-1">
       <Label className="text-xs text-slate-500">Categoría *</Label>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí la categoría" /></SelectTrigger>
-        <SelectContent>
+        <SelectContent className="max-h-56">
           {CATEGORIAS.map(c => (
             <SelectItem key={c} value={c}>{CATEGORIA_GASTO_LABEL[c]}</SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {value === 'otro' && (
-        <Input
-          value={otroValue}
-          onChange={e => onChangeOtro(e.target.value)}
-          placeholder="Nombre de la categoría"
-          className="text-sm mt-1.5"
-          autoFocus
-        />
-      )}
     </div>
   )
 }

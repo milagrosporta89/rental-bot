@@ -7,7 +7,6 @@ import { PagadoPorSelect } from './PagadoPorSelect'
 
 export interface GastoFormState {
   categoria: string
-  categoriaOtro: string
   monto: string
   moneda: 'ARS' | 'USD'
   fecha: string // YYYY-MM-DD (input date)
@@ -37,9 +36,7 @@ export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit,
       <div className="col-span-2">
         <CategoriaSelect
           value={form.categoria}
-          otroValue={form.categoriaOtro}
           onChange={v => onChange('categoria', v)}
-          onChangeOtro={v => onChange('categoriaOtro', v)}
         />
       </div>
 
