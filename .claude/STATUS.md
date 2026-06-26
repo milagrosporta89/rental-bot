@@ -4,6 +4,21 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 13) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Editar y eliminar gastos** → commit `b8521dc` (código) + `187d130` (po-output.json).
+
+- Columna "Acciones" en la tabla, menú de tres puntos (Editar/Eliminar), mismo patrón que `PagosSection.tsx` de ingresos.
+- `actions/gastos.ts`: `obtenerGasto`, `editarGasto` (recalcula cotización/montos con la fecha del gasto, igual que crear), `eliminarGasto`.
+- `GastoWizard` soporta `/gastos/nuevo?edit=<id>`: precarga datos, **sin** dropzone de comprobante (editar es para corregir un dato, no reemplazar el comprobante original), breadcrumb dice "Editar gasto", mensaje final dice "actualizado" en vez de "registrado".
+- `po-output.json` actualizado: edición/borrado salió de `out_of_scope` y ahora es una business_rule documentada.
+
+Verificado end-to-end con Playwright: creé un gasto centinela (monto 777777) → lo edité (888888, confirmé el precargado correcto y el recálculo) → lo eliminé con el diálogo de confirmación → confirmé en la base que quedó borrado (el screenshot inmediato post-delete mostró la fila todavía por timing del realtime, no por un bug real — confirmado contra la base directamente, y con una recarga limpia después).
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 12) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Filtros avanzados en la tabla** → commit `b3d3430`:
