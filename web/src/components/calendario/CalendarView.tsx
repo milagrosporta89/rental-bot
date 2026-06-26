@@ -36,6 +36,22 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function addMonthsISO(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00')
+  d.setMonth(d.getMonth() + n)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function firstOfMonthISO(iso: string): string {
+  return iso.slice(0, 7) + '-01'
+}
+
+// Ventana fija de meses que se renderiza de una sola vez: permite scrollear
+// libremente entre meses adyacentes sin pasar por el selector
+const WINDOW_MONTHS_BACK = 6
+const WINDOW_MONTHS_FWD = 6
+const WINDOW_MONTHS = WINDOW_MONTHS_BACK + WINDOW_MONTHS_FWD + 1
+
 export function CalendarView() {
   const calRef = useRef<FullCalendar>(null)
   const calWrapperRef = useRef<HTMLDivElement>(null)
@@ -63,24 +79,41 @@ export function CalendarView() {
   // tap1 como state solo para el banner (no afecta al calendario)
   const [tap1, setTap1State] = useState<{ resourceId: string; fechaISO: string } | null>(null)
 
+  // Ventana de meses renderizada de una sola vez (fija para toda la vida del componente)
+  const [windowStart] = useState(() => firstOfMonthISO(addMonthsISO(todayISO(), -WINDOW_MONTHS_BACK)))
+  const windowEnd = addMonthsISO(windowStart, WINDOW_MONTHS - 1)
+  // Mes actualmente visible (lo que el usuario ve al scrollear), independiente del state navDate
+  const visibleMonthRef = useRef<string>(firstOfMonthISO(todayISO()))
+
   function setTap1(val: typeof tap1) {
     tap1Ref.current = val
     setTap1State(val)
   }
 
+  function getScroller(): HTMLElement | null {
+    const rootEl = (calRef.current?.getApi() as unknown as { el: HTMLElement } | undefined)?.el
+    return rootEl?.querySelector<HTMLElement>('.fc-scroller:has(.fc-timeline-body)') ?? null
+  }
+
+  const scrollToISO = useCallback((iso: string) => {
+    const scroller = getScroller()
+    const cell = scroller?.querySelector<HTMLElement>(`[data-date="${iso}"]`)
+    if (!scroller || !cell) return
+    const scrollerRect = scroller.getBoundingClientRect()
+    const cellRect = cell.getBoundingClientRect()
+    scroller.scrollLeft += cellRect.left - scrollerRect.left
+  }, [])
+
   function navigate(dir: 'prev' | 'next' | 'today') {
-    const api = calRef.current?.getApi()
-    if (!api) return
-    if (dir === 'today') api.today()
-    else api[dir]()
-    setNavDate(api.getDate())
+    if (dir === 'today') { scrollToISO(todayISO()); return }
+    scrollToISO(addMonthsISO(visibleMonthRef.current, dir === 'next' ? 1 : -1))
   }
 
   function goToMonth(yearMonth: string) {
-    const api = calRef.current?.getApi()
-    if (!api || !yearMonth) return
-    api.gotoDate(yearMonth + '-01')
-    setNavDate(api.getDate())
+    if (!yearMonth) return
+    const iso = yearMonth + '-01'
+    if (iso < windowStart || iso > windowEnd) return
+    scrollToISO(iso)
   }
 
   const navTitulo = (() => {
@@ -140,18 +173,48 @@ export function CalendarView() {
       if (rightShadowRef.current) rightShadowRef.current.style.opacity = max > 2 && scroller!.scrollLeft < max - 2 ? '1' : '0'
     }
 
+    // Detecta qué mes quedó visible en el borde izquierdo y actualiza el título del toolbar
+    function actualizarMesVisible() {
+      const rect = scroller!.getBoundingClientRect()
+      const el = document.elementFromPoint(rect.left + 4, rect.top + rect.height / 2)
+      const iso = el?.closest<HTMLElement>('[data-date]')?.dataset.date
+      if (!iso) return
+      const mes = firstOfMonthISO(iso)
+      if (mes === visibleMonthRef.current) return
+      visibleMonthRef.current = mes
+      setNavDate(new Date(mes + 'T00:00:00'))
+    }
+
+    function onScroll() { actualizarOpacidad(); actualizarMesVisible() }
+
     posicionar()
     actualizarOpacidad()
-    scroller.addEventListener('scroll', actualizarOpacidad, { passive: true })
+    actualizarMesVisible()
+    scroller.addEventListener('scroll', onScroll, { passive: true })
     const ro = new ResizeObserver(() => { posicionar(); actualizarOpacidad() })
     ro.observe(scroller)
     ro.observe(wrapperEl)
 
     return () => {
-      scroller.removeEventListener('scroll', actualizarOpacidad)
+      scroller.removeEventListener('scroll', onScroll)
       ro.disconnect()
     }
   }, [mounted, events])
+
+  // Al montar, centra el scroll en el día de hoy dentro de la ventana de meses cargada
+  useEffect(() => {
+    if (!mounted) return
+    let tries = 0
+    let raf = 0
+    function tryScroll() {
+      const scroller = getScroller()
+      const cell = scroller?.querySelector(`[data-date="${todayISO()}"]`)
+      if (cell) { scrollToISO(todayISO()); return }
+      if (tries++ < 20) raf = requestAnimationFrame(tryScroll)
+    }
+    raf = requestAnimationFrame(tryScroll)
+    return () => cancelAnimationFrame(raf)
+  }, [mounted, scrollToISO])
 
   const clearSelection = useCallback(() => {
     setTap1(null)
@@ -328,26 +391,31 @@ export function CalendarView() {
                   <div className="flex items-center justify-between mb-2 px-1">
                     <button
                       onClick={() => setPickerYear(y => y - 1)}
-                      className="p-1 rounded hover:bg-slate-100 text-slate-500 cursor-pointer"
+                      disabled={pickerYear <= Number(windowStart.slice(0, 4))}
+                      className="p-1 rounded hover:bg-slate-100 text-slate-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
                     <span className="text-sm font-medium text-slate-700">{pickerYear}</span>
                     <button
                       onClick={() => setPickerYear(y => y + 1)}
-                      className="p-1 rounded hover:bg-slate-100 text-slate-500 cursor-pointer"
+                      disabled={pickerYear >= Number(windowEnd.slice(0, 4))}
+                      className="p-1 rounded hover:bg-slate-100 text-slate-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   <div className="grid grid-cols-3 gap-1">
                     {['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'].map((m, i) => {
+                      const monthISO = `${pickerYear}-${String(i + 1).padStart(2, '0')}-01`
+                      const fueraDeRango = monthISO < windowStart || monthISO > windowEnd
                       const active = navDate.getFullYear() === pickerYear && navDate.getMonth() === i
                       return (
                         <button
                           key={m}
+                          disabled={fueraDeRango}
                           onClick={() => { goToMonth(`${pickerYear}-${String(i + 1).padStart(2, '0')}`); setPickerOpen(false) }}
-                          className={`text-xs py-1.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-indigo-600 text-white font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
+                          className={`text-xs py-1.5 rounded-lg cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${active ? 'bg-indigo-600 text-white font-medium' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
                           {m}
                         </button>
@@ -418,7 +486,10 @@ export function CalendarView() {
           <FullCalendar
             ref={calRef}
             plugins={[resourceTimelinePlugin, interactionPlugin]}
-            initialView="resourceTimelineMonth"
+            views={{ resourceTimelineMulti: { type: 'resourceTimeline', duration: { months: WINDOW_MONTHS } } }}
+            initialView="resourceTimelineMulti"
+            initialDate={windowStart}
+            slotDuration={{ days: 1 }}
             schedulerLicenseKey="CC-Attribution-NonCommercial-NoDerivatives"
             resources={RESOURCES}
             events={events}
@@ -440,7 +511,7 @@ export function CalendarView() {
             locale="es"
             firstDay={1}
             resourceAreaHeaderContent="Casa"
-            slotLabelFormat={[{ weekday: 'narrow' }, { day: 'numeric' }]}
+            slotLabelFormat={[{ month: 'long', year: 'numeric' }, { weekday: 'narrow' }, { day: 'numeric' }]}
           />
         )}
       </div>

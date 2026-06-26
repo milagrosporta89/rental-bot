@@ -146,13 +146,22 @@ body {
   font-size: 0.68rem !important;
 }
 
-/* Quitar línea divisoria entre fila de días-semana y fila de números */
+/* Fila de mes (vista multi-mes): separador debajo y un poco más de peso para orientarse al scrollear */
 .fc-timeline-header-row:first-child .fc-timeline-slot {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.fc-timeline-header-row:first-child .fc-timeline-slot-label {
+  font-weight: 600 !important;
+}
+
+/* Quitar línea divisoria entre fila de días-semana y fila de números */
+.fc-timeline-header-row:nth-child(2) .fc-timeline-slot {
   border-bottom: none !important;
 }
 
 /* Línea debajo de la fila de números del día, separándola del cuerpo del calendario */
-.fc-timeline-header-row:nth-child(2) .fc-timeline-slot {
+.fc-timeline-header-row:nth-child(3) .fc-timeline-slot {
   border-bottom: 1px solid #cbd5e1 !important;
 }
 
