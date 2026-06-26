@@ -182,14 +182,15 @@
     "Las categorías disponibles en la web son las 12 de CategoriaGasto, incluyendo jardinero y comision, que el bot no mostraba en sus botones pero sí existen en el dominio.",
     "cotizacion no es un campo del formulario en ningún camino (ni manual ni comprobante): se calcula automáticamente en el servidor al guardar, usando la cotización de la fecha del gasto (no la fecha de registro). Corrección de Mili sobre el diseño inicial, que la mostraba como editable — el dato es para análisis posterior, no para decidir al momento de la carga.",
     "La categoría 'otro' NO tiene texto libre — a diferencia del bot. Permitir nombrar una categoría nueva libremente rompe la normalización necesaria para análisis posterior (los nombres divergirían: 'seguro', 'Seguro', 'seguros del auto', etc. nunca se agruparían). Si se necesita una categoría nueva, se agrega al enum CATEGORIA_GASTO_LABEL — es una tarea de desarrollo, no un campo de formulario. Corrección de Mili sobre el diseño inicial.",
-    "La validación de duplicado (US-03) se muestra como advertencia inline en la misma pantalla de carga, nunca navegando a otra pantalla — corrección de Mili: cambiar de pantalla para avisar un duplicado es un paso de más."
+    "La validación de duplicado (US-03) se muestra como advertencia inline en la misma pantalla de carga, nunca navegando a otra pantalla — corrección de Mili: cambiar de pantalla para avisar un duplicado es un paso de más.",
+    "Edición y borrado de gastos ya guardados: columna 'Acciones' en la tabla con menú de tres puntos (Editar/Eliminar), mismo patrón que PagosSection.tsx de ingresos. Editar reusa el mismo wizard vía /gastos/nuevo?edit=<id>, precargando los datos existentes, pero SIN el dropzone de comprobante — editar es para corregir un dato (monto, categoría, fecha, etc.), no para reemplazar el comprobante original. Al editar se recalcula cotizacion/monto_ars/monto_usd con la fecha (posiblemente nueva) del gasto, igual criterio que al crear. Eliminar pide confirmación antes de borrar. Esto ya NO está fuera de alcance (ver out_of_scope, se actualizó)."
   ],
   "out_of_scope": [
     "Sincronización o escritura en Google Sheets: la web es Supabase-only.",
     "Login y autenticación real: solo se usa un valor hardcodeado/placeholder para registrado_por en esta iteración.",
     "El flujo de corrección de comprobantes por texto libre (escribir 'campo valor' por chat) que tiene el bot: se reemplaza por edición directa de los campos del formulario, que es más simple y no requiere parsear comandos de texto.",
     "Notificaciones o mensajes de WhatsApp tras guardar el gasto (el bot envía un mensaje de confirmación al usuario; la web no necesita replicar esto, solo mostrar feedback en pantalla).",
-    "Edición o borrado de gastos ya guardados: esta iteración cubre únicamente el alta de nuevos gastos.",
-    "Reportes, totales o dashboards de gastos: quedan fuera de esta iteración, que se limita al formulario de carga."
+    "Reemplazar el comprobante de un gasto ya guardado al editarlo: el flujo de edición no muestra el dropzone, solo permite corregir los demás campos.",
+    "Reportes, totales o dashboards de gastos: quedan fuera de esta iteración, que se limita al formulario de carga y la tabla."
   ]
 }
