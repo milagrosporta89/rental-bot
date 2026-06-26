@@ -11,3 +11,5 @@ Antes de arrancar:
 Ejecutá las fases de `PIPELINE.md` en orden (Setup → Agente 1 PO → Agente 2 Designer → Agente 3 Developer → Agente 4 QA), respetando los gates de aprobación.
 
 Al final de cada fase (incluido el setup), actualizá `STATUS.md` con una entrada nueva (arriba del todo) indicando: feature, rama, fase completada, qué está pendiente, y cualquier decisión o pregunta abierta.
+
+Después de cada commit de un agente (PO/Designer/Developer/QA), corré `node scripts/pipeline-viewer.mjs` para regenerar `.claude/artifacts/viewer.html` — es la forma cómoda de revisar el output antes de pedirle aprobación a Mili (no reemplaza mostrarlo en el chat, es un complemento). El archivo no se commitea (está en `.gitignore` vía `*.html`), se regenera on-demand.
