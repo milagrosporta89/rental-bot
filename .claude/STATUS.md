@@ -4,6 +4,24 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 7) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Feedback de uso real de Mili sobre el wizard + tabla, atendido en commit `8c4ba86`:**
+- Tabla: columna "Comprobante" → "Método de pago" (Transferencia/Efectivo según `nro_operacion`, mismo criterio que `PagosSection.tsx`).
+- Feedback de guardado: banner fijo → **toast** flotante autodescartable (`web/src/components/ui/toast.tsx`, sin dependencias nuevas — Radix no tiene `react-toast` instalado en este proyecto, se construyó uno propio con una animación CSS mínima en `globals.css`).
+- **Bug real corregido**: tras un OCR exitoso, el dropzone (con su botón de quitar) dejaba de renderizarse — quedaba reemplazado por el formulario, sin forma de deshacer una elección de comprobante equivocada. Se unificó "elegir camino" + dropzone/formulario en una sola pantalla (`paso: 'carga'`); el toggle manual/comprobante queda siempre visible arriba y duplica como mecanismo de "volver" entre ambos caminos.
+- Camino "manual" ahora es el default al entrar al wizard (antes había una pantalla intermedia de elección obligatoria).
+- Bajada explicativa antes de subir el comprobante ("al subir completamos los datos automáticamente").
+- Aplicadas heurísticas de Nielsen explícitamente: visibilidad del estado (toast), control y libertad del usuario (toggle como volver, botón de quitar alcanzable), prevención de errores (bajada explicativa antes de la acción).
+
+Verificado con Playwright: default manual ✓, blurb+dropzone al cambiar a comprobante ✓, dropzone persiste con botón de quitar tras OCR (interceptando la llamada real a Claude para no gastar API) ✓, toast aparece y se autodescarta a los 4s limpiando el query param ✓.
+
+**⚠️ Aviso de proceso:** durante esta verificación apareció en la tabla un gasto real cargado por Mili en paralelo (vía Supabase realtime, visible también en el navegador de test) — se le preguntó antes de tocar nada y se confirmó que era real, no se borró. Server reminder para toda sesión futura: ante cualquier fila inesperada en una tabla de datos reales, preguntar antes de asumir que es basura de test.
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 6) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Pedido de Mili:** faltaba feedback visible al confirmar un gasto. Se agregó una tabla de gastos cargados en `/gastos` (antes esa ruta era directamente el wizard) → commit `3a33ab0`.
