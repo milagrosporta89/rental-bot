@@ -4,6 +4,22 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cierre) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Sesión de gastos dada por terminada por Mili.** Pipeline completo (PO→Designer→Developer→QA, todos en PASS/aprobado) más ~10 rondas de fixes de UX/feedback de uso real, todo commiteado en `feature/expense-ui`. Resumen de lo que quedó construido:
+
+- Tabla `/gastos` (búsqueda, filtros avanzados, orden, paginación, editar/eliminar con íconos directos).
+- Wizard `/gastos/nuevo` (alta) y `/gastos/nuevo?edit=<id>` (edición): comprobante opcional con OCR, duplicados inline, categorías sin texto libre, confirmación estilo recibo, stepper de 3 pasos con pantalla de éxito propia.
+- Server actions completos: `crearGasto`, `editarGasto`, `obtenerGasto`, `eliminarGasto`, `buscarGastoDuplicado`.
+- `web/src/lib/cotizacion.ts` compartido (cotización histórica por fecha).
+- Migración `003_unique_nro_operacion_gastos.sql` — **pendiente correr a mano en el SQL Editor de Supabase** (nadie confirmó haberla corrido todavía).
+
+**No mergeado a `master` todavía** — quedó pendiente esa decisión, nunca se cerró explícitamente. Antes de arrancar la próxima feature en una rama nueva, conviene decidir si `feature/expense-ui` se mergea ahora o se deja abierta en paralelo.
+
+**Próximo foco, pedido por Mili:** header con accesos + login de usuarios. Es una feature nueva (no replica ningún flujo del bot — WhatsApp identifica por teléfono, no hay "login" ahí), así que no aplica `/explore` tal cual está pensado en `PIPELINE.md`. Directamente relevante: el TODO de `registrado_por` hardcodeado como `'Milagros'` en `actions/gastos.ts` (y el mismo patrón en `actions/ingresos.ts`) se resuelve naturalmente una vez que exista login real.
+
+---
+
 ## 2026-06-26 (cont. 15) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Tres ajustes de UX** → commit `c6e4387`:
