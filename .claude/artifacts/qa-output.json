@@ -1,0 +1,47 @@
+{
+  "summary": "PASS",
+  "results": [
+    {
+      "story_id": "US-01",
+      "status": "PASS",
+      "issue": "",
+      "fix_suggestion": "Sugerencia menor (no bloqueante): en el camino manual, el bot fija banco_origen = 'Efectivo' por defecto (src/handlers/gastos.ts:385), pero la web deja banco_origen en null cuando es manual (GastoWizard.tsx buildPayload(), form inicial banco_origen: ''). No es un criterio de aceptación explícito de US-01 (que solo exige que el campo no se pida), pero rompe la paridad de datos con el bot para análisis posterior. Considerar setear 'Efectivo' server-side en crearGasto() cuando nro_operacion es null."
+    },
+    {
+      "story_id": "US-02",
+      "status": "PASS",
+      "issue": "",
+      "fix_suggestion": "Edge case menor: si el OCR no logra extraer 'monto' o 'fecha', esos campos quedan readonly (ro() en GastoWizard.tsx:117-121 los marca no editables salvo 'fecha') con valor vacío/default y el usuario no tiene forma de corregirlos manualmente salvo reintentar con otro archivo. No bloqueante porque no está en los criterios de aceptación, pero vale la pena que Mili lo confirme como comportamiento esperado."
+    },
+    {
+      "story_id": "US-03",
+      "status": "PASS",
+      "issue": "",
+      "fix_suggestion": "Buena defensa en profundidad: la validación de duplicado corre tanto client-side antes de la confirmación (GastoWizard.tsx:85-92, llamando a buscarGastoDuplicado tras el OCR) como server-side en crearGasto (gastos.ts:63-70) y además se maneja el código 23505 de Postgres como fallback ante condiciones de carrera (gastos.ts:92). No hay migración SQL versionada para confirmar que existe un UNIQUE constraint en nro_operacion a nivel de DB (ver CONTEXT.md) — si no existe, el manejo del error 23505 nunca se dispara y la única defensa real es el chequeo previo (no atómico). Sugerencia: confirmar/crear el UNIQUE constraint en Supabase para que la defensa server-side sea efectiva ante carga concurrente."
+    },
+    {
+      "story_id": "US-04",
+      "status": "PASS",
+      "issue": "",
+      "fix_suggestion": "Confirmación obligatoria presente en ambos caminos (GastoWizard.tsx paso 'confirmacion', alcanzable solo después de 'formulario' vía irAConfirmacion(), que valida antes de avanzar). El botón 'Volver' regresa a 'formulario' en ambos caminos. La inserción a Supabase ocurre únicamente dentro de crearGasto(), invocada solo por confirmar() -> submit(), disparado por el botón 'Confirmar gasto' de ConfirmacionGasto.tsx. Correcto. Desviación menor frente a designer-output.json step 5: el diseño pedía mostrar 'monto_ars o monto_usd (calculado, solo lectura)' en la pantalla de confirmación, y ConfirmacionGasto.tsx solo muestra monto+moneda crudos, nunca el convertido — es consistente con que el cálculo ahora es 100% server-side (no hay cotización disponible en el cliente para calcularlo antes de confirmar), pero el wizard tampoco hace un cálculo aproximado client-side para mostrarlo a título informativo como sugería el diseño. No bloqueante: la corrección de po-output.json sobre cotizacion no contempló explícitamente este detalle del diseño anterior, así que es zona gris, no un fallo claro."
+    }
+  ],
+  "todos_found_in_code": [
+    "web/src/app/actions/gastos.ts:6 - TODO: confirmar con Mili — reemplazar REGISTRADO_POR cuando exista login",
+    "web/src/app/actions/gastos.ts:30 - TODO: confirmar con Mili — usar URL absoluta vía env var en vez de localhost si esto corre fuera de Next (e.g. en un cron)",
+    "web/src/components/gastos/FormularioGasto.tsx:36 - TODO: confirmar con Mili — el OCR hoy no infiere pagado_por; cuando lo haga, pasar ro('pagadoPor') a PagadoPorSelect"
+  ],
+  "critical_missing": [],
+  "verification_detail": {
+    "cotizacion_no_es_campo_de_ui": "Confirmado. Grep de 'cotizacion' (case-insensitive) sobre web/src/components/gastos/**/*.tsx y web/src/app/gastos/**/*.tsx no arroja ningún match. Solo aparece en web/src/app/actions/gastos.ts (server, función obtenerCotizacion) y en web/src/app/api/cotizacion/route.ts (endpoint interno). ConfirmacionGasto.tsx muestra monto/moneda pero nunca cotizacion ni monto_ars/monto_usd (el diseño en designer-output.json step 5 pedía mostrar monto_ars o monto_usd calculado, lo cual NO se muestra en pantalla — ver nota abajo).",
+    "calculo_usa_fecha_del_gasto_no_fecha_de_hoy": "Confirmado. web/src/app/actions/gastos.ts:58 calcula fechaISO = toISO(payload.fecha) (fecha del gasto, manual o de OCR) y la pasa a obtenerCotizacion(fechaISO) en la línea 73, ANTES del insert. web/src/app/api/cotizacion/route.ts implementa esHoy(fecha) -> /v2/latest, sino -> /v2/historical?day=ISO, replicando exactamente el criterio de src/services/dolar.ts del bot (mismo patrón hoy/histórico con incluso el mismo fallback histórica-falla->actual->0).",
+    "camino_manual_no_captura_campos_ocr": "Confirmado. FormularioGasto.tsx solo muestra los inputs de nombre_destinatario/banco_origen/nro_operacion cuando '(camino === comprobante || fromComprobante)' (línea 87). En el camino manual puro esos tres campos nunca se renderizan y quedan con su valor inicial vacío ('') que buildPayload() convierte a null vía la función nn().",
+    "confirmacion_obligatoria_ambos_caminos": "Confirmado, ver US-04.",
+    "validacion_duplicado_antes_de_confirmacion_y_bloquea": "Confirmado. GastoWizard.tsx handleFile() llama a buscarGastoDuplicado inmediatamente después del OCR (antes de paso 'formulario' o 'confirmacion') y si hay duplicado fuerza paso='duplicado', que solo permite onReintentar (vuelve a dropzone), bloqueando el avance.",
+    "categorias_12_incluyendo_jardinero_y_comision": "Confirmado. web/src/lib/types.ts define CategoriaGasto con 12 valores: limpieza, jardinero, lavanderia, expensas, luz, gas, mantenimiento, internet, marketing, impuestos, comision, otro. CATEGORIA_GASTO_LABEL tiene las 12 etiquetas correspondientes. Nota: el bot (src/handlers/gastos.ts:29-33) solo expone 10 categorías en sus botones (sin jardinero ni comision), consistente con lo que dice business_rules del PO.",
+    "pagado_por_5_titulares_mas_otro": "Confirmado. web/src/lib/types.ts TITULARES_PAGADOR = ['Francisco', 'Milagros', 'Inés', 'Fernando', 'Paola']. PagadoPorSelect.tsx agrega la opción 'otro' con input de texto libre condicional.",
+    "tab_gastos_en_nav_y_ruta_existe": "Confirmado. web/src/components/layout/NavTabs.tsx agrega { label: 'Gastos', href: '/gastos' } al array de tabs. web/src/app/gastos/page.tsx existe y renderiza <GastoWizard />.",
+    "registrado_por_hardcodeado_con_todo": "Confirmado. web/src/app/actions/gastos.ts:6-7, const REGISTRADO_POR = 'Milagros' con TODO explícito arriba."
+  },
+  "veredicto_patron_fetch_http_autoreferencial": "El patrón de obtenerCotizacion() en gastos.ts haciendo un fetch HTTP a su propia ruta /api/cotizacion (con fallback a localhost:3000) es aceptable para esta iteración pero no es ideal: agrega una vuelta de red innecesaria server-to-server dentro del mismo proceso Next.js, depende de NEXT_PUBLIC_BASE_URL estar bien configurada en producción (si no, cae a localhost:3000 que puede no ser el puerto/host real del server en runtime), y el Developer ya lo marcó con TODO reconociendo la limitación. No lo considero bloqueante porque funciona correctamente en local/Vercel (mismo origin) y el propio código de /api/cotizacion/route.ts es trivial de extraer a una función compartida sin romper el endpoint existente que ya consume pago/page.tsx. Recomendación: extraer la lógica de cotizacionActual/cotizacionHistorica a un módulo común (ej. web/src/lib/cotizacion.ts) que ambos —el route handler y el server action— importen directamente, eliminando el fetch interno y el riesgo de URL mal configurada. Es deuda técnica menor, no un bug funcional."
+}
