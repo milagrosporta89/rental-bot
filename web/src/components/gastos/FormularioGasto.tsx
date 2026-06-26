@@ -4,7 +4,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CategoriaSelect } from './CategoriaSelect'
 import { PagadoPorSelect } from './PagadoPorSelect'
-import type { Camino } from './SeleccionCaminoToggle'
 
 export interface GastoFormState {
   categoria: string
@@ -21,7 +20,6 @@ export interface GastoFormState {
 }
 
 interface Props {
-  camino: Camino
   form: GastoFormState
   fromComprobante: boolean
   ro: (field: keyof GastoFormState) => boolean
@@ -30,7 +28,7 @@ interface Props {
   error?: string
 }
 
-export function FormularioGasto({ camino, form, fromComprobante, ro, onChange, onSubmit, error }: Props) {
+export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit, error }: Props) {
   // pagado_por queda readonly solo si vino inferido del comprobante (no se infiere todavía vía OCR de gastos,
   // así que por ahora siempre es editable en el camino de comprobante)
   // TODO: confirmar con Mili — el OCR hoy no infiere pagado_por; cuando lo haga, pasar ro('pagadoPor') a PagadoPorSelect
@@ -84,7 +82,7 @@ export function FormularioGasto({ camino, form, fromComprobante, ro, onChange, o
         onChangeOtro={v => onChange('pagadoPorOtro', v)}
       />
 
-      {(camino === 'comprobante' || fromComprobante) && (
+      {fromComprobante && (
         <>
           <div className="space-y-1">
             <Label className="text-xs text-slate-500">Destinatario</Label>
