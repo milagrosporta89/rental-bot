@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Reserva, CASA_COLORES, PLATAFORMA_LABEL, ESTADO_VISUAL_BADGE, ESTADO_VISUAL_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Search, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { toISO, estadoVisual, esTerminada, esEnCurso } from '@/lib/dates'
@@ -139,15 +140,17 @@ export function ReservasTable() {
 
       {/* Toolbar */}
       <div className="pb-5 space-y-3.5">
-        <div className="flex items-center gap-5 flex-wrap">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            <Input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Buscar por nombre, casa, estado…"
-              className="pl-8 text-sm h-8"
-            />
+        <div className="flex items-end gap-5 flex-wrap">
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Buscar por nombre, casa o estado</Label>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                className="pl-8 text-sm h-8"
+              />
+            </div>
           </div>
 
           <button
