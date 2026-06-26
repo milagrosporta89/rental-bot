@@ -2,7 +2,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CATEGORIA_GASTO_LABEL, CategoriaGasto } from '@/lib/types'
 
-const CATEGORIAS = Object.keys(CATEGORIA_GASTO_LABEL) as CategoriaGasto[]
+const CATEGORIAS = (Object.keys(CATEGORIA_GASTO_LABEL) as CategoriaGasto[])
+  .sort((a, b) => CATEGORIA_GASTO_LABEL[a].localeCompare(CATEGORIA_GASTO_LABEL[b], 'es'))
 
 interface Props {
   value: string
