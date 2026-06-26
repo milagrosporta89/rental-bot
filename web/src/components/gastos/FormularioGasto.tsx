@@ -24,10 +24,11 @@ interface Props {
   ro: (field: keyof GastoFormState) => boolean
   onChange: (k: keyof GastoFormState, v: string) => void
   onSubmit: () => void
+  onVolver?: () => void
   error?: string
 }
 
-export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit, error }: Props) {
+export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit, onVolver, error }: Props) {
   // pagado_por queda readonly solo si vino inferido del comprobante (no se infiere todavía vía OCR de gastos,
   // así que por ahora siempre es editable en el camino de comprobante)
   // TODO: confirmar con Mili — el OCR hoy no infiere pagado_por; cuando lo haga, pasar ro('pagadoPor') a PagadoPorSelect
@@ -42,13 +43,18 @@ export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit,
 
       <div className="space-y-1">
         <Label className="text-xs text-slate-500">Monto *</Label>
-        <Input
-          type="number" min={0} step={0.01}
-          value={form.monto}
-          readOnly={ro('monto')}
-          onChange={e => !ro('monto') && onChange('monto', e.target.value)}
-          className={`text-sm ${ro('monto') ? 'bg-slate-50 text-slate-500 cursor-default' : ''}`}
-        />
+        <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${ro('monto') ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
+          <span className="text-sm text-slate-600 shrink-0 select-none">
+            {form.moneda === 'USD' ? 'USD' : '$'}
+          </span>
+          <input
+            type="number" min={0} step={0.01}
+            value={form.monto}
+            readOnly={ro('monto')}
+            onChange={e => !ro('monto') && onChange('monto', e.target.value)}
+            className="flex-1 min-w-0 bg-transparent outline-none text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+        </div>
       </div>
 
       <div className="space-y-1">
@@ -103,7 +109,12 @@ export function FormularioGasto({ form, fromComprobante, ro, onChange, onSubmit,
 
       {error && <p className="col-span-2 text-xs text-red-500">{error}</p>}
 
-      <div className="col-span-2 flex justify-end">
+      <div className={`col-span-2 flex ${onVolver ? 'justify-between' : 'justify-end'}`}>
+        {onVolver && (
+          <Button size="sm" variant="outline" onClick={onVolver} className="cursor-pointer">
+            Volver
+          </Button>
+        )}
         <Button size="sm" onClick={onSubmit} className="cursor-pointer">
           Continuar
         </Button>

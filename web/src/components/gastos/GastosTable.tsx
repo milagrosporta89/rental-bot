@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Search, Plus, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react'
+import { Search, Plus, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { toISO } from '@/lib/dates'
 import { eliminarGasto } from '@/app/actions/gastos'
 import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzadosGastos } from './FiltrosModal'
@@ -50,7 +50,6 @@ export function GastosTable() {
   const [pageSize, setPageSize] = useState(18)
   const [filtrosModalOpen, setFiltrosModalOpen] = useState(false)
   const [filtrosAvanzados, setFiltrosAvanzados] = useState<FiltrosAvanzadosGastos>(filtrosAvanzadosVacios())
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [eliminando, setEliminando] = useState(false)
 
@@ -194,7 +193,7 @@ export function GastosTable() {
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Pagado por</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Detalle</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Método de pago</th>
-                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Acciones</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap"><span className="sr-only">Acciones</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -215,42 +214,21 @@ export function GastosTable() {
                     <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{g.detalle || '—'}</td>
                     <td className="px-4 py-2.5 text-slate-600 text-xs">{metodoPago(g)}</td>
                     <td className="px-4 py-2.5 text-right">
-                      <div className="relative inline-block">
+                      <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => setOpenMenuId(openMenuId === g.id ? null : g.id)}
-                          className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
-                          aria-label="Más acciones"
-                          aria-haspopup="menu"
-                          aria-expanded={openMenuId === g.id}
+                          onClick={() => router.push(`/gastos/nuevo?edit=${g.id}`)}
+                          aria-label="Editar gasto"
+                          className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
                         >
-                          <MoreVertical className="w-4 h-4" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </button>
-
-                        {openMenuId === g.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                            <div
-                              role="menu"
-                              className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50"
-                            >
-                              <button
-                                role="menuitem"
-                                onClick={() => { setOpenMenuId(null); router.push(`/gastos/nuevo?edit=${g.id}`) }}
-                                className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
-                              >
-                                Editar
-                              </button>
-                              <div className="my-1 border-t border-slate-100" />
-                              <button
-                                role="menuitem"
-                                onClick={() => { setOpenMenuId(null); setConfirmDeleteId(g.id) }}
-                                className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </>
-                        )}
+                        <button
+                          onClick={() => setConfirmDeleteId(g.id)}
+                          aria-label="Eliminar gasto"
+                          className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>

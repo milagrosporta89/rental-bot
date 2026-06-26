@@ -22,12 +22,13 @@ interface Props {
   onConfirmar: () => void
   loading: boolean
   error?: string
+  modoEdicion?: boolean
 }
 
 // Mismo lenguaje visual que el comprobante de pago de ingresos (web/src/lib/recibo.ts):
 // filas de label/valor alineadas en la misma línea, sin logo ni generación de imagen —
 // esto vive directo en la pantalla, no hace falta exportarlo a JPG.
-export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, error }: Props) {
+export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, error, modoEdicion }: Props) {
   const catLabel = CATEGORIA_GASTO_LABEL[resumen.categoria as CategoriaGasto] ?? resumen.categoria
   const tieneComprobante = Boolean(resumen.nro_operacion || resumen.comprobante_url)
 
@@ -35,7 +36,7 @@ export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, err
     <div className="space-y-4">
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-5 py-3.5 border-b border-slate-100 text-center">
-          <p className="text-sm font-semibold text-slate-800">Confirmar gasto</p>
+          <p className="text-sm font-semibold text-slate-800">{modoEdicion ? 'Guardar cambios' : 'Confirmar gasto'}</p>
           <p className="text-xs text-slate-400 mt-0.5">Revisá los datos antes de guardar</p>
         </div>
         <div className="px-5 py-2">
@@ -69,7 +70,7 @@ export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, err
         </Button>
         <Button size="sm" onClick={onConfirmar} disabled={loading} className="cursor-pointer">
           {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-          Confirmar gasto
+          {modoEdicion ? 'Guardar cambios' : 'Confirmar gasto'}
         </Button>
       </div>
     </div>

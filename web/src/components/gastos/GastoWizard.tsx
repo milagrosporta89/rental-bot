@@ -261,6 +261,7 @@ export function GastoWizard() {
             ro={ro}
             onChange={onChange}
             onSubmit={irAConfirmacion}
+            onVolver={editId ? () => router.push('/gastos') : undefined}
             error={formError}
           />
         </div>
@@ -273,6 +274,7 @@ export function GastoWizard() {
           onConfirmar={confirmar}
           loading={loading}
           error={submitError}
+          modoEdicion={!!editId}
         />
       )}
 
