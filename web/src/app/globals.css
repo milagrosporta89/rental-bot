@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.35 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.35 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0 0);
+  --primary: oklch(0.25 0 0);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.25 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.25 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0 0);
+  --input: oklch(0.92 0 0);
+  --ring: oklch(0.75 0 0);
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+
+/* Highlight de la selección en curso (dos clicks para elegir rango) — más intenso que el celeste por defecto de FullCalendar */
+.fc-highlight {
+  background-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+/* FullCalendar — cursor pointer en área seleccionable */
+.fc-timeline-lane-frame,
+.fc-timeline-slot {
+  cursor: pointer;
+}
+
+.fc .fc-timeline-event-harness {
+  margin-top: 4px;
+}
+
+/* FullCalendar — chips sólidos, centrados */
+.fc-timeline-lane,
+.fc-resource-area .fc-datagrid-cell-frame {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  overflow: hidden;
+}
+
+.fc-timeline-event {
+  height: 28px !important;
+  margin: 0 1px !important;
+  border-radius: 5px !important;
+  border: none !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Chip apilado (solapamiento): ajusta al sublane de ~20px */
+.fc-timeline-event.fc-event-stacked {
+  height: 20px !important;
+}
+
+/* Reserva tentativa: franja rayada a la izquierda del chip, en el color de la casa */
+.fc-timeline-event.fc-event-tentativa {
+  position: relative;
+}
+
+.fc-timeline-event.fc-event-tentativa::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  border-radius: 5px 0 0 5px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    currentColor 0px,
+    currentColor 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  opacity: 0.9;
+}
+
+.fc-timeline-event.fc-event-tentativa .fc-event-main {
+  padding-left: 10px;
+}
+
+.fc-timeline-event .fc-event-main {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 100%;
+}
+
+.fc-timeline-event .fc-event-title {
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+  color: inherit;
+  vertical-align: unset !important;
+}
+
+/* Pisamos el vertical-align: top que FC aplica en .fc-h-event .fc-event-title */
+.fc-h-event.fc-timeline-event .fc-event-title {
+  vertical-align: unset !important;
+}
+
+/* Encabezado: sin bold, tipografía más chica */
+.fc-timeline-slot-label {
+  font-weight: 400 !important;
+  font-size: 0.68rem !important;
+}
+
+/* Fila de mes (vista multi-mes): separador debajo y un poco más de peso para orientarse al scrollear */
+.fc-timeline-header-row:first-child .fc-timeline-slot {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.fc-timeline-header-row:first-child .fc-timeline-slot-label {
+  font-weight: 600 !important;
+}
+
+/* Quitar línea divisoria entre fila de días-semana y fila de números */
+.fc-timeline-header-row:nth-child(2) .fc-timeline-slot {
+  border-bottom: none !important;
+}
+
+/* Línea debajo de la fila de números del día, separándola del cuerpo del calendario */
+.fc-timeline-header-row:nth-child(3) .fc-timeline-slot {
+  border-bottom: 1px solid #cbd5e1 !important;
+}
+
+/* Celda superior izquierda (esquina "Casa"): trama hatch en vez de la palabra */
+.fc-datagrid-header .fc-datagrid-cell-main {
+  display: none;
+}
+
+.fc-datagrid-header .fc-datagrid-cell-frame {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #cbd5e1 0px,
+    #cbd5e1 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+/* El scroller del header del timeline no tiene nada para scrollear (FullCalendar lo fuerza
+   con overflow-x: scroll solo para alinearse con el del cuerpo) — se oculta solo visualmente,
+   el sincronismo de scroll sigue funcionando igual */
+.fc-scroller:has(.fc-timeline-header) {
+  scrollbar-width: none;
+}
+
+.fc-scroller:has(.fc-timeline-header)::-webkit-scrollbar {
+  display: none;
+}
+
+/* La columna "Casa" (header y cuerpo) nunca tiene contenido propio para scrollear horizontalmente,
+   pero FullCalendar le pisa un overflow-x: scroll por inline style para alinearla con el timeline.
+   Lo forzamos a hidden con !important para pisar ese inline style. */
+.fc-scroller:has(.fc-datagrid-header),
+.fc-scroller:has(.fc-datagrid-body) {
+  overflow-x: hidden !important;
+}
+
+/* Scroll del cuerpo del calendario: más fino y acorde a la paleta */
+.fc-scroller:has(.fc-timeline-body) {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar {
+  height: 8px;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.fc-scroller:has(.fc-timeline-body)::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}

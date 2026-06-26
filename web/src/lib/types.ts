@@ -1,0 +1,135 @@
+export type EstadoPago = 'debe' | 'parcial' | 'pagado'
+export type EstadoReserva = 'tentativa' | 'confirmada' | 'cancelada'
+export type Plataforma = 'directo' | 'airbnb'
+export type MotivoBloqueo = 'limpieza' | 'mantenimiento' | 'uso_personal' | 'otro'
+
+export interface Reserva {
+  id: string
+  fecha_registro: string       // DD/MM/YYYY
+  casa: string                 // '1' a '5'
+  titular: string
+  nombre_pax: string
+  cantidad_pax: number
+  cantidad_noches: number
+  fecha_entrada: string        // DD/MM/YYYY
+  fecha_salida: string         // DD/MM/YYYY
+  monto_total_usd: number
+  monto_adelanto_ars: number | null
+  monto_adelanto_usd: number | null
+  saldo_usd: number
+  estado_pago: EstadoPago
+  comprobante_url: string | null
+  registrado_por: string
+  timestamp: string
+  cotizacion: number
+  plataforma: Plataforma
+  // Campos agregados por rental-ui
+  estado_reserva: EstadoReserva
+  notas: string | null
+  telefono: string | null
+}
+
+export interface Bloqueo {
+  id: string
+  casa: string
+  fecha_desde: string          // DD/MM/YYYY
+  fecha_hasta: string          // DD/MM/YYYY
+  motivo: MotivoBloqueo
+  notas: string | null
+  registrado_por: string
+  timestamp: string
+}
+
+export interface Ingreso {
+  id: string
+  fecha: string
+  casa: string
+  monto: number
+  moneda: string
+  tipo: string
+  quien_pago: string
+  id_reserva: string | null
+  tipo_movimiento: string
+  monto_ars: number | null
+  monto_usd: number | null
+  cotizacion: number
+  nombre_destinatario: string | null
+  banco_destino: string | null
+  nro_operacion: string | null
+  detalle: string | null
+  registrado_por: string
+  comprobante_url: string | null
+  timestamp: string
+}
+
+// Para FullCalendar
+export interface CalendarEvent {
+  id: string
+  resourceId: string           // casa
+  title: string
+  start: string                // ISO YYYY-MM-DD
+  end: string                  // ISO YYYY-MM-DD (exclusive)
+  backgroundColor: string
+  borderColor: string
+  textColor?: string
+  opacity?: number
+  extendedProps: {
+    tipo: 'reserva' | 'bloqueo'
+    reserva?: Reserva
+    bloqueo?: Bloqueo
+  }
+}
+
+export const CASA_TITULAR: Record<string, string> = {
+  '1': 'Francisco',
+  '2': 'Francisco',
+  '3': 'Milagros',
+  '4': 'Milagros',
+  '5': 'Inés',
+}
+
+export const CASA_COLORES: Record<string, string> = {
+  '1': '#6366f1',  // índigo
+  '2': '#10b981',  // esmeralda
+  '3': '#f59e0b',  // ámbar
+  '4': '#ef4444',  // rojo
+  '5': '#0ea5e9',  // sky (azul cielo)
+}
+
+export const CASA_LABELS: Record<string, string> = {
+  '1': 'Casa 1',
+  '2': 'Casa 2',
+  '3': 'Casa 3',
+  '4': 'Casa 4',
+  '5': 'Casa 5',
+}
+
+export const PLATAFORMA_LABEL: Record<string, string> = {
+  directo: 'Directo',
+  airbnb: 'Airbnb',
+}
+
+// Estado "visual" = estado_reserva + "terminada" (derivado de la fecha, nunca se guarda ni se elige)
+export const ESTADO_VISUAL_LABEL: Record<string, string> = {
+  tentativa: 'Tentativa',
+  confirmada: 'Confirmada',
+  cancelada: 'Cancelada',
+  en_curso: 'En curso',
+  terminada: 'Terminada',
+}
+
+export const ESTADO_VISUAL_BADGE: Record<string, string> = {
+  confirmada: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  tentativa: 'bg-amber-50 text-amber-700 border border-amber-200',
+  cancelada: 'bg-red-50 text-red-600 border border-red-200',
+  en_curso: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  terminada: 'bg-slate-100 text-slate-500 border border-slate-200',
+}
+
+export const ESTADO_VISUAL_COLOR: Record<string, string> = {
+  confirmada: 'text-emerald-600',
+  tentativa: 'text-amber-600',
+  cancelada: 'text-slate-400',
+  en_curso: 'text-indigo-600',
+  terminada: 'text-slate-500',
+}

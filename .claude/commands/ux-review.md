@@ -9,7 +9,6 @@ Lee estos archivos en orden:
 2. `src/handlers/income.ts` — flujo de comprobantes por foto/PDF
 3. `src/handlers/cash.ts` — ingreso/gasto manual
 4. `src/handlers/balance.ts` — reporte de saldos
-5. `src/handlers/comision.ts` — comisiones de Paola
 6. `src/handlers/reembolso.ts` — reembolsos
 7. `src/handlers/reservas.ts` — gestión de reservas
 8. `src/services/whatsapp.ts` — cómo se envían mensajes, botones y listas
