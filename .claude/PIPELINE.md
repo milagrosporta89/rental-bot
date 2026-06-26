@@ -1,8 +1,8 @@
-# Pipeline de 4 agentes — replicar un flujo del bot a la web
+# Pipeline de 4 agentes — construir cualquier feature nueva en la web
 
-Plantilla reutilizable. Se invoca con `/run-pipeline <feature>` (ver `commands/run-pipeline.md`), donde `<feature>` es el nombre del flujo del bot a replicar (ej: `gastos`, `ingresos`, `comision`).
+Plantilla reutilizable, **se aplica siempre a toda feature nueva** (decisión de Mili, 2026-06-26) — tenga o no equivalente en el bot de WhatsApp. Se invoca con `/run-pipeline <feature>` (ver `commands/run-pipeline.md`), donde `<feature>` es el nombre de la feature (ej: `gastos`, `auth-header`, `ingresos`).
 
-Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y tener la aprobación de Mili sobre ese relevamiento — el pipeline no vuelve a investigar el dominio desde cero, parte de lo ya explorado.
+Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y tener la aprobación de Mili sobre ese relevamiento — el pipeline no vuelve a investigar el dominio desde cero, parte de lo ya explorado. Si la feature no tiene equivalente en el bot (ej: login), `/explore` igual corre, pero investiga lo que sí aplica (dependencias ya instaladas, patrones existentes en la web, configuración necesaria) en vez de buscar un handler que no existe — ver `commands/explore.md`.
 
 El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se aprobó) vive en `STATUS.md`, no acá. Este archivo describe el proceso, no una corrida puntual.
 
@@ -17,7 +17,7 @@ El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se
 
 ## AGENTE 1: Product Owner
 
-**Rol:** Traducir el flujo del bot a requerimientos de UI.
+**Rol:** Traducir el relevamiento de `/explore <feature>` a requerimientos de UI (haya o no flujo de bot detrás).
 
 Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprobado por Mili), producí `.claude/artifacts/po-output.json`:
 
@@ -42,7 +42,7 @@ Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprob
     }
   ],
   "business_rules": ["..."],
-  "out_of_scope": ["cosas que el bot hace pero NO se replican en esta iteración"]
+  "out_of_scope": ["cosas que podrían esperarse de esta feature pero NO se incluyen en esta iteración (del bot si aplica, o de expectativas razonables si no)"]
 }
 ```
 
