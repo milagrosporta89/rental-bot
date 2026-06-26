@@ -51,6 +51,15 @@ body {
   color: var(--foreground);
 }
 
+/* Entrada del toast (web/src/components/ui/toast.tsx) */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-toast-in {
+  animation: toast-in 200ms ease-out;
+}
+
 
 /* Highlight de la selección en curso (dos clicks para elegir rango) — más intenso que el celeste por defecto de FullCalendar */
 .fc-highlight {

@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Gasto, CategoriaGasto, CATEGORIA_GASTO_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight, FileCheck2, CheckCircle2 } from 'lucide-react'
+import { Toast } from '@/components/ui/toast'
+import { Search, Plus, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toISO } from '@/lib/dates'
 
 const supabase = createClient()
@@ -17,6 +18,11 @@ type SortDir = 'asc' | 'desc'
 
 function categoriaLabel(c: string): string {
   return CATEGORIA_GASTO_LABEL[c as CategoriaGasto] ?? c
+}
+
+// Mismo criterio que PagosSection.tsx (ingresos): si tiene nro_operacion fue transferencia, si no, efectivo
+function metodoPago(g: Gasto): string {
+  return g.nro_operacion ? 'Transferencia' : 'Efectivo'
 }
 
 function matchBusqueda(g: Gasto, q: string): boolean {
@@ -39,7 +45,7 @@ export function GastosTable() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(18)
-  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(searchParams.get('creado') === '1')
+  const [mostrarToast, setMostrarToast] = useState(searchParams.get('creado') === '1')
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/gastos-data')
@@ -59,13 +65,12 @@ export function GastosTable() {
 
   useEffect(() => { setPage(0) }, [q, sortBy, sortDir, pageSize])
 
-  // Limpia el ?creado=1 de la URL después de mostrar el aviso, sin agregar una entrada al historial
+  // Limpia el ?creado=1 de la URL apenas se monta, sin agregar una entrada al historial
+  // (el auto-cierre del toast lo maneja el propio componente Toast)
   useEffect(() => {
-    if (!mostrarConfirmacion) return
-    const t = setTimeout(() => setMostrarConfirmacion(false), 4000)
+    if (!mostrarToast) return
     router.replace('/gastos')
-    return () => clearTimeout(t)
-  }, [mostrarConfirmacion, router])
+  }, [mostrarToast, router])
 
   const lista = gastos
     .filter(g => matchBusqueda(g, q))
@@ -106,11 +111,8 @@ export function GastosTable() {
           </Link>
         </div>
 
-        {mostrarConfirmacion && (
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-lg px-4 py-2.5 mb-4">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Gasto registrado correctamente.
-          </div>
+        {mostrarToast && (
+          <Toast message="Gasto registrado correctamente." onClose={() => setMostrarToast(false)} />
         )}
 
         {/* Toolbar */}
@@ -160,7 +162,7 @@ export function GastosTable() {
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Pagado por</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Detalle</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Comprobante</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Método de pago</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,21 +181,7 @@ export function GastosTable() {
                     </td>
                     <td className="px-4 py-2.5 text-slate-600 text-xs">{g.pagado_por}</td>
                     <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{g.detalle || '—'}</td>
-                    <td className="px-4 py-2.5">
-                      {g.comprobante_url ? (
-                        <a
-                          href={g.comprobante_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label="Ver comprobante"
-                          className="inline-flex items-center justify-center w-7 h-7 rounded text-emerald-600 hover:bg-emerald-50 transition-colors duration-150 cursor-pointer"
-                        >
-                          <FileCheck2 className="w-4 h-4" />
-                        </a>
-                      ) : (
-                        <span className="text-slate-300 text-xs">—</span>
-                      )}
-                    </td>
+                    <td className="px-4 py-2.5 text-slate-600 text-xs">{metodoPago(g)}</td>
                   </tr>
                 ))}
               </tbody>

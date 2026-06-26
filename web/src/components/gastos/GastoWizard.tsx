@@ -12,7 +12,10 @@ import { DuplicadoBloqueo } from './DuplicadoBloqueo'
 import { FormularioGasto, type GastoFormState } from './FormularioGasto'
 import { ConfirmacionGasto, type ResumenGasto } from './ConfirmacionGasto'
 
-type Paso = 'camino' | 'dropzone' | 'duplicado' | 'formulario' | 'confirmacion'
+// 'carga' agrupa selección de camino + dropzone/formulario en una sola pantalla:
+// el toggle de camino queda siempre visible arriba, así sirve también como "volver"
+// entre manual y comprobante sin perder el resto del flujo.
+type Paso = 'carga' | 'duplicado' | 'confirmacion'
 
 const FORM_INICIAL: GastoFormState = {
   categoria: '',
@@ -36,8 +39,9 @@ export function GastoWizard() {
   const router = useRouter()
   const { submit, loading, error: submitError } = useGastoSubmit()
 
-  const [paso, setPaso] = useState<Paso>('camino')
-  const [camino, setCamino] = useState<Camino>('')
+  const [paso, setPaso] = useState<Paso>('carga')
+  // Manual por defecto: es el camino más simple y el que no requiere ninguna acción previa
+  const [camino, setCamino] = useState<Camino>('manual')
   const [form, setForm] = useState<GastoFormState>(FORM_INICIAL)
   const [fromComprobante, setFromComprobante] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
@@ -46,8 +50,15 @@ export function GastoWizard() {
   const [formError, setFormError] = useState('')
 
   function elegirCamino(c: Camino) {
+    if (c === camino) return
     setCamino(c)
-    setPaso(c === 'comprobante' ? 'dropzone' : 'formulario')
+    // Cambiar de camino descarta cualquier comprobante ya cargado, para evitar
+    // combinaciones inconsistentes (ej: datos de OCR mezclados con carga manual)
+    setComprobanteUrl('')
+    setUploadState('idle')
+    setFromComprobante(false)
+    setDuplicado(null)
+    setForm(prev => ({ ...prev, nombre_destinatario: '', banco_origen: '', nro_operacion: '' }))
   }
 
   function onChange(k: keyof GastoFormState, v: string) {
@@ -87,15 +98,15 @@ export function GastoWizard() {
         if (existente) {
           setDuplicado(existente)
           setPaso('duplicado')
-          return
         }
       }
-      setPaso('formulario')
     } catch {
       setUploadState('error')
     }
   }
 
+  // Quita el comprobante cargado (por error de elección, o tras un duplicado) y vuelve
+  // al dropzone vacío — sin abandonar el camino "comprobante" ni perder los demás datos
   function removeComprobante() {
     setComprobanteUrl('')
     setUploadState('idle')
@@ -110,7 +121,7 @@ export function GastoWizard() {
       nro_operacion: '',
       fecha: new Date().toISOString().slice(0, 10),
     }))
-    setPaso('dropzone')
+    setPaso('carga')
   }
 
   // readonly para campos que vinieron de un comprobante recién subido (mismo criterio que pago/page.tsx)
@@ -200,39 +211,48 @@ export function GastoWizard() {
     <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
       <h1 className="text-lg font-semibold text-slate-800">Cargar gasto</h1>
 
-      {paso === 'camino' && (
-        <SeleccionCaminoToggle camino={camino} onSelect={elegirCamino} />
-      )}
+      {paso === 'carga' && (
+        <div className="space-y-4">
+          <SeleccionCaminoToggle camino={camino} onSelect={elegirCamino} />
 
-      {paso === 'dropzone' && (
-        <ComprobanteDropzone
-          uploadState={uploadState}
-          comprobanteUrl={comprobanteUrl}
-          onFile={handleFile}
-          onRemove={removeComprobante}
-        />
+          {camino === 'comprobante' && (
+            <div className="space-y-3">
+              {!fromComprobante && (
+                <p className="text-xs text-slate-500">
+                  Al subir el comprobante completamos fecha, monto, moneda y los demás datos automáticamente — solo vas a tener que elegir la categoría.
+                </p>
+              )}
+              <ComprobanteDropzone
+                uploadState={uploadState}
+                comprobanteUrl={comprobanteUrl}
+                onFile={handleFile}
+                onRemove={removeComprobante}
+              />
+            </div>
+          )}
+
+          {(camino === 'manual' || fromComprobante) && (
+            <FormularioGasto
+              camino={camino}
+              form={form}
+              fromComprobante={fromComprobante}
+              ro={ro}
+              onChange={onChange}
+              onSubmit={irAConfirmacion}
+              error={formError}
+            />
+          )}
+        </div>
       )}
 
       {paso === 'duplicado' && duplicado && (
         <DuplicadoBloqueo gastoExistente={duplicado} onReintentar={removeComprobante} />
       )}
 
-      {paso === 'formulario' && (
-        <FormularioGasto
-          camino={camino}
-          form={form}
-          fromComprobante={fromComprobante}
-          ro={ro}
-          onChange={onChange}
-          onSubmit={irAConfirmacion}
-          error={formError}
-        />
-      )}
-
       {paso === 'confirmacion' && (
         <ConfirmacionGasto
           resumen={resumen}
-          onVolver={() => setPaso('formulario')}
+          onVolver={() => setPaso('carga')}
           onConfirmar={confirmar}
           loading={loading}
           error={submitError}
