@@ -1,6 +1,13 @@
 {
   "flow": [
     {
+      "step": 0,
+      "screen": "NavegacionPrincipal",
+      "fields_shown": [],
+      "user_action": "Hace click en la pestaña 'Gastos', nueva en el nav principal (NavTabs) junto a 'Calendario' y 'Reservas', ruta /gastos.",
+      "next_step": 1
+    },
+    {
       "step": 1,
       "screen": "SeleccionCamino",
       "fields_shown": [],
@@ -31,13 +38,12 @@
         "nombre_destinatario (readonly, vino de OCR)",
         "banco_origen (readonly, vino de OCR)",
         "nro_operacion (readonly, vino de OCR)",
-        "cotizacion (editable, prellenada desde /api/cotizacion)",
         "categoria (editable, obligatorio, no viene del OCR)",
         "categoria_otro (editable, solo visible si categoria === 'otro')",
         "pagado_por (editable, obligatorio, solo si no se pudo inferir del comprobante)",
         "detalle (editable, opcional)"
       ],
-      "user_action": "Completa categoria (y texto libre si elige 'otro'), revisa/completa pagado_por si no vino inferido, y opcionalmente edita cotizacion, detalle o fecha. Click en 'Continuar'.",
+      "user_action": "Completa categoria (y texto libre si elige 'otro'), revisa/completa pagado_por si no vino inferido, y opcionalmente edita detalle o fecha. cotizacion NO se muestra: se calcula en el servidor al confirmar, usando la fecha del gasto. Click en 'Continuar'.",
       "next_step": 5
     },
     {
@@ -48,7 +54,6 @@
         "categoria_otro (solo visible si categoria === 'otro')",
         "monto (obligatorio)",
         "moneda (obligatorio)",
-        "cotizacion (obligatorio, prellenada desde /api/cotizacion, editable)",
         "fecha (obligatorio, no futura)",
         "pagado_por (obligatorio)",
         "pagado_por_otro (solo visible si pagado_por === 'Otro')",
@@ -64,8 +69,7 @@
         "categoria",
         "monto",
         "moneda",
-        "cotizacion",
-        "monto_ars o monto_usd (calculado, solo lectura)",
+        "monto_ars o monto_usd (calculado, solo lectura — la cotizacion usada no se muestra, se resuelve en el servidor según la fecha del gasto)",
         "fecha",
         "pagado_por",
         "detalle",
@@ -79,6 +83,12 @@
     }
   ],
   "component_tree": [
+    {
+      "component": "NavTabs",
+      "children": ["nuevo tab 'Gastos' -> /gastos, agregado al array de tabs existente junto a 'Calendario' y 'Reservas' en web/src/components/layout/NavTabs.tsx"],
+      "props": ["activeTab"],
+      "states": ["idle"]
+    },
     {
       "component": "GastoWizard",
       "children": ["SeleccionCaminoToggle", "ComprobanteDropzone", "DuplicadoBloqueo", "FormularioGasto", "ConfirmacionGasto"],
@@ -144,7 +154,6 @@
     "step_4a": [
       "categoria es obligatoria; si es 'otro' se exige categoria_otro no vacío",
       "pagado_por es obligatorio si no se pudo inferir del comprobante",
-      "cotizacion debe ser numérica y mayor a 0",
       "fecha no puede ser futura"
     ],
     "step_2b": [
@@ -152,7 +161,6 @@
       "monto debe ser numérico y mayor a 0",
       "moneda solo puede ser ARS o USD",
       "fecha es obligatoria, formato día/mes/año, no puede ser futura",
-      "cotizacion debe ser numérica y mayor a 0",
       "pagado_por es obligatorio; si es 'Otro' se exige texto libre no vacío"
     ],
     "step_5": [
