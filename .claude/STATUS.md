@@ -4,6 +4,22 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 6) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Pedido de Mili:** faltaba feedback visible al confirmar un gasto. Se agregó una tabla de gastos cargados en `/gastos` (antes esa ruta era directamente el wizard) → commit `3a33ab0`.
+
+- `/gastos` ahora es `GastosTable` (búsqueda, orden por fecha/monto, paginación, botón "Nuevo gasto").
+- `/gastos/nuevo` es el wizard (`GastoWizard`, sin cambios de lógica salvo que al confirmar redirige a `/gastos?creado=1`).
+- Nuevo `web/src/app/api/gastos-data/route.ts`, mismo patrón que `api/calendar-data`.
+- Columnas elegidas: fecha, categoría, monto, pagado_por, detalle, comprobante (link si existe). Se omitieron a propósito `nro_operacion`/`banco_origen`/`nombre_destinatario` (metadata interna de OCR, no aportan en una vista de lista) y `registrado_por` (hoy siempre el mismo valor hardcodeado). Sin chips de filtro rápido tipo reservas: gastos no tiene una dimensión de estado equivalente.
+- Verificado end-to-end con Playwright: tabla vacía → nuevo gasto → confirmación (sin `cotizacion` visible en pantalla, correcto) → vuelta a la tabla con el aviso verde "Gasto registrado correctamente" y la fila visible al instante.
+
+**⚠️ Hallazgo durante la verificación:** la tabla `gastos` en Supabase tenía 2 filas de prueba ("Jardinero $300 Inés", timestamps de 5 segundos de diferencia) que no estaban ahí cuando se confirmó vacía al inicio del pipeline. Todo indica que quedaron de la verificación del Agente QA (que probablemente ejecutó la app real en vez de solo leer código, sin limpiar después). Se borraron ambas filas, y también el gasto de prueba que generé yo mismo al verificar esta tabla. La tabla quedó en 0 filas otra vez, confirmado.
+
+**Nota para sesiones futuras / para el prompt de QA en `PIPELINE.md`:** si un agente de QA ejecuta la app contra datos reales (Supabase, no un entorno de test), tiene que limpiar cualquier fila que cree durante la verificación. Vale la pena agregar esto explícitamente a las instrucciones del Agente 4 en `PIPELINE.md` la próxima vez que se edite.
+
+---
+
 ## 2026-06-26 (cont. 5) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Atendidas las 3 sugerencias menores de QA** → commit `1e4df2c`:

@@ -145,6 +145,7 @@ Mostralo.
 ## Reglas generales (ver también `CONTEXT.md`)
 
 - Nunca saltees un gate sin aprobación explícita de Mili.
-- Si encontrás algo ambiguo que puede afectar decisiones de negocio, pará y preguntá (máximo 2 preguntas por gate, solo si son bloqueantes).
+- Si encontrás algo ambiguo que puede afectar decisiones de negocio, pará y preguntá (máximo 5 preguntas por gate, solo si son bloqueantes).
 - Todos los artifacts van en `.claude/artifacts/` y no se borran.
 - Si algo no tiene sentido dado lo explorado del proyecto, decilo antes de inventar.
+- Si el Developer o el QA ejecutan la app real (Playwright, curl, etc.) contra la base de Supabase real — no un entorno de test separado — y eso crea filas de prueba, hay que borrarlas antes de terminar la fase y dejar constancia en `STATUS.md` de qué se creó y se borró. Las tablas de gastos/ingresos/reservas son datos financieros reales, no un sandbox.
