@@ -4,6 +4,18 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 10) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Ajustes finos de UI** → commit `f443b6b`:
+- Se quitó el botón de "Volver" junto al breadcrumb (redundante, "Gastos" ya es cliqueable — mismo patrón que el breadcrumb de reservas, sin botón aparte).
+- `ComprobanteDropzone`: los 4 estados (idle/uploading/done/error) ahora comparten la misma altura fija (`h-24`, 96px) — antes el estado "done" era visiblemente más bajo que "idle" y hacía saltar el resto del formulario al completarse la carga. Verificado con Playwright midiendo la bounding box (96px en ambos casos).
+- Leyenda explicativa debajo del dropzone: más corta y en tipografía más chica (`text-[11px]`).
+- `ConfirmacionGasto`: tipografía en negrita de los valores reducida de `text-base` a `text-sm`.
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 9) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Tanda grande de feedback de uso real de Mili, atendida en `fea7044` (código) + `beced4f` (artifacts):**
