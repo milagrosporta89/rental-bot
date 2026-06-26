@@ -180,7 +180,7 @@ export function GastoWizard() {
 
   async function confirmar() {
     const ok = await submit(buildPayload())
-    if (ok) router.push('/gastos')
+    if (ok) router.push('/gastos?creado=1')
   }
 
   const resumen: ResumenGasto = {

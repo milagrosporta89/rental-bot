@@ -1,9 +1,10 @@
-import { GastoWizard } from '@/components/gastos/GastoWizard'
+import { Suspense } from 'react'
+import { GastosTable } from '@/components/gastos/GastosTable'
 
 export default function GastosPage() {
   return (
-    <div className="h-full overflow-auto">
-      <GastoWizard />
-    </div>
+    <Suspense>
+      <GastosTable />
+    </Suspense>
   )
 }
