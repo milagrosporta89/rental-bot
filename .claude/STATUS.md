@@ -4,6 +4,30 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 — Feature: auth-header · Rama: `feature/auth-header`
+
+**`feature/expense-ui` mergeada a `master` y pusheada** antes de arrancar esta feature (decisión de Mili). Esta es una feature nueva, no replica ningún flujo del bot (WhatsApp identifica por teléfono, no por login) — no aplica el pipeline de 4 agentes de `PIPELINE.md` ni `/explore`.
+
+**Decisiones de Mili (sin volver a preguntar):**
+- Supabase Auth (ya era dependencia instalada vía `@supabase/ssr`, cero deps nuevas).
+- Mismo nivel de acceso para los 5 titulares — el login es solo para identificar QUIÉN hizo cada acción, no para restringir nada.
+- Cuentas pre-creadas a mano, sin alta pública.
+
+**Construido y commiteado** (`01b86dd`):
+- `src/middleware.ts` + `lib/supabase/middleware.ts`: refresca sesión + redirige a `/login` sin sesión (y al revés).
+- `/login`: form simple email+contraseña, sin registro público.
+- `NavTabs` muestra el titular logueado (`user_metadata.titular`) + botón de logout. `layout.tsx` obtiene el usuario server-side; sin sesión no se renderiza el header.
+- `lib/auth.ts` (`registradoPorActual()`): resuelve el TODO histórico de `registrado_por` hardcodeado como `'Milagros'` en **gastos.ts, ingresos.ts, reservas.ts y bloqueos.ts** — los 4 lugares donde existía ese hardcode, no solo gastos.
+
+Verificado end-to-end con una cuenta de prueba descartable — **autorización explícita pedida y obtenida antes de crearla** (el clasificador de seguridad bloqueó el primer intento por no tener autorización explícita, correctamente). Cuenta borrada al terminar, 0 usuarios de Auth quedan en el proyecto.
+
+**Pendiente / próximo paso:**
+- **Crear las cuentas reales de los 5 titulares** (Francisco, Milagros, Inés, Fernando, Paola) — necesito que Mili decida emails y cómo se distribuyen las contraseñas iniciales (¿yo las creo con una temporal y cada uno la cambia en su primer login? ¿Mili las crea a mano en el dashboard de Supabase?). Sin esto, nadie puede loggearse todavía en el ambiente real.
+- Decidir si "Dashboard" (el link suelto en el header, sin funcionalidad real desde antes de esta sesión) se mantiene, se conecta a algo, o se quita — quedó sin tocar.
+- Probar en un navegador real (no solo Playwright headless) que el flujo de login se vea y comporte bien.
+
+---
+
 ## 2026-06-26 (cierre) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Sesión de gastos dada por terminada por Mili.** Pipeline completo (PO→Designer→Developer→QA, todos en PASS/aprobado) más ~10 rondas de fixes de UX/feedback de uso real, todo commiteado en `feature/expense-ui`. Resumen de lo que quedó construido:
