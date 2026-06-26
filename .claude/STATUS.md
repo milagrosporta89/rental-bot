@@ -4,6 +4,18 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 12) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Filtros avanzados en la tabla** → commit `b3d3430`:
+- `FiltrosModal.tsx` (mismo patrón que reservas): rango de fechas, categoría (12, alfabéticas) y pagado_por, con badge de cantidad activa junto al botón "Filtros", ubicado al costado del buscador. Sin chips de filtro rápido — pedido explícito de Mili, y de todas formas gastos no tiene una dimensión de estado equivalente a reservas (próxima/en curso/etc).
+- El placeholder del buscador pasa a ser un `<Label>` arriba del input en vez de texto dentro del campo (no desaparece al escribir).
+
+Verificado con Playwright: filtro por categoría reduce correctamente de 8 a 4 filas, badge muestra "1".
+
+**Pendiente / próximo paso:** decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 11) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Dos ajustes más** → commit `c32e87b`:
