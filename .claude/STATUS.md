@@ -4,6 +4,21 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 4) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Agente 4 (QA) completado** → commit `88a4368` `[agent-qa] revisión completada` → `.claude/artifacts/qa-output.json`. **`summary: PASS`** — las 4 user stories pasan, `critical_missing` vacío. `tsc --noEmit` confirmado limpio otra vez de forma independiente.
+
+**Pipeline de la feature gastos: completo (PO → Designer → Developer → QA, los 4 con PASS/aprobación).**
+
+**Sugerencias menores no bloqueantes que quedaron en `qa-output.json` (para decidir si se atienden ahora o después):**
+- Camino manual no fija `banco_origen: 'Efectivo'` por defecto (el bot sí lo hace) — rompe paridad de datos para análisis histórico.
+- No hay `UNIQUE constraint` versionado en SQL sobre `nro_operacion` en la tabla `gastos` — la defensa contra duplicados es doble (cliente + server) pero no atómica a nivel DB ante condiciones de carrera.
+- El patrón de auto-fetch HTTP en `gastos.ts` (server action llamando a su propia API route) sigue como deuda técnica menor, confirmado no bloqueante por QA.
+
+**Pendiente / próximo paso:** decidir con Mili si se atienden las sugerencias menores, se pasa a una pasada de estilos (el Developer no aplicó CSS, por instrucción del pipeline), o se mergea así a `master`.
+
+---
+
 ## 2026-06-26 (cont. 3) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Agente 3 (Developer) completado** → commit `90cbbb8` `[agent-dev] formulario base sin estilos` (15 archivos, `tsc --noEmit` y eslint sin errores, verificado independientemente).
