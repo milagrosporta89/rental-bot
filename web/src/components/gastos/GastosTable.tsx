@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Gasto, CategoriaGasto, CATEGORIA_GASTO_LABEL } from '@/lib/types'
 import { Input } from '@/components/ui/input'
-import { Search, Plus, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Search, Plus, SlidersHorizontal, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toISO } from '@/lib/dates'
+import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzadosGastos } from './FiltrosModal'
 
 const supabase = createClient()
 const PAGE_SIZE_OPTIONS = [10, 18, 25, 50]
@@ -41,6 +43,8 @@ export function GastosTable() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(18)
+  const [filtrosModalOpen, setFiltrosModalOpen] = useState(false)
+  const [filtrosAvanzados, setFiltrosAvanzados] = useState<FiltrosAvanzadosGastos>(filtrosAvanzadosVacios())
 
   const cargar = useCallback(async () => {
     const res = await fetch('/api/gastos-data')
@@ -58,10 +62,19 @@ export function GastosTable() {
     return () => { supabase.removeChannel(ch) }
   }, [cargar])
 
-  useEffect(() => { setPage(0) }, [q, sortBy, sortDir, pageSize])
+  useEffect(() => { setPage(0) }, [q, sortBy, sortDir, pageSize, filtrosAvanzados])
 
   const lista = gastos
     .filter(g => matchBusqueda(g, q))
+    .filter(g => {
+      const { fechaDesde, fechaHasta, categorias, pagadoPor } = filtrosAvanzados
+      if (categorias.size > 0 && !categorias.has(g.categoria)) return false
+      if (pagadoPor.size > 0 && !pagadoPor.has(g.pagado_por)) return false
+      const fechaISO = toISO(g.fecha)
+      if (fechaDesde && fechaISO < fechaDesde) return false
+      if (fechaHasta && fechaISO > fechaHasta) return false
+      return true
+    })
     .slice()
     .sort((a, b) => {
       const cmp = sortBy === 'monto'
@@ -100,16 +113,31 @@ export function GastosTable() {
         </div>
 
         {/* Toolbar */}
-        <div className="pb-4">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            <Input
-              value={q}
-              onChange={e => setQ(e.target.value)}
-              placeholder="Buscar por categoría, pagador, detalle…"
-              className="pl-8 text-sm h-8"
-            />
+        <div className="pb-4 flex items-end gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Buscar por categoría, pagador o detalle</Label>
+            <div className="relative w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                className="pl-8 text-sm h-8"
+              />
+            </div>
           </div>
+
+          <button
+            onClick={() => setFiltrosModalOpen(true)}
+            className="relative flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            Filtros
+            {contarFiltrosActivos(filtrosAvanzados) > 0 && (
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-semibold">
+                {contarFiltrosActivos(filtrosAvanzados)}
+              </span>
+            )}
+          </button>
         </div>
 
         <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -218,6 +246,13 @@ export function GastosTable() {
 
         </div>
       </div>
+
+      <FiltrosModal
+        open={filtrosModalOpen}
+        onClose={() => setFiltrosModalOpen(false)}
+        value={filtrosAvanzados}
+        onChange={setFiltrosAvanzados}
+      />
     </div>
   )
 }
