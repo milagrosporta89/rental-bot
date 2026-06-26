@@ -1,0 +1,164 @@
+{
+  "flow": [
+    {
+      "step": 1,
+      "screen": "SeleccionCamino",
+      "fields_shown": [],
+      "user_action": "Elige entre 'Carga manual' o 'Subir comprobante' (botones tipo toggle, igual al selector transferencia/efectivo de pago/page.tsx)",
+      "next_step": "2a si elige comprobante, 2b si elige manual"
+    },
+    {
+      "step": "2a",
+      "screen": "DropzoneComprobante",
+      "fields_shown": ["comprobante_url (oculto, no editable)"],
+      "user_action": "Arrastra o selecciona un archivo (JPG/PNG/PDF). El dropzone pasa por estados idle -> uploading -> done|error. En error puede reintentar subiendo otro archivo sin salir de la pantalla.",
+      "next_step": "3a si done, se mantiene en 2a si error (reintento) o uploading (en curso)"
+    },
+    {
+      "step": "3a",
+      "screen": "ValidacionDuplicado",
+      "fields_shown": ["nro_operacion (solo lectura, del comprobante recién subido)"],
+      "user_action": "Pantalla intermedia automática (sin input del usuario): el sistema chequea si nro_operacion ya existe en Supabase. Si existe, se bloquea el avance y se muestra el gasto duplicado encontrado (fecha, categoria, monto, pagado_por) con opción de volver a subir otro comprobante. Si no existe, avanza solo.",
+      "next_step": "4a si no hay duplicado; vuelve a 2a si el usuario decide reintentar con otro archivo"
+    },
+    {
+      "step": "4a",
+      "screen": "FormularioComprobante",
+      "fields_shown": [
+        "fecha (readonly, vino de OCR)",
+        "monto (readonly, vino de OCR)",
+        "moneda (readonly, vino de OCR)",
+        "nombre_destinatario (readonly, vino de OCR)",
+        "banco_origen (readonly, vino de OCR)",
+        "nro_operacion (readonly, vino de OCR)",
+        "cotizacion (editable, prellenada desde /api/cotizacion)",
+        "categoria (editable, obligatorio, no viene del OCR)",
+        "categoria_otro (editable, solo visible si categoria === 'otro')",
+        "pagado_por (editable, obligatorio, solo si no se pudo inferir del comprobante)",
+        "detalle (editable, opcional)"
+      ],
+      "user_action": "Completa categoria (y texto libre si elige 'otro'), revisa/completa pagado_por si no vino inferido, y opcionalmente edita cotizacion, detalle o fecha. Click en 'Continuar'.",
+      "next_step": 5
+    },
+    {
+      "step": "2b",
+      "screen": "FormularioManual",
+      "fields_shown": [
+        "categoria (obligatorio)",
+        "categoria_otro (solo visible si categoria === 'otro')",
+        "monto (obligatorio)",
+        "moneda (obligatorio)",
+        "cotizacion (obligatorio, prellenada desde /api/cotizacion, editable)",
+        "fecha (obligatorio, no futura)",
+        "pagado_por (obligatorio)",
+        "pagado_por_otro (solo visible si pagado_por === 'Otro')",
+        "detalle (opcional)"
+      ],
+      "user_action": "Completa el formulario manual paso a paso (sin nombre_destinatario, banco_origen ni nro_operacion). Click en 'Continuar'.",
+      "next_step": 5
+    },
+    {
+      "step": 5,
+      "screen": "Confirmacion",
+      "fields_shown": [
+        "categoria",
+        "monto",
+        "moneda",
+        "cotizacion",
+        "monto_ars o monto_usd (calculado, solo lectura)",
+        "fecha",
+        "pagado_por",
+        "detalle",
+        "nombre_destinatario (solo si vino de comprobante)",
+        "banco_origen (solo si vino de comprobante)",
+        "nro_operacion (solo si vino de comprobante)",
+        "comprobante_url (thumbnail/link, solo si vino de comprobante)"
+      ],
+      "user_action": "Revisa el resumen completo. Puede volver atrás a editar (vuelve a 4a o 2b según el camino) o confirmar. Al confirmar se persiste en Supabase tabla gastos.",
+      "next_step": null
+    }
+  ],
+  "component_tree": [
+    {
+      "component": "GastoWizard",
+      "children": ["SeleccionCaminoToggle", "ComprobanteDropzone", "DuplicadoBloqueo", "FormularioGasto", "ConfirmacionGasto"],
+      "props": [],
+      "states": ["idle", "loading", "error", "success"]
+    },
+    {
+      "component": "SeleccionCaminoToggle",
+      "children": [],
+      "props": ["camino", "onSelect"],
+      "states": ["idle"]
+    },
+    {
+      "component": "ComprobanteDropzone",
+      "children": [],
+      "props": ["uploadState", "comprobanteUrl", "onFile", "onRemove"],
+      "states": ["idle", "uploading", "done", "error"]
+    },
+    {
+      "component": "DuplicadoBloqueo",
+      "children": [],
+      "props": ["gastoExistente", "onReintentar"],
+      "states": ["idle", "error"]
+    },
+    {
+      "component": "FormularioGasto",
+      "children": ["CategoriaSelect", "PagadoPorSelect"],
+      "props": ["camino", "form", "fromComprobante", "ro", "onChange", "onSubmit"],
+      "states": ["idle", "loading", "error"]
+    },
+    {
+      "component": "CategoriaSelect",
+      "children": [],
+      "props": ["value", "otroValue", "onChange", "onChangeOtro"],
+      "states": ["idle", "error"]
+    },
+    {
+      "component": "PagadoPorSelect",
+      "children": [],
+      "props": ["value", "otroValue", "readonly", "onChange", "onChangeOtro"],
+      "states": ["idle", "error"]
+    },
+    {
+      "component": "ConfirmacionGasto",
+      "children": [],
+      "props": ["resumen", "onVolver", "onConfirmar", "loading"],
+      "states": ["idle", "loading", "error", "success"]
+    }
+  ],
+  "validations_per_step": {
+    "step_1": [
+      "Debe elegir un camino (manual o comprobante) antes de mostrar cualquier campo"
+    ],
+    "step_2a": [
+      "El archivo debe ser JPG, PNG, WEBP o PDF",
+      "Mientras uploadState es 'uploading' no se puede subir otro archivo en paralelo",
+      "Si uploadState es 'error', se informa el error y se permite reintentar con otro archivo sin perder el resto del formulario"
+    ],
+    "step_3a": [
+      "Si nro_operacion del comprobante ya existe en la tabla gastos, se bloquea el avance a 4a y se muestra el detalle del gasto duplicado (fecha, categoria, monto, pagado_por)",
+      "Esta validación corre antes de la pantalla de confirmación, nunca después"
+    ],
+    "step_4a": [
+      "categoria es obligatoria; si es 'otro' se exige categoria_otro no vacío",
+      "pagado_por es obligatorio si no se pudo inferir del comprobante",
+      "cotizacion debe ser numérica y mayor a 0",
+      "fecha no puede ser futura"
+    ],
+    "step_2b": [
+      "categoria es obligatoria; si es 'otro' se exige categoria_otro no vacío",
+      "monto debe ser numérico y mayor a 0",
+      "moneda solo puede ser ARS o USD",
+      "fecha es obligatoria, formato día/mes/año, no puede ser futura",
+      "cotizacion debe ser numérica y mayor a 0",
+      "pagado_por es obligatorio; si es 'Otro' se exige texto libre no vacío"
+    ],
+    "step_5": [
+      "No se permite confirmar si algún campo obligatorio quedó vacío (se vuelve al paso anterior a corregir)",
+      "El gasto no se inserta en Supabase hasta que el usuario presiona 'Confirmar'",
+      "registrado_por no se pide ni se muestra en esta pantalla; se asigna como placeholder al momento de persistir"
+    ]
+  }
+}
