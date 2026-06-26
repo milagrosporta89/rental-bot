@@ -27,7 +27,7 @@
         "Existe un dropzone con estados idle/uploading/done/error, replicando el patrón visual de web/src/app/reservas/[id]/pago/page.tsx",
         "Al subir el archivo se llama a un endpoint que devuelve { datos, url } y autocompleta los campos del formulario",
         "Los campos autocompletados por OCR (fecha, monto, moneda, nombre_destinatario, banco_origen, nro_operacion) quedan readonly tras la extracción",
-        "cotizacion, detalle, fecha y pagado_por permanecen editables incluso después del autocompletado, igual que en el flujo de ingresos existente",
+        "detalle, fecha y pagado_por permanecen editables incluso después del autocompletado, igual que en el flujo de ingresos existente. cotizacion NO se muestra como campo editable (ver business_rules)",
         "Si el OCR no puede leer el comprobante, se informa el error y se permite reintentar con otro archivo",
         "Antes de guardar se pide seleccionar la categoría del gasto (no viene del OCR) y, si corresponde, pagado_por (si no se pudo inferir el titular)",
         "Se muestra la misma pantalla de confirmación obligatoria que en el camino manual antes de persistir el gasto"
@@ -151,9 +151,9 @@
     {
       "name": "cotizacion",
       "type": "number",
-      "required": true,
-      "validation": "numérico mayor a 0; se puede prellenar automáticamente desde /api/cotizacion pero queda editable",
-      "source_in_bot": "obtenida automáticamente vía obtenerCotizacion(fecha) en ambos caminos del bot; en la web es editable"
+      "required": false,
+      "validation": "NO es un campo del formulario, no se muestra ni se pide al usuario. Se calcula en el servidor al momento de guardar, usando la cotización correspondiente a 'fecha' (la fecha del gasto: la del comprobante si vino por OCR, o la ingresada manualmente) — nunca la fecha en que se está registrando. Sirve a fines de análisis posterior, no es una decisión que el usuario deba tomar al cargar.",
+      "source_in_bot": "obtenida automáticamente vía obtenerCotizacion(fecha) en ambos caminos del bot — el bot ya usa la fecha del gasto, no la de hoy; la web replica ese mismo criterio pero además oculta el campo (el bot tampoco lo muestra, es interno)"
     },
     {
       "name": "monto_ars",
@@ -179,7 +179,8 @@
     "registrado_por queda hardcodeado como placeholder (TODO) hasta que se implemente login; no se implementa autenticación real en esta iteración.",
     "El bot reemplaza el flujo de 'corrección por texto libre' de comprobantes mal leídos (escribir 'fecha 15/06/2026' por chat) por edición directa de los campos en el formulario web, ya que los campos quedan expuestos en pantalla y no hace falta un mini-lenguaje de comandos de texto.",
     "Las categorías disponibles en la web son las 12 de CategoriaGasto, incluyendo jardinero y comision, que el bot no mostraba en sus botones pero sí existen en el dominio.",
-    "Si se elige la categoría 'otro', se debe pedir un texto libre adicional para nombrar la categoría, igual que en el bot."
+    "Si se elige la categoría 'otro', se debe pedir un texto libre adicional para nombrar la categoría, igual que en el bot.",
+    "cotizacion no es un campo del formulario en ningún camino (ni manual ni comprobante): se calcula automáticamente en el servidor al guardar, usando la cotización de la fecha del gasto (no la fecha de registro). Corrección de Mili sobre el diseño inicial, que la mostraba como editable — el dato es para análisis posterior, no para decidir al momento de la carga."
   ],
   "out_of_scope": [
     "Sincronización o escritura en Google Sheets: la web es Supabase-only.",
