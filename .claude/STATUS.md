@@ -4,6 +4,27 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont. 9) — Feature: gastos · Rama: `feature/expense-ui`
+
+**Tanda grande de feedback de uso real de Mili, atendida en `fea7044` (código) + `beced4f` (artifacts):**
+- Duplicado de comprobante: advertencia inline en la misma pantalla en vez de navegar a otra (`DuplicadoBloqueo` ya no es una pantalla aparte).
+- Breadcrumb (Gastos > Nuevo gasto) + botón de volver arriba del wizard.
+- Categoría "otro": se quitó el texto libre — riesgo de romper la normalización para análisis. Si hace falta una categoría nueva, se agrega al enum (tarea de desarrollo). `pagado_por` SÍ mantiene texto libre para "Otro" (son nombres de personas, no una taxonomía fija) — asunción mía a confirmar si no es lo que se quiso decir con "lo mismo aplica para quien pago" (lo interpreté como aplicar el recorte de altura del dropdown, no quitarle el texto libre).
+- Confirmación rediseñada con el lenguaje visual del recibo de pago de ingresos (filas label/valor alineadas), sin imagen ni logo — vive como HTML directo en la pantalla.
+- Dropdowns de categoría y pagado_por con altura máxima (~5-6 opciones visibles, scroll para el resto).
+- Reemplazado el feedback de éxito (antes: redirect + toast) por un **stepper de 3 pasos** (Carga / Confirmación / Listo) — el paso 3 es una pantalla propia del wizard con ícono de check y botón "Continuar" que recién ahí redirige a la tabla. Se sacó el componente `Toast` de uso en gastos (queda como primitiva genérica sin uso, no se borró el archivo).
+- `po-output.json` y `designer-output.json` actualizados (4ta revisión) con notas explicando cada cambio respecto del diseño previamente aprobado.
+
+**A partir de ahora regenero `viewer.html` después de cada commit relevante** (pedido explícito de Mili), no solo en gates formales del pipeline.
+
+**Verificado con Playwright**: breadcrumb/volver/stepper visibles, dropdown de categoría recorta a ~6 opciones con scroll, "otro" sin input de texto libre, pantalla de confirmación con el estilo recibo, flujo completo hasta la pantalla de éxito y vuelta a la tabla.
+
+**⚠️ Aviso de proceso, repetido:** durante la verificación aparecieron 4 gastos reales más cargados por Mili en paralelo (Lavandería con comprobante real de Francisco, "bolsas de consorcio" de Paola, Jardinero de Paola, Lavandería de Milagros). No se tocó ninguno — se identificó la fila propia de cada test por un valor centinela bien distintivo antes de borrar, nunca por posición o conteo.
+
+**Pendiente / próximo paso:** confirmar con Mili si la interpretación sobre "pagado por" (mantener texto libre, solo recortar altura del dropdown) fue la correcta. Decidir pasada de estilos general vs. merge a `master`.
+
+---
+
 ## 2026-06-26 (cont. 8) — Feature: gastos · Rama: `feature/expense-ui`
 
 **Mili: el toggle manual/comprobante complejizaba innecesariamente el flujo.** Se simplificó a una sola pantalla → commit `c0e58a8`:
