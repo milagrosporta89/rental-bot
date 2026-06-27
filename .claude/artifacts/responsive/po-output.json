@@ -1,0 +1,90 @@
+{
+  "user_stories": [
+    {
+      "id": "US-01",
+      "as_a": "usuaria que abre la web desde el celular",
+      "i_want": "que el header (NavTabs) colapse a un menú hamburguesa en mobile",
+      "so_that": "pueda navegar entre Calendario, Reservas, Gastos y Dashboard sin que la barra se desborde o se vea apretada",
+      "acceptance_criteria": [
+        "En viewport mobile (por debajo de `md`, 768px) el header muestra el logo 'TempoBoard' a la izquierda y un botón de menú (hamburguesa) a la derecha, sin los accesos directos en línea.",
+        "Al tocar el botón de menú se despliega una lista vertical con: Calendario, Reservas, Gastos, Dashboard y Cerrar sesión.",
+        "En viewport `md` y superior, el header se mantiene como está hoy (accesos en línea, sin colapsar).",
+        "El menú desplegado es navegable y cerrable (al elegir una opción, o al tocar fuera/el mismo botón, se cierra)."
+      ]
+    },
+    {
+      "id": "US-02",
+      "as_a": "usuaria que gestiona el calendario desde el celular",
+      "i_want": "que la barra de herramientas del calendario (prev/next, selector de mes, Hoy, Bloquear fechas) se adapte a pantallas chicas",
+      "so_that": "pueda usar todos esos controles sin que se corten o queden inaccesibles, sin que se toque el cuerpo del calendario",
+      "acceptance_criteria": [
+        "La toolbar del calendario (prev/next, selector de mes, 'Hoy', 'Bloquear fechas') no se desborda ni corta contenido en mobile — se reordena o envuelve (`flex-wrap` u equivalente) en vez de forzar una sola fila.",
+        "El cuerpo del calendario (FullCalendar) no se modifica: sigue exactamente como está hoy, con scroll horizontal si no entra en el ancho de pantalla.",
+        "En viewport `md` y superior, la toolbar se mantiene como está hoy."
+      ]
+    },
+    {
+      "id": "US-03",
+      "as_a": "usuaria que revisa reservas o gastos desde el celular",
+      "i_want": "que el buscador, los filtros y la paginación de ReservasTable y GastosTable se adapten a pantallas chicas",
+      "so_that": "pueda buscar, filtrar y cambiar de página sin que esos controles se corten o queden ilegibles, sin que se toque la tabla en sí",
+      "acceptance_criteria": [
+        "La fila de buscador + filtros de GastosTable no se desborda en mobile — se reordena o envuelve en vez de forzar una sola fila.",
+        "La toolbar de ReservasTable (que ya tiene `flex-wrap`) se revisa en viewport mobile real y se ajusta si hace falta (espaciado, tamaño de controles) para que quede usable, no solo 'sin overflow'.",
+        "Los paginadores de ambas tablas (mostrar N / página X de Y / flechas) se adaptan para no apretarse en mobile (pueden apilarse o reorganizarse).",
+        "El `<table>` de ambas tablas no se modifica: sigue exactamente como está hoy, con scroll horizontal si no entra en el ancho de pantalla.",
+        "En viewport `md` y superior, toolbars y paginadores se mantienen como están hoy."
+      ]
+    },
+    {
+      "id": "US-04",
+      "as_a": "usuaria que crea o edita una reserva desde el celular",
+      "i_want": "que los formularios y modales de reservas (ReservaModal, reservas/nueva en sus dos pasos, pago/page.tsx, TrasladarPagoModal, ReciboModal, FiltrosModal de reservas, BloqueoModal) se vean en una columna en mobile",
+      "so_that": "pueda completar cada campo cómodamente sin que la grilla fija de 4 o 2 columnas lo apriete o corte",
+      "acceptance_criteria": [
+        "En mobile, todos los campos de estos formularios/modales se apilan en 1 columna, salvo las dos excepciones de la regla de negocio (Monto+Moneda, y pares de fecha check-in/check-out o desde/hasta), que se mantienen en 2 columnas.",
+        "En viewport `md` y superior, las grillas se mantienen como están hoy (4 o 2 columnas según el formulario).",
+        "El contenedor del modal (`DialogContent`) no requiere cambios — ya es mobile-safe; el ajuste es solo en el contenido interno (la grilla de campos).",
+        "Cualquier par de campos cortos que no sea Monto+Moneda o un par de fechas, y que hoy comparta fila en una grilla de 2 columnas, se deja apilado en 1 columna por defecto y se señala en `business_rules`/`out_of_scope` para revisión en el gate del Designer — no se asume una excepción nueva sin avisar."
+      ]
+    },
+    {
+      "id": "US-05",
+      "as_a": "usuaria que registra o edita un gasto desde el celular",
+      "i_want": "que FormularioGasto, ConfirmacionGasto y FiltrosModal de gastos se vean en una columna en mobile",
+      "so_that": "pueda completar el formulario de gasto cómodamente sin que la grilla fija de 2 columnas lo apriete",
+      "acceptance_criteria": [
+        "En mobile, los campos de FormularioGasto, ConfirmacionGasto y FiltrosModal de gastos se apilan en 1 columna, salvo que algún par corresponda a Monto+Moneda o a un par de fechas (excepciones que se mantienen en 2 columnas).",
+        "En viewport `md` y superior, las grillas se mantienen como están hoy.",
+        "Cualquier otro par de campos cortos candidato a 2 columnas se deja apilado por defecto y se señala para revisión en el gate del Designer."
+      ]
+    },
+    {
+      "id": "US-06",
+      "as_a": "usuaria que inicia sesión desde el celular",
+      "i_want": "que la página de login se vea correctamente en pantallas chicas",
+      "so_that": "pueda loguearme sin problemas de layout",
+      "acceptance_criteria": [
+        "Se verifica visualmente en viewport mobile (375px) con la cuenta QA (`qa-responsive@example.com`) que el formulario de login (email, contraseña, botón Ingresar) se ve completo y usable, sin overflow ni elementos cortados.",
+        "Dado que el login ya usa una columna y un contenedor `max-w-sm` sin grillas fijas, se espera que no requiera cambios de layout; si la verificación visual muestra algún problema puntual (padding, tamaño de texto), se ajusta como fix menor — es un caso de riesgo bajo, no de rediseño."
+      ]
+    }
+  ],
+  "form_fields": [],
+  "business_rules": [
+    "Mobile-first: los estilos base (sin prefijo) son para mobile; los breakpoints de Tailwind agregan o cambian estilos para pantallas más grandes (no al revés).",
+    "Breakpoints a usar: los estándar de Tailwind — `sm` 640px, `md` 768px, `lg` 1024px. Sin breakpoint mínimo especial por debajo de eso.",
+    "El cuerpo del calendario (FullCalendar) y el `<table>` de ReservasTable/GastosTable NO se rediseñan: el scroll horizontal que ya tienen es la solución aceptada para esos dos casos puntuales.",
+    "En formularios/modales que pasan de grilla fija a 1 columna en mobile, hay exactamente dos excepciones que se mantienen en 2 columnas: (a) Monto + Moneda, (b) pares de fecha (check-in/check-out, desde/hasta).",
+    "Ningún otro par de campos se asume como excepción de 2 columnas sin aprobación explícita: si aparece un candidato, se deja en 1 columna por defecto y se marca para revisión en el gate del Designer.",
+    "Se usa la cuenta de QA fija `qa-responsive@example.com` / `QaResponsive123!` (titular `QA`) para toda verificación visual de esta feature; no se borra durante el pipeline, se borra al cerrar la feature."
+  ],
+  "out_of_scope": [
+    "Rediseñar el cuerpo del calendario o el `<table>` de las tablas para que no necesiten scroll horizontal (decisión explícita de Mili de no tocar eso).",
+    "Agregar un breakpoint custom por debajo de 375px o distinto de los estándar de Tailwind.",
+    "Cambiar copy o contenido de cualquier texto — el alcance es exclusivamente de layout/responsive.",
+    "Agregar dependencias nuevas: Tailwind v4 ya cubre todo lo necesario con sus prefijos de breakpoint existentes.",
+    "Definir excepciones nuevas de 2 columnas más allá de Monto+Moneda y pares de fecha sin que el Designer las revise primero.",
+    "Cambios funcionales o de datos en cualquier formulario/modal — solo se ajusta el layout/grilla, no la lógica ni los campos."
+  ]
+}
