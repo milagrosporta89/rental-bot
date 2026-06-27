@@ -131,10 +131,10 @@ export function GastosTable() {
         </div>
 
         {/* Toolbar */}
-        <div className="pb-4 flex items-end gap-3">
-          <div className="space-y-1">
+        <div className="pb-4 flex items-end gap-3 flex-wrap">
+          <div className="space-y-1 w-full sm:w-auto">
             <Label className="text-xs text-slate-500">Buscar por categoría, pagador o detalle</Label>
-            <div className="relative w-72">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               <Input
                 value={q}
@@ -238,7 +238,7 @@ export function GastosTable() {
           </div>
 
           {/* Paginador */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-100 shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-100 shrink-0">
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-500">
                 {lista.length === 0 ? '0 de 0' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, lista.length)} de ${lista.length}`}
