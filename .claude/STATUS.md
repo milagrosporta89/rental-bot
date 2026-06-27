@@ -4,6 +4,24 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 — Feature: responsive · Rama: `feature/responsive-ui`
+
+**Setup**: rama creada (partió de `feature/auth-header`, que partió de `master` post-gastos). `/explore responsive` corrido y aprobado por Mili → `.claude/artifacts/responsive/explore.md`. Cuenta de QA fija autorizada para toda la feature: `qa-responsive@example.com` / `QaResponsive123!` — no borrar hasta cerrar la feature.
+
+**Corrección estructural importante hecha en esta sesión**: los artifacts del pipeline (`po-output.json`, etc.) tenían nombre plano sin carpeta por feature — se iban a pisar entre features (gastos vs. responsive). Se movieron a `.claude/artifacts/<feature>/` y se actualizó `pipeline-viewer.mjs`, `PIPELINE.md`, `run-pipeline.md`, `CONTEXT.md` con la convención nueva. Ver commit `0198fd9`.
+
+**Decisiones de Mili (no volver a preguntar):**
+- Calendario y tablas: el scroll horizontal que ya tienen alcanza, no se tocan.
+- Header en mobile: menú hamburguesa.
+- Grillas de formularios a 1 columna, excepto Monto+Moneda y pares de fecha (2 columnas igual).
+- Breakpoints estándar de Tailwind, sin mínimo especial.
+
+**Agente 1 (PO) completado** → commit `f26a7f8` → `.claude/artifacts/responsive/po-output.json` (6 user stories: header, toolbar calendario, toolbars+paginación de tablas, formularios de reservas, formularios de gastos, login).
+
+**Pendiente / próximo paso:** mostrar PO a Mili, conseguir aprobación, arrancar **Agente 2 (Designer)**.
+
+---
+
 ## 2026-06-26 (cont.) — Feature: auth-header · Rama: `feature/auth-header`
 
 **Link "Dashboard"** ahora apunta a `https://temporalias.lovable.app/` (target="_blank") → commit `20f821f`.
