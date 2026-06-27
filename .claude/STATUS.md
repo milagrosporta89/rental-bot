@@ -4,6 +4,20 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-26 (cont.) — Feature: responsive · Rama: `feature/responsive-ui`
+
+**Agente 2 (Designer) completado y aprobado** → commit `d5389d1` (estructura) + `d09c003` (resolución de pares ambiguos) → `.claude/artifacts/responsive/designer-output.json`.
+
+El Designer encontró 10 pares de campos "ambiguos" (comparten fila hoy, no son ni Monto+Moneda ni fechas desde/hasta) y correctamente NO los resolvió solo — los marcó para este gate, tal como pedía el PO. Mili decidió:
+- **Quedan en 2 columnas (excepciones nuevas)**: Plataforma+Estado (`ReservaModal`), Casa+Estado (`reservas/nueva` paso 1), Cotización ARS/USD+Tipo de pago (`pago/page.tsx`).
+- **Quedan en 1 columna (sin excepción)**: Teléfono+Plataforma, Tipo de pago+Quién pagó, Fecha del pago+Destinatario, Banco destino+N° operación, Quién pagó+Fecha del pago, Fecha+Pagado por (gastos), Destinatario+Banco origen+N° operación (gastos).
+
+Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú hamburguesa de `NavTabs`. Todo lo demás son modificaciones de clases responsive sobre JSX existente, sin componentes nuevos.
+
+**Pendiente / próximo paso:** mostrar a Mili (ya aprobado en la práctica al resolver los pares ambiguos) y arrancar **Agente 3 (Developer)**. Va a ser una tanda grande — toca ~15 archivos. Considerar dividirlo en sub-commits por superficie si se vuelve inmanejable en un solo commit.
+
+---
+
 ## 2026-06-26 — Feature: responsive · Rama: `feature/responsive-ui`
 
 **Setup**: rama creada (partió de `feature/auth-header`, que partió de `master` post-gastos). `/explore responsive` corrido y aprobado por Mili → `.claude/artifacts/responsive/explore.md`. Cuenta de QA fija autorizada para toda la feature: `qa-responsive@example.com` / `QaResponsive123!` — no borrar hasta cerrar la feature.
