@@ -6,6 +6,14 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ## 2026-06-26 (cont.) — Feature: auth-header · Rama: `feature/auth-header`
 
+**Link "Dashboard"** ahora apunta a `https://temporalias.lovable.app/` (target="_blank") → commit `20f821f`.
+
+**SSO entre esta app y el dashboard de Lovable: quedó como plan, sin implementar.** Ambas apps usan el mismo proyecto de Supabase, pero NO comparten sesión automáticamente (localStorage/cookies están aislados por origen en el navegador, no es algo que Supabase resuelva solo). Plan acordado (no implementado todavía): hand-off de `access_token`/`refresh_token` vía fragmento de URL (`#...`, no query) al clickear Dashboard; el lado receptor (llamar a `supabase.auth.setSession()`) vive en el otro repo de Lovable, sin acceso desde esta sesión. Detalle completo guardado en memoria (`project_sso_lovable_dashboard.md`).
+
+---
+
+## 2026-06-26 (cont.) — Feature: auth-header · Rama: `feature/auth-header`
+
 **Cuenta real de Mili creada**: `milagrosporta89@gmail.com`, contraseña temporal generada (compartida en el chat, no en ningún archivo). Pendiente: armar cambio de contraseña / recuperación, todavía no existe.
 
 **Header reorganizado** → commit `78a8b2c`: logo "TempoBoard" (tipográfico) a la izquierda, "Dashboard" pasa a estar agrupado junto a Calendario/Reservas/Gastos, se quita el nombre del titular logueado del header (queda solo el botón de cerrar sesión).
