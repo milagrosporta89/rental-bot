@@ -44,7 +44,14 @@ Sin equivalente en el bot.
 
 ## Preguntas para Mili
 
-1. Para verificar visualmente los problemas y, más adelante, el trabajo del Developer/QA en viewport mobile, voy a necesitar loggearme con una cuenta en varios momentos de este pipeline (no solo una vez). ¿Te parece bien que, en vez de pedirte autorización cada vez, dejemos una cuenta de prueba fija y descartable solo para verificación (ej. `qa-responsive@example.com`) que se borra recién al cerrar esta feature? Necesito tu autorización explícita para crearla.
-2. `NavTabs` (el header) en mobile: ¿menú hamburguesa que despliega los accesos, o algo más simple (ej. apilar los accesos abajo del logo)?
-3. ¿Confirmás que todos los formularios en grilla (reserva nueva, pago, bloqueo, gasto) pasan a 1 columna en mobile, sin excepciones?
-4. ¿Hay algún breakpoint mínimo que te importe soportar (ej. "tiene que verse bien desde 320px") o alcanza con los estándares de Tailwith (640/768/1024)?
+1. ¿Cuenta de prueba fija autorizada para toda la feature, en vez de pedir permiso cada vez?
+2. `NavTabs` en mobile: ¿menú hamburguesa o accesos apilados?
+3. ¿Formularios en grilla pasan todos a 1 columna en mobile, sin excepciones?
+4. ¿Breakpoint mínimo a soportar?
+
+## Respuestas de Mili
+
+1. **Sí, autorizada para toda la feature.** Cuenta creada: `qa-responsive@example.com` (titular `QA` en `user_metadata`). Se borra al cerrar esta feature.
+2. **Menú hamburguesa**: logo + botón de menú a la derecha; al tocar despliega Calendario/Reservas/Gastos/Dashboard/Cerrar sesión en una lista.
+3. **No todos a 1 columna** — excepciones explícitas: **Monto + Moneda** y **pares de fecha** (check-in/check-out, desde/hasta) se mantienen en 2 columnas en mobile aunque queden angostos. Para cualquier otro caso de campos cortos que pudieran pairearse, usar criterio propio y dejarlo señalado para que Mili lo revise en el gate del Designer (no asumir más excepciones sin avisar).
+4. **Alcanza con los breakpoints estándar de Tailwind** (mobile ~375px, `sm` 640px, `md` 768px, `lg` 1024px) — sin mínimo especial.
