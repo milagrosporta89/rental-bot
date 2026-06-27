@@ -6,6 +6,22 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ## 2026-06-26 (cont.) — Feature: responsive · Rama: `feature/responsive-ui`
 
+**Agente 3 (Developer) completado en 3 tandas** (se dividió por tamaño — ~15 archivos tocados en total, una sola tanda hubiera sido inmanejable de revisar):
+
+- Tanda 1 → commit `c602279`: menú hamburguesa en `NavTabs` (`md`: sin cambios; `<md`: logo + botón, panel desplegable con las 5 opciones). Bug encontrado y corregido por el propio agente: el backdrop tapaba el botón, rompía el toggle.
+- Tanda 2 → commit `991f4af`: toolbars de `CalendarView`, `ReservasTable`, `GastosTable` (flex-wrap, buscador a ancho completo en mobile, paginadores apilados en `<md`).
+- Tanda 3 → commit `8cbb5ef`: grillas de `ReservaModal`, `BloqueoModal`, `reservas/nueva` (pasos 1 y 2), `pago/page.tsx`, `FormularioGasto`, `FiltrosModal` (reservas y gastos) — todas a 1 columna en `<md` salvo las excepciones confirmadas en el Designer (Check-in/Check-out, Monto+Moneda, Plataforma+Estado, Casa+Estado, Cotización+Tipo de pago, Desde/Hasta). `TrasladarPagoModal`, `ReciboModal` y login: verificados sin cambios necesarios.
+
+Las 3 tandas verificadas con `tsc --noEmit` (confirmado independientemente por mí, no solo por el reporte del agente) y con Playwright contra la cuenta QA fija, en 375px y 1024px.
+
+**Incidente de datos de prueba, resuelto:** la tanda 3 necesitó crear una reserva real para probar `pago/page.tsx`, terminó creando 2 por un script corrido dos veces ("Qa Responsive Test", Casa 1, reservas `20`/`21`, con un ingreso de USD 50 cada una). El agente no pudo borrarlas (la app no tiene `eliminarReserva`, y backdatear fechas para poder cancelarlas fue bloqueado correctamente por el clasificador de permisos como modificación de datos sin consentimiento). Lo resolví yo directamente: verifiqué con `nombre_pax ilike '%Qa Responsive%'` que eran exactamente esas 2 y nada más, borré primero los `ingresos` asociados (FK) y después las `reservas`, confirmé 0 filas restantes de ambas tablas. Sin acción pendiente de Mili sobre esto.
+
+**Pendiente / próximo paso:** mostrar a Mili para aprobación → si aprueba, arrancar **Agente 4 (QA)**. Recordar incluirle instrucción explícita de limpiar cualquier dato de prueba que genere (ya está en `PIPELINE.md` desde la feature de gastos, pero conviene remarcarlo dado este incidente).
+
+---
+
+## 2026-06-26 (cont.) — Feature: responsive · Rama: `feature/responsive-ui`
+
 **Agente 2 (Designer) completado y aprobado** → commit `d5389d1` (estructura) + `d09c003` (resolución de pares ambiguos) → `.claude/artifacts/responsive/designer-output.json`.
 
 El Designer encontró 10 pares de campos "ambiguos" (comparten fila hoy, no son ni Monto+Moneda ni fechas desde/hasta) y correctamente NO los resolvió solo — los marcó para este gate, tal como pedía el PO. Mili decidió:
