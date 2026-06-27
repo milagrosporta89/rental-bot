@@ -2,14 +2,36 @@
 // del pipeline de agentes (PO/Designer/QA) + el commit del Developer si existe.
 // node scripts/pipeline-viewer.mjs   (no requiere dependencias nuevas)
 
-import { readFileSync, readdirSync, writeFileSync, existsSync } from 'fs'
-import { join, basename, dirname } from 'path'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { execFileSync } from 'child_process'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const ARTIFACTS_DIR = join(REPO_ROOT, '.claude', 'artifacts')
-const OUT_FILE = join(ARTIFACTS_DIR, 'viewer.html')
+const ARTIFACTS_ROOT = join(REPO_ROOT, '.claude', 'artifacts')
+const OUT_FILE = join(ARTIFACTS_ROOT, 'viewer.html')
+
+// Cada feature tiene su propia carpeta (.claude/artifacts/<feature>/) para no pisar
+// los artifacts de otras features con el mismo nombre fijo (po-output.json, etc).
+// Por defecto se infiere de la rama actual (feature/<nombre>-ui -> <nombre>);
+// node scripts/pipeline-viewer.mjs <feature> lo overridea.
+function inferFeature() {
+  const arg = process.argv[2]
+  if (arg) return arg
+  try {
+    const branch = execFileSync('git', ['branch', '--show-current'], { cwd: REPO_ROOT }).toString().trim()
+    const m = branch.match(/^feature\/(.+?)(-ui)?$/)
+    if (m) return m[1]
+  } catch {}
+  return null
+}
+
+const FEATURE = inferFeature()
+if (!FEATURE) {
+  console.error('No pude inferir la feature desde la rama actual. Usá: node scripts/pipeline-viewer.mjs <feature>')
+  process.exit(1)
+}
+const ARTIFACTS_DIR = join(ARTIFACTS_ROOT, FEATURE)
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -193,7 +215,7 @@ const html = `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Pipeline de agentes — Temporalias</title>
+<title>Pipeline de agentes — ${esc(FEATURE)}</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -240,7 +262,7 @@ const html = `<!doctype html>
 </head>
 <body>
 <header>
-  <h1>Pipeline de agentes — feature en curso</h1>
+  <h1>Pipeline de agentes — ${esc(FEATURE)}</h1>
   <span class="gen-at">generado ${esc(new Date().toLocaleString('es-AR'))}</span>
 </header>
 <nav>

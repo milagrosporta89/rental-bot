@@ -6,12 +6,15 @@ Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y 
 
 El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se aprobó) vive en `STATUS.md`, no acá. Este archivo describe el proceso, no una corrida puntual.
 
+**Cada feature tiene su propia carpeta de artifacts: `.claude/artifacts/<feature>/`** (`po-output.json`, `designer-output.json`, `qa-output.json`, y el `explore.md` si se guardó). Nunca uses el nombre de archivo plano sin la carpeta — eso fue un error de la primera corrida (gastos) que pisaba artifacts de una feature con la de otra; ya está corregido, no lo repitas.
+
 ---
 
 ## Setup inicial
 
 1. Creá la rama `feature/<feature>-ui` y posicionate en ella (si ya existe, posicionate y avisá que ya existía).
-2. Confirmá en qué rama quedaste antes de seguir.
+2. Creá la carpeta `.claude/artifacts/<feature>/` si no existe.
+3. Confirmá en qué rama quedaste antes de seguir.
 
 ---
 
@@ -19,7 +22,7 @@ El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se
 
 **Rol:** Traducir el relevamiento de `/explore <feature>` a requerimientos de UI (haya o no flujo de bot detrás).
 
-Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprobado por Mili), producí `.claude/artifacts/po-output.json`:
+Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprobado por Mili), producí `.claude/artifacts/<feature>/po-output.json`:
 
 ```json
 {
@@ -55,7 +58,7 @@ Mostralo en pantalla y esperá aprobación antes de seguir.
 
 **Rol:** Definir estructura y estados de la UI (sin CSS todavía).
 
-Leé `.claude/artifacts/po-output.json` y producí `.claude/artifacts/designer-output.json`:
+Leé `.claude/artifacts/<feature>/po-output.json` y producí `.claude/artifacts/<feature>/designer-output.json`:
 
 ```json
 {
@@ -117,7 +120,7 @@ Mostralo y esperá aprobación.
 
 **Rol:** Revisar que el código cumple los criterios del PO.
 
-Leé `.claude/artifacts/po-output.json` y el código del Developer. Para cada user story y criterio de aceptación, verificá si el código lo cumple. Producí `.claude/artifacts/qa-output.json`:
+Leé `.claude/artifacts/<feature>/po-output.json` y el código del Developer. Para cada user story y criterio de aceptación, verificá si el código lo cumple. Producí `.claude/artifacts/<feature>/qa-output.json`:
 
 ```json
 {
