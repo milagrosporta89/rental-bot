@@ -64,8 +64,8 @@ export function BloqueoModal({ bloqueo, casa, fechaDesde, fechaHasta, onClose, o
           <DialogTitle className="text-slate-700 font-medium">{bloqueo ? 'Editar bloqueo' : 'Bloquear fechas'}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <div className="col-span-2 space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="col-span-1 md:col-span-2 space-y-1">
             <Label className="text-xs text-slate-500">Casa</Label>
             <Select value={form.casa} onValueChange={(v) => set('casa', v)}>
               <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
@@ -77,26 +77,28 @@ export function BloqueoModal({ bloqueo, casa, fechaDesde, fechaHasta, onClose, o
             </Select>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Desde</Label>
-            <Input
-              type="date"
-              value={form.fecha_desde ? toISO(form.fecha_desde) : ''}
-              onChange={(e) => set('fecha_desde', toDDMMYYYY(e.target.value))}
-              className="text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-500">Hasta</Label>
-            <Input
-              type="date"
-              value={form.fecha_hasta ? toISO(form.fecha_hasta) : ''}
-              onChange={(e) => set('fecha_hasta', toDDMMYYYY(e.target.value))}
-              className="text-sm"
-            />
+          <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-4 md:contents">
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">Desde</Label>
+              <Input
+                type="date"
+                value={form.fecha_desde ? toISO(form.fecha_desde) : ''}
+                onChange={(e) => set('fecha_desde', toDDMMYYYY(e.target.value))}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">Hasta</Label>
+              <Input
+                type="date"
+                value={form.fecha_hasta ? toISO(form.fecha_hasta) : ''}
+                onChange={(e) => set('fecha_hasta', toDDMMYYYY(e.target.value))}
+                className="text-sm"
+              />
+            </div>
           </div>
 
-          <div className="col-span-2 space-y-1">
+          <div className="col-span-1 md:col-span-2 space-y-1">
             <Label className="text-xs text-slate-500">Motivo</Label>
             <Select value={form.motivo} onValueChange={(v) => set('motivo', v as MotivoBloqueo)}>
               <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
@@ -109,7 +111,7 @@ export function BloqueoModal({ bloqueo, casa, fechaDesde, fechaHasta, onClose, o
             </Select>
           </div>
 
-          <div className="col-span-2 space-y-1">
+          <div className="col-span-1 md:col-span-2 space-y-1">
             <Label className="text-xs text-slate-500">Notas</Label>
             <Textarea
               value={form.notas}

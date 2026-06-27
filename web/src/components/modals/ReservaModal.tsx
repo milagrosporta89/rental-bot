@@ -202,189 +202,195 @@ export function ReservaModal(props: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-4 gap-x-3 gap-y-3 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-3 pt-1">
 
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs text-slate-500">Check-in {!readonly && '*'}</Label>
-            <div
-              className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
-              onClick={() => !readonly && checkinRef.current?.showPicker()}
-            >
-              <input
-                ref={checkinRef}
-                type="date"
-                value={toISO(form.fecha_entrada)}
-                min={format(new Date(), 'yyyy-MM-dd')}
-                disabled={readonly}
-                onChange={(e) => {
-                  const nuevaEntrada = toDDMMYYYY(e.target.value)
-                  const entradaD = parse(nuevaEntrada, 'dd/MM/yyyy', new Date())
-                  const salidaD = parse(form.fecha_salida, 'dd/MM/yyyy', new Date())
-                  setForm((f) => ({
-                    ...f,
-                    fecha_entrada: nuevaEntrada,
-                    fecha_salida: isValid(salidaD) && salidaD <= entradaD
-                      ? format(addDays(entradaD, 1), 'dd/MM/yyyy')
-                      : f.fecha_salida,
-                  }))
-                  setError('')
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+            <div className="md:col-span-2 space-y-1">
+              <Label className="text-xs text-slate-500">Check-in {!readonly && '*'}</Label>
+              <div
+                className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
+                onClick={() => !readonly && checkinRef.current?.showPicker()}
+              >
+                <input
+                  ref={checkinRef}
+                  type="date"
+                  value={toISO(form.fecha_entrada)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  disabled={readonly}
+                  onChange={(e) => {
+                    const nuevaEntrada = toDDMMYYYY(e.target.value)
+                    const entradaD = parse(nuevaEntrada, 'dd/MM/yyyy', new Date())
+                    const salidaD = parse(form.fecha_salida, 'dd/MM/yyyy', new Date())
+                    setForm((f) => ({
+                      ...f,
+                      fecha_entrada: nuevaEntrada,
+                      fecha_salida: isValid(salidaD) && salidaD <= entradaD
+                        ? format(addDays(entradaD, 1), 'dd/MM/yyyy')
+                        : f.fecha_salida,
+                    }))
+                    setError('')
+                  }}
+                  className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden disabled:cursor-default"
+                />
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </div>
+            </div>
+
+            <div className="md:col-span-2 space-y-1">
+              <Label className="text-xs text-slate-500">Check-out {!readonly && '*'}</Label>
+              <div
+                className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
+                onClick={() => {
+                  if (!readonly && checkoutRef.current) {
+                    checkoutRef.current.min = minCheckout
+                    checkoutRef.current.showPicker()
+                  }
                 }}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden disabled:cursor-default"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              >
+                <input
+                  ref={checkoutRef}
+                  type="date"
+                  value={toISO(form.fecha_salida)}
+                  min={minCheckout}
+                  max={maxCheckout || undefined}
+                  disabled={readonly}
+                  onChange={(e) => set('fecha_salida', toDDMMYYYY(e.target.value))}
+                  className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden disabled:cursor-default"
+                />
+                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </div>
             </div>
           </div>
 
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs text-slate-500">Check-out {!readonly && '*'}</Label>
-            <div
-              className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
-              onClick={() => {
-                if (!readonly && checkoutRef.current) {
-                  checkoutRef.current.min = minCheckout
-                  checkoutRef.current.showPicker()
-                }
-              }}
-            >
-              <input
-                ref={checkoutRef}
-                type="date"
-                value={toISO(form.fecha_salida)}
-                min={minCheckout}
-                max={maxCheckout || undefined}
-                disabled={readonly}
-                onChange={(e) => set('fecha_salida', toDDMMYYYY(e.target.value))}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden disabled:cursor-default"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            </div>
-          </div>
-
-          <div className="col-span-3 space-y-1">
+          <div className="col-span-1 md:col-span-3 space-y-1">
             <Label className="text-xs text-slate-500">Nombre completo {!readonly && '*'}</Label>
             <Input value={form.nombre_pax} disabled={readonly} onChange={(e) => set('nombre_pax', e.target.value)} className="text-sm" />
           </div>
 
-          <div className="col-span-1 space-y-1">
+          <div className="col-span-1 md:col-span-1 space-y-1">
             <Label className="text-xs text-slate-500">Huéspedes</Label>
             <Input type="number" min={1} max={8} value={form.cantidad_pax} disabled={readonly} onChange={(e) => set('cantidad_pax', e.target.value)} className="text-sm" />
           </div>
 
-          <div className="col-span-4 space-y-1">
+          <div className="col-span-1 md:col-span-4 space-y-1">
             <Label className="text-xs text-slate-500">Teléfono</Label>
             <Input type="tel" value={form.telefono} disabled={readonly} onChange={(e) => set('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))} className="text-sm" />
           </div>
 
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs text-slate-500">Monto total</Label>
-            <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${readonly ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
-              <span className="text-sm text-slate-600 shrink-0 select-none">USD</span>
-              <input
-                type="number" min={0} step={0.01}
-                value={form.monto_total_usd}
-                disabled={readonly}
-                onChange={(e) => set('monto_total_usd', e.target.value)}
-                className="flex-1 min-w-0 bg-transparent outline-none text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:cursor-default"
-              />
-            </div>
-          </div>
-
-          {mode === 'create' ? (
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Precio promedio/noche</Label>
-              <div className="flex h-9 items-center rounded-md border border-input bg-slate-50 px-3 text-sm text-slate-500">
-                USD {noches > 0 && form.monto_total_usd !== '' ? (parseFloat(form.monto_total_usd) / noches).toFixed(2) : '—'}
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+            <div className="md:col-span-2 space-y-1">
+              <Label className="text-xs text-slate-500">Monto total</Label>
+              <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${readonly ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
+                <span className="text-sm text-slate-600 shrink-0 select-none">USD</span>
+                <input
+                  type="number" min={0} step={0.01}
+                  value={form.monto_total_usd}
+                  disabled={readonly}
+                  onChange={(e) => set('monto_total_usd', e.target.value)}
+                  className="flex-1 min-w-0 bg-transparent outline-none text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:cursor-default"
+                />
               </div>
             </div>
-          ) : (
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Estado de pago</Label>
-              <Select value={form.estado_pago} disabled={readonly} onValueChange={(v) => set('estado_pago', v as EstadoPago)}>
-                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="debe">Sin pago</SelectItem>
-                  <SelectItem value="parcial">Seña</SelectItem>
-                  <SelectItem value="pagado">Pagado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
-          <div className="col-span-2 space-y-1">
-            <Label className="text-xs text-slate-500">Plataforma</Label>
-            <Select
-              value={form.plataforma}
-              disabled={readonly}
-              onValueChange={(v) => {
-                const nuevaPlataforma = v as Plataforma
-                setForm((f) => ({
-                  ...f,
-                  plataforma: nuevaPlataforma,
-                  estado_reserva: nuevaPlataforma === 'airbnb' ? 'confirmada' : 'tentativa',
-                }))
-                setError('')
-              }}
-            >
-              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="directo">Directo</SelectItem>
-                <SelectItem value="airbnb">Airbnb</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="col-span-2 space-y-1 group relative">
-            <Label className="text-xs text-slate-500 flex items-center gap-1">
-              Estado
-              {form.estado_reserva === 'tentativa' && (
-                <Info className="w-3 h-3 text-slate-400 cursor-help" />
-              )}
-            </Label>
-            {form.estado_reserva === 'tentativa' && (
-              <div className="invisible group-hover:visible absolute left-0 bottom-full mb-1.5 w-44 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] leading-snug text-white z-20">
-                La reserva pasará a Confirmada cuando se asiente un pago.
+            {mode === 'create' ? (
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Precio promedio/noche</Label>
+                <div className="flex h-9 items-center rounded-md border border-input bg-slate-50 px-3 text-sm text-slate-500">
+                  USD {noches > 0 && form.monto_total_usd !== '' ? (parseFloat(form.monto_total_usd) / noches).toFixed(2) : '—'}
+                </div>
+              </div>
+            ) : (
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Estado de pago</Label>
+                <Select value={form.estado_pago} disabled={readonly} onValueChange={(v) => set('estado_pago', v as EstadoPago)}>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="debe">Sin pago</SelectItem>
+                    <SelectItem value="parcial">Seña</SelectItem>
+                    <SelectItem value="pagado">Pagado</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
-            {mode === 'create' ? (
-              <Select value={form.estado_reserva} disabled>
-                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tentativa">Tentativa</SelectItem>
-                  <SelectItem value="confirmada">Confirmada</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : (
+          </div>
+
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+            <div className="md:col-span-2 space-y-1">
+              <Label className="text-xs text-slate-500">Plataforma</Label>
               <Select
-                value={form.estado_reserva}
-                onValueChange={async (v) => {
-                  const nuevo = v as EstadoReserva
-                  set('estado_reserva', nuevo)
-                  if (readonly && reservaId) {
-                    if (nuevo === 'cancelada') {
-                      setPendingCancelacion(true)
-                    } else {
-                      setPendingCancelacion(false)
-                      await editarEstadoReserva(reservaId, nuevo)
-                      onRefresh?.()
-                    }
-                  }
+                value={form.plataforma}
+                disabled={readonly}
+                onValueChange={(v) => {
+                  const nuevaPlataforma = v as Plataforma
+                  setForm((f) => ({
+                    ...f,
+                    plataforma: nuevaPlataforma,
+                    estado_reserva: nuevaPlataforma === 'airbnb' ? 'confirmada' : 'tentativa',
+                  }))
+                  setError('')
                 }}
               >
                 <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {!isAirbnb && form.estado_reserva !== 'confirmada' && (
-                    <SelectItem value="tentativa" disabled>Tentativa</SelectItem>
-                  )}
-                  {(isAirbnb || form.estado_reserva === 'confirmada') && (
-                    <SelectItem value="confirmada">Confirmada</SelectItem>
-                  )}
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
+                  <SelectItem value="directo">Directo</SelectItem>
+                  <SelectItem value="airbnb">Airbnb</SelectItem>
                 </SelectContent>
               </Select>
-            )}
+            </div>
+
+            <div className="md:col-span-2 space-y-1 group relative">
+              <Label className="text-xs text-slate-500 flex items-center gap-1">
+                Estado
+                {form.estado_reserva === 'tentativa' && (
+                  <Info className="w-3 h-3 text-slate-400 cursor-help" />
+                )}
+              </Label>
+              {form.estado_reserva === 'tentativa' && (
+                <div className="invisible group-hover:visible absolute left-0 bottom-full mb-1.5 w-44 rounded-md bg-slate-800 px-2 py-1.5 text-[11px] leading-snug text-white z-20">
+                  La reserva pasará a Confirmada cuando se asiente un pago.
+                </div>
+              )}
+              {mode === 'create' ? (
+                <Select value={form.estado_reserva} disabled>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tentativa">Tentativa</SelectItem>
+                    <SelectItem value="confirmada">Confirmada</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Select
+                  value={form.estado_reserva}
+                  onValueChange={async (v) => {
+                    const nuevo = v as EstadoReserva
+                    set('estado_reserva', nuevo)
+                    if (readonly && reservaId) {
+                      if (nuevo === 'cancelada') {
+                        setPendingCancelacion(true)
+                      } else {
+                        setPendingCancelacion(false)
+                        await editarEstadoReserva(reservaId, nuevo)
+                        onRefresh?.()
+                      }
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {!isAirbnb && form.estado_reserva !== 'confirmada' && (
+                      <SelectItem value="tentativa" disabled>Tentativa</SelectItem>
+                    )}
+                    {(isAirbnb || form.estado_reserva === 'confirmada') && (
+                      <SelectItem value="confirmada">Confirmada</SelectItem>
+                    )}
+                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
 
-          <div className="col-span-4 space-y-1">
+          <div className="col-span-1 md:col-span-4 space-y-1">
             <Label className="text-xs text-slate-500">Notas</Label>
             <Textarea value={form.notas} disabled={readonly} onChange={(e) => set('notas', e.target.value)} rows={2} className="text-sm resize-none" />
           </div>
