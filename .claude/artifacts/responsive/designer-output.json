@@ -25,14 +25,14 @@
       "step": "US-04-formularios-reservas",
       "screen": "web/src/components/modals/ReservaModal.tsx, web/src/components/modals/BloqueoModal.tsx, web/src/app/reservas/nueva/page.tsx (paso 1 y paso 2), web/src/app/reservas/[id]/pago/page.tsx, web/src/components/reservas/TrasladarPagoModal.tsx, web/src/components/reservas/ReciboModal.tsx, web/src/components/reservas/FiltrosModal.tsx",
       "fields_shown": [],
-      "user_action": "Desktop (md+): todas las grillas se mantienen como están hoy (grid-cols-4 en ReservaModal/nueva/pago, grid-cols-2 en BloqueoModal y en los bloques de fecha de FiltrosModal). Mobile (<md): cada celda de las grillas de 4 columnas pasa a ocupar el ancho completo (1 columna), salvo Check-in/Check-out (ReservaModal línea ~205-261, nueva/page.tsx paso 1 línea ~340-387) y Monto+Moneda (nueva/page.tsx paso 2 línea ~550-571, pago/page.tsx línea ~415-441) que se mantienen en 2 columnas por ser las excepciones de negocio. En BloqueoModal, el bloque Desde/Hasta (línea ~80-97) se mantiene en 2 columnas por ser par de fecha; Casa, Motivo y Notas (cada uno col-span-2 hoy) pasan a ocupar el ancho completo. En FiltrosModal (reservas y gastos), el bloque de Rango de fechas (Desde/Hasta) se mantiene en 2 columnas por ser par de fecha; las grillas de checkboxes (Casa, Plataforma, Categoría, Pagado por) no son pares de campos de formulario sino listas de opciones de selección múltiple — quedan fuera de la regla de las dos excepciones, se evalúan en el Developer si conviene mantenerlas en 2 columnas por ser checkboxes cortos (no bloquea este gate). TrasladarPagoModal y ReciboModal ya son de una columna (sin grilla) — no requieren cambios estructurales.",
+      "user_action": "Desktop (md+): todas las grillas se mantienen como están hoy (grid-cols-4 en ReservaModal/nueva/pago, grid-cols-2 en BloqueoModal y en los bloques de fecha de FiltrosModal). Mobile (<md): cada celda de las grillas de 4 columnas pasa a ocupar el ancho completo (1 columna), salvo Check-in/Check-out, Monto+Moneda, y las 3 excepciones adicionales que Mili confirmó en este gate: Plataforma+Estado (ReservaModal), Casa+Estado (nueva/page.tsx paso 1), y Cotización ARS/USD+Tipo de pago (pago/page.tsx) — estas 5 quedan en 2 columnas en mobile. El resto de los pares que se habían marcado como ambiguos (Teléfono+Plataforma, Tipo de pago+Quién pagó, Fecha del pago+Destinatario, Banco destino+N° operación, Quién pagó+Fecha del pago) NO se confirmaron como excepción — quedan en 1 columna (default). En BloqueoModal, el bloque Desde/Hasta se mantiene en 2 columnas por ser par de fecha; Casa, Motivo y Notas pasan a ocupar el ancho completo. En FiltrosModal (reservas y gastos), el bloque de Rango de fechas (Desde/Hasta) se mantiene en 2 columnas por ser par de fecha; las grillas de checkboxes (Casa, Plataforma, Categoría, Pagado por) quedan para evaluación del Developer (no bloquea este gate). TrasladarPagoModal y ReciboModal ya son de una columna (sin grilla) — no requieren cambios estructurales.",
       "next_step": null
     },
     {
       "step": "US-05-formularios-gastos",
       "screen": "web/src/components/gastos/FormularioGasto.tsx, web/src/components/gastos/ConfirmacionGasto.tsx, web/src/components/gastos/FiltrosModal.tsx",
       "fields_shown": [],
-      "user_action": "Desktop (md+): FormularioGasto mantiene su grid-cols-2 como hoy. Mobile (<md): cada celda pasa a ancho completo (1 columna), salvo Monto+Moneda (línea ~44-69) que se mantiene en 2 columnas por ser la excepción de negocio. CategoriaSelect (col-span-2 ya hoy) y Detalle (col-span-2 ya hoy) no cambian de comportamiento porque ya ocupan el ancho completo. ConfirmacionGasto no usa grilla (son filas label/valor en flex) — no requiere cambios estructurales en ningún breakpoint. FiltrosModal de gastos sigue el mismo criterio que el de reservas: el bloque de Rango de fechas se mantiene en 2 columnas (par de fecha), las grillas de checkboxes (Categoría, Pagado por) quedan para evaluación del Developer.",
+      "user_action": "Desktop (md+): FormularioGasto mantiene su grid-cols-2 como hoy. Mobile (<md): cada celda pasa a ancho completo (1 columna), salvo Monto+Moneda (línea ~44-69) que se mantiene en 2 columnas por ser la excepción de negocio. Mili confirmó en este gate que Fecha+Pagado por y Destinatario+Banco origen+N° operación NO son excepción — quedan en 1 columna. CategoriaSelect (col-span-2 ya hoy) y Detalle (col-span-2 ya hoy) no cambian de comportamiento porque ya ocupan el ancho completo. ConfirmacionGasto no usa grilla (son filas label/valor en flex) — no requiere cambios estructurales en ningún breakpoint. FiltrosModal de gastos sigue el mismo criterio que el de reservas: el bloque de Rango de fechas se mantiene en 2 columnas (par de fecha), las grillas de checkboxes (Categoría, Pagado por) quedan para evaluación del Developer.",
       "next_step": null
     },
     {
@@ -82,7 +82,7 @@
     },
     {
       "component": "ReservaModal grilla de campos (modificado)",
-      "children": ["Check-in/Check-out (excepción 2 col)", "Monto total (excepción 2 col junto con Precio promedio/Estado de pago)", "resto de campos (pasan a 1 col)"],
+      "children": ["Check-in/Check-out (excepción 2 col)", "Monto total (excepción 2 col junto con Precio promedio/Estado de pago)", "Plataforma+Estado (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col)"],
       "props": [],
       "states": []
     },
@@ -94,7 +94,7 @@
     },
     {
       "component": "reservas/nueva paso 1 grilla (modificado)",
-      "children": ["Check-in/Check-out (excepción 2 col)", "resto de campos (pasan a 1 col)"],
+      "children": ["Check-in/Check-out (excepción 2 col)", "Casa+Estado (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col)"],
       "props": [],
       "states": []
     },
@@ -106,7 +106,7 @@
     },
     {
       "component": "reservas/[id]/pago grilla (modificado)",
-      "children": ["Monto/Moneda (excepción 2 col)", "resto de campos (pasan a 1 col)"],
+      "children": ["Monto/Moneda (excepción 2 col)", "Cotización ARS/USD+Tipo de pago (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col, incluye Quién pagó+Fecha del pago y Banco destino+N° operación, NO confirmados como excepción)"],
       "props": [],
       "states": []
     },
