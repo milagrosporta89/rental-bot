@@ -17,7 +17,19 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Acción manual pendiente fuera de este repo**: correr la migración `004_cuenta_paola.sql` a mano en el SQL Editor de Supabase — mismo patrón que las migraciones 001-003, no hay tooling automático.
 
-**Pendiente / próximo paso**: mostrar el código a Mili para aprobación → si aprueba, arrancar **Agente 4 (QA)**. Sin verificación end-to-end con Playwright todavía (no se corrió la app real en esta sesión).
+**Agente 4 (QA) completado** → commit `6a4c207` → `.claude/artifacts/cuenta-paola/qa-output.json`. **`summary: PASS`**, pero con 2 bugs reales encontrados y corregidos en la misma ronda (no solo reportados):
+- US-04: `nombre_destinatario` precargado por el gatillo de comisión quedaba en el payload pero invisible/no editable en `FormularioGasto.tsx` (el bloque solo se mostraba con `fromComprobante=true`). Se agregó un campo editable separado para el caso de prefill sin comprobante.
+- US-04/US-05: el monto se redondeaba a entero (`Math.round`) al precargar tanto el gasto de comisión como el movimiento de cierre mensual, perdiendo centavos. Corregido en ambos casos.
+
+**`critical_missing` no bloqueante, pendiente de decisión de Mili**: no hay forma de marcar un mes como "ya cerrado" en el cierre mensual (US-05) — si se revisita el mismo mes después de crear el ajuste, la tabla mostraría la misma diferencia otra vez y nada impide duplicar el `movimiento_interno`. Mitigación aplicada: el detalle del movimiento ahora incluye el mes, visible en la lista de ajustes, para que se note a simple vista. No es una prevención real.
+
+**Sin verificación end-to-end (Playwright) en esta sesión** — bloqueado porque la migración `004_cuenta_paola.sql` todavía no está aplicada en Supabase real (tabla `movimientos_internos` y columna `ingresos.resolucion_cancelacion` no existen todavía en la base).
+
+**Pendiente / próximo paso**:
+- Correr la migración `004_cuenta_paola.sql` a mano en el SQL Editor de Supabase.
+- Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
+- Una vez aplicada la migración: verificación end-to-end con Playwright contra datos reales (limpiando cualquier dato de prueba que se genere).
+- Decidir merge a `master` o seguir puliendo estilos.
 
 ---
 
