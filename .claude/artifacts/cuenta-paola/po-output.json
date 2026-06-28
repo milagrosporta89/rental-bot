@@ -1,4 +1,5 @@
 {
+  "_revision_nota": "2da revisión, post-aprobación de Designer. Mili señaló un gap real: la implementación falta capturar cuánto debería haber cobrado Paola por comisión (devengado, según monto_total_usd × 15%/10%) vs. lo que efectivamente cobró (el primer pago de cada reserva, que con la regla nueva va directo a su cuenta). Se agregan US-05 y US-06 para resolverlo, y se corrige una regla de US-01 que ya no aplica tal cual estaba. US-01 a US-04 quedan sin cambios de fondo, son un nivel distinto (saldo de caja crudo) que coexiste con la reconciliación nueva.",
   "user_stories": [
     {
       "id": "US-01",
@@ -9,7 +10,8 @@
         "El saldo se calcula como: suma de ingresos con nombre_destinatario='Paola' + suma de gastos con pagado_por='Paola' − suma de movimientos_internos (restando 'a_favor_paola', sumando 'a_favor_negocio' o viceversa según signo).",
         "Match exacto (case-sensitive) en 'Paola' para nombre_destinatario y pagado_por, sin ilike.",
         "El saldo es un valor calculado en cada carga de la pantalla, nunca se persiste en una tabla.",
-        "Si el saldo es positivo se etiqueta como 'a favor de Paola' (el negocio le debe); si es negativo, 'a favor del negocio' (Paola le debe)."
+        "Si el saldo es positivo se etiqueta como 'a favor de Paola' (el negocio le debe); si es negativo, 'a favor del negocio' (Paola le debe).",
+        "Este es un saldo de caja crudo (cuánta plata se movió), independiente de si lo cobrado coincide con lo que le correspondía por comisión — esa comparación vive en US-05."
       ]
     },
     {
@@ -44,6 +46,32 @@
         "Si confirma, abre el wizard de gastos (/gastos/nuevo) precargado con: categoria='comision', monto y fecha iguales al ingreso, pagado_por='Fernando', nombre_destinatario='Paola'.",
         "Todos los campos precargados siguen siendo editables antes de confirmar el gasto — mismo patrón que los campos 'fromComprobante' ya editables del wizard existente.",
         "Si el ingreso NO tiene nombre_destinatario='Paola' (match exacto), no aparece ningún gatillo — comportamiento actual sin cambios."
+      ]
+    },
+    {
+      "id": "US-05",
+      "as_a": "administradora",
+      "i_want": "ver, reserva por reserva, cuánto debería haber cobrado Paola de comisión (devengado) vs. cuánto cobró realmente, agrupado por el mes de checkout de cada reserva",
+      "so_that": "pueda cerrar la diferencia del mes con un solo ajuste, sin que el cálculo se distorsione por reservas cobradas en un mes pero resueltas (concretadas o canceladas) en otro",
+      "acceptance_criteria": [
+        "Selector de mes. Se listan las reservas con estado_reserva ≠ 'cancelada' cuya fecha_salida cae en ese mes.",
+        "Por cada una: monto_total_usd, plataforma, comisión devengada (monto_total_usd × 15% si plataforma=directo, × 10% si plataforma=airbnb), comisión cobrada real (suma de ingresos con nombre_destinatario='Paola' e id_reserva de esa reserva, sin importar en qué mes se cobraron), y la diferencia.",
+        "Total del mes = suma de las diferencias de todas las reservas listadas.",
+        "El cierre es manual: ver el total y, si se decide saldarlo, registrar UN movimiento_interno por ese total (reusa el formulario de US-03) — nunca se crea solo.",
+        "Reservas con fecha_salida fuera del mes seleccionado no aparecen, aunque ya se haya cobrado algo a cuenta — quedan para el mes que les corresponde por checkout.",
+        "Reservas canceladas quedan completamente excluidas de este cálculo (van a US-06)."
+      ]
+    },
+    {
+      "id": "US-06",
+      "as_a": "administradora",
+      "i_want": "ver los cobros de Paola en reservas que se cancelaron, y decidir caso por caso si quedan como comisión suya o como pago a cuenta de la caja chica que el negocio le debe",
+      "so_that": "una cancelación no genere una deuda automática para Paola, pero tampoco quede plata sin clasificar para siempre",
+      "acceptance_criteria": [
+        "Lista de ingresos donde nombre_destinatario='Paola', con id_reserva apuntando a una reserva con estado_reserva='cancelada', y resolucion_cancelacion es NULL (pendiente).",
+        "Por cada fila, dos acciones posibles: 'Marcar como comisión' (set resolucion_cancelacion='comision', sin ningún otro efecto — la plata queda definitivamente de Paola) o 'Marcar como caja chica' (set resolucion_cancelacion='caja_chica' Y crea automáticamente un movimiento_interno con sentido='a_favor_negocio' por ese monto, referenciando el ingreso/reserva en el detalle).",
+        "Una vez clasificada una fila, desaparece de esta lista de pendientes.",
+        "La clasificación es siempre una decisión manual explícita — ningún ingreso se reclasifica solo ni por default."
       ]
     }
   ],
@@ -89,24 +117,35 @@
       "required": false,
       "validation": "opcional, mismo patrón de subida que ingresos/gastos",
       "source_in_bot": "N/A"
+    },
+    {
+      "name": "resolucion_cancelacion",
+      "type": "select (comision|caja_chica), nullable",
+      "required": false,
+      "validation": "solo se setea vía la acción de clasificación de US-06; no es un campo editable en ningún formulario de alta",
+      "source_in_bot": "N/A — campo nuevo en ingresos, no existe en el bot"
     }
   ],
   "business_rules": [
-    "Todo ingreso con nombre_destinatario='Paola' (match exacto) se considera su comisión completa — no se calcula 15%/10%, el monto transferido ya es el dato real.",
+    "Saldo de caja de Paola (US-01) = Σ ingresos(destinatario=Paola) + Σ gastos(pagado_por=Paola) − Σ movimientos_internos (signo según 'sentido'). Es un número de caja crudo, no valida si lo cobrado correspondía — esa validación es US-05/US-06.",
     "Todo gasto con pagado_por='Paola' se considera plata que ella puso de su bolsillo, reembolsable por el negocio.",
-    "Saldo de Paola = Σ ingresos(destinatario=Paola) + Σ gastos(pagado_por=Paola) − Σ movimientos_internos (signo según 'sentido').",
-    "El saldo es de solo lectura — no se persiste, se recalcula en cada carga de la pantalla.",
-    "El gasto de comisión que se genera desde el gatillo NO lleva id_reserva — queda sin vínculo estructurado a la reserva que lo originó (a decisión explícita de Mili).",
+    "Comisión devengada de una reserva = monto_total_usd × 15% (directo) o × 10% (airbnb) — solo aplica a reservas con estado_reserva ≠ 'cancelada'.",
+    "El cierre de comisión (devengado vs. cobrado) se calcula reserva por reserva y se asigna al mes de fecha_salida (checkout) de la reserva, nunca al mes en que se cobró el dinero — esto evita que una reserva cobrada en un mes pero resuelta en otro distorsione el cierre.",
+    "Una reserva cancelada NO genera comisión devengada NI deuda automática por lo ya cobrado — ese dinero pasa a la clasificación manual de US-06.",
+    "resolucion_cancelacion es un campo nuevo, nullable, en la tabla ingresos. Solo es relevante cuando nombre_destinatario='Paola' y la reserva asociada (vía id_reserva) está cancelada.",
+    "El gasto de comisión que se genera desde el gatillo de US-04 NO lleva id_reserva — queda sin vínculo estructurado a la reserva que lo originó (a decisión explícita de Mili). El vínculo reserva↔cobro para el cierre de US-05/US-06 se hace en cambio a través de ingresos.id_reserva, que ya existe.",
     "pagado_por del gasto de comisión generado por el gatillo es siempre 'Fernando', sin importar de qué casa/titular sea la reserva.",
-    "Esta feature es exclusivamente de la web — no toca el comando 'Comisión Paola' del bot de WhatsApp, que queda con su lógica actual (solo lectura, sin restar movimientos_internos). Es aceptado que ambos números difieran.",
-    "movimientos_internos está acotado a la operatoria de Paola — no es una tabla genérica de transferencias entre todos los titulares."
+    "Esta feature es exclusivamente de la web — no toca el comando 'Comisión Paola' del bot de WhatsApp, que queda con su lógica actual (solo lectura, sin restar movimientos_internos ni hacer la reconciliación por checkout). Es aceptado que ambos números difieran.",
+    "movimientos_internos está acotado a la operatoria de Paola — no es una tabla genérica de transferencias entre todos los titulares.",
+    "Ningún cálculo de esta feature (saldo, devengado, cierre mensual) escribe nada en la base por sí solo — toda escritura (movimiento_interno, resolucion_cancelacion, gasto de comisión) es una acción explícita del usuario."
   ],
   "out_of_scope": [
     "Tocar o actualizar el comando 'Comisión Paola' del bot de WhatsApp.",
     "Agregar id_reserva a la tabla gastos.",
-    "Calcular automáticamente el 15%/10% de comisión sobre el total de la reserva.",
     "Flag de 'pendiente/compensado' por cada gasto individual pagado por Paola.",
     "Generalizar movimientos_internos a transferencias entre Francisco/Milagros/Inés/Fernando — queda acotado a Paola.",
-    "Editar o eliminar movimientos_internos ya creados (alta únicamente, igual que el primer corte de otras tablas financieras)."
+    "Editar o eliminar movimientos_internos ya creados (alta únicamente, igual que el primer corte de otras tablas financieras).",
+    "Repartir un mismo cobro de reserva cancelada parte comisión / parte caja chica — la clasificación de US-06 es todo-o-nada.",
+    "Reabrir o reclasificar una fila de US-06 ya decidida, o manejar el caso de una reserva cancelada que se reactiva después de clasificada — si ocurre, se resuelve a mano fuera del sistema por ahora."
   ]
 }

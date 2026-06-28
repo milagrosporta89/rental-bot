@@ -1,9 +1,12 @@
 {
+  "_revision_nota": "2da revisión, en línea con la 2da revisión de po-output.json (US-05 y US-06 nuevas). Se agregan dos secciones a CuentaPaolaPage: el cierre mensual por checkout (devengado vs cobrado) y la lista de cobros de reservas canceladas pendientes de clasificar. No se tocan los pasos 1 a 4 ya aprobados (saldo crudo, alta de movimiento_interno, gatillo de comisión).",
   "_notas_de_reuso": [
     "Las 3 listas (comisiones, gastos de Paola, movimientos) reusan el patrón visual fila-por-movimiento de PagosSection.tsx (web/src/components/reservas/PagosSection.tsx) — sin menú de tres puntos por ahora, US-02 solo pide lectura/auditoría, no editar/eliminar desde acá.",
     "El alta de movimiento_interno reusa el patrón de formulario+conversión de moneda de pago/page.tsx (cotización, monto_ars/monto_usd calculados) en vez de inventar uno nuevo.",
     "El gatillo semi-automático (US-04) se resuelve con un modal de confirmación (mismo componente Dialog de web/src/components/ui/dialog.tsx que ya usan BloqueoModal/ReservaModal) embebido en pago/page.tsx, NO como pantalla nueva.",
-    "Si confirma el gatillo, navega a /gastos/nuevo con query params de prefill (?comisionIngresoId=<id>&monto=<x>&fecha=<y>) — el GastoWizard existente ya soporta entrar con query params (hoy solo ?edit=<id>); se le agrega un segundo modo de entrada 'prefill sin id existente', no se duplica el wizard."
+    "Si confirma el gatillo, navega a /gastos/nuevo con query params de prefill (?comisionIngresoId=<id>&monto=<x>&fecha=<y>) — el GastoWizard existente ya soporta entrar con query params (hoy solo ?edit=<id>); se le agrega un segundo modo de entrada 'prefill sin id existente', no se duplica el wizard.",
+    "El cierre mensual (US-05) reusa la tabla de reservas existente (mismo origen de datos que /api/calendar-data o ReservasTable) filtrada por fecha_salida en el mes — no es una tabla nueva de reservas, es una vista derivada con 2 columnas calculadas (devengado, diferencia) agregadas encima.",
+    "La lista de cancelaciones pendientes (US-06) reusa el mismo patrón de fila que las otras 3 listas de la pantalla, con dos botones de acción en vez de ninguno."
   ],
   "flow": [
     {
@@ -17,7 +20,7 @@
       "step": 2,
       "screen": "MovimientoModal (dialog sobre CuentaPaolaPage)",
       "fields_shown": ["fecha", "monto", "moneda", "cotizacion (si moneda=ARS o USD, mismo patrón ingresos/gastos)", "sentido", "detalle", "comprobante_url (opcional)"],
-      "user_action": "completa y confirma el alta",
+      "user_action": "completa y confirma el alta (o llega prellenado desde el paso 5 con el total del cierre mensual)",
       "next_step": 1
     },
     {
@@ -33,13 +36,27 @@
       "fields_shown": ["categoria=comision (precargado)", "monto (precargado, editable)", "fecha (precargado, editable)", "pagado_por=Fernando (precargado, editable)", "nombre_destinatario=Paola (precargado, editable)", "resto de campos del wizard existente, sin cambios"],
       "user_action": "revisa, edita si hace falta, confirma el gasto — mismo flujo de 3 pasos (carga/confirmación/éxito) que ya existe",
       "next_step": null
+    },
+    {
+      "step": 5,
+      "screen": "CierreMensualSection (dentro de CuentaPaolaPage, debajo de las 3 listas de US-02)",
+      "fields_shown": ["selector de mes", "tabla: reserva, monto_total_usd, plataforma, devengado, cobrado real, diferencia", "total del mes"],
+      "user_action": "revisa el total y, si decide saldarlo, click en 'Cerrar mes' → abre MovimientoModal (paso 2) precargado con el total y el sentido correspondiente",
+      "next_step": 2
+    },
+    {
+      "step": 6,
+      "screen": "CancelacionesPendientesSection (dentro de CuentaPaolaPage, lista aparte)",
+      "fields_shown": ["fecha, monto, moneda, reserva asociada — por cada ingreso de Paola con reserva cancelada y resolucion_cancelacion=null"],
+      "user_action": "click en 'Marcar como comisión' (sin pantalla adicional, confirma inline) o 'Marcar como caja chica' (sin pantalla adicional, confirma inline y dispara el alta de un movimiento_interno automático con esos datos)",
+      "next_step": null
     }
   ],
   "component_tree": [
     {
       "component": "CuentaPaolaPage",
-      "children": ["SaldoPaolaCard", "ListaMovimientoFinanciero (x3, una por tipo)", "MovimientoModal"],
-      "props": ["ingresosPaola", "gastosPaola", "movimientosInternos"],
+      "children": ["SaldoPaolaCard", "ListaMovimientoFinanciero (x3, una por tipo)", "MovimientoModal", "CierreMensualSection", "CancelacionesPendientesSection"],
+      "props": ["ingresosPaola", "gastosPaola", "movimientosInternos", "reservasDelMes", "cancelacionesPendientes"],
       "states": ["loading", "loaded", "error"]
     },
     {
@@ -57,7 +74,7 @@
     {
       "component": "MovimientoModal",
       "children": ["FormularioMovimientoInterno"],
-      "props": ["open", "onClose", "onSaved"],
+      "props": ["open", "onClose", "onSaved", "prefill (opcional — monto y sentido sugeridos desde el cierre mensual)"],
       "states": ["idle", "loading", "error", "success"]
     },
     {
@@ -70,6 +87,30 @@
       "component": "GatilloComisionModal",
       "children": [],
       "props": ["open", "ingresoId", "monto", "fecha", "onConfirm", "onDismiss"],
+      "states": ["idle", "loading"]
+    },
+    {
+      "component": "CierreMensualSection",
+      "children": ["SelectorMes", "TablaReconciliacionComision"],
+      "props": ["mes seleccionado", "reservas con fecha_salida en ese mes y estado≠cancelada"],
+      "states": ["loading", "loaded (con total)", "vacio (sin reservas ese mes)"]
+    },
+    {
+      "component": "TablaReconciliacionComision",
+      "children": [],
+      "props": ["filas: {reserva, monto_total_usd, plataforma, devengado, cobrado, diferencia}[]", "total"],
+      "states": ["idle"]
+    },
+    {
+      "component": "CancelacionesPendientesSection",
+      "children": ["FilaAccionCancelacion"],
+      "props": ["items: {ingreso, reserva}[]"],
+      "states": ["idle", "vacio"]
+    },
+    {
+      "component": "FilaAccionCancelacion",
+      "children": [],
+      "props": ["ingreso", "reserva", "onMarcarComision", "onMarcarCajaChica"],
       "states": ["idle", "loading"]
     },
     {
@@ -89,6 +130,8 @@
       "cotización obligatoria si la conversión de moneda la requiere (mismo patrón que pago/page.tsx)"
     ],
     "step_3": ["ninguna — es una confirmación binaria, no escribe nada hasta que el usuario llega al step 4 y confirma el gasto"],
-    "step_4": ["las validaciones ya existentes de FormularioGasto/GastoWizard, sin cambios"]
+    "step_4": ["las validaciones ya existentes de FormularioGasto/GastoWizard, sin cambios"],
+    "step_5": ["ninguna escritura automática — 'Cerrar mes' solo navega al modal de US-03 con valores sugeridos, el usuario confirma o edita antes de guardar"],
+    "step_6": ["las dos acciones son irreversibles desde la UI (no hay 'deshacer' en este corte) — el botón debería pedir una confirmación simple antes de ejecutar, mismo patrón que los diálogos de eliminar ya existentes (Dialog + DialogFooter con Cancelar/Confirmar)"]
   }
 }
