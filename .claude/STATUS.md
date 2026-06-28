@@ -4,6 +4,23 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-28 — Feature: cuenta-paola · Rama: `feature/cuenta-paola`
+
+**Pipeline completo hasta Agente 3 (Developer), pendiente Agente 4 (QA).**
+
+**Origen**: Mili pidió pensar cómo registrar la comisión de Paola (15% directo / 10% airbnb), que ahora se cobra como el primer pago de cada reserva directo a su cuenta. La conversación de diseño (antes de tocar `/explore`) llevó a un mecanismo de 2 niveles: saldo de caja crudo (cobrado − gastado ± ajustes) + una reconciliación devengado-vs-cobrado por reserva, anclada a la fecha de **checkout** (no a la fecha de cobro) para que una reserva cobrada en un mes pero cancelada/resuelta en otro no distorsione el cierre. Las cancelaciones con cobro ya hecho NO generan deuda automática — quedan en una cola de clasificación manual (comisión definitiva vs. pago a cuenta de caja chica).
+
+- `/explore cuenta-paola` → `.claude/artifacts/cuenta-paola/explore.md`: encontró que el bot YA tiene un comando "💼 Comisión Paola" (`src/handlers/comision.ts` → `obtenerBalancePaola()`), pero es de solo lectura y sin la reconciliación nueva — se acepta que el número difiera del de la web. Hallazgo aparte: todo `src/` (bot) sigue persistiendo en Google Sheets, no solo gastos como decía `CONTEXT.md` — pendiente corregir la doc, no bloqueante.
+- **Agente 1 (PO)** → `po-output.json`, 2 revisiones después de la 1ra aprobación (US-05 cierre mensual, US-06 cancelaciones) + una 3ra corrección de signo en la fórmula del saldo (restaba mal los gastos) detectada al comparar contra el bot, antes de codear.
+- **Agente 2 (Designer)** → `designer-output.json`, mismas 2 secciones nuevas agregadas (`CierreMensualSection`, `CancelacionesPendientesSection`).
+- **Agente 3 (Developer)** → commit `a6418fa`: migración `004_cuenta_paola.sql` (tabla `movimientos_internos` + columna `ingresos.resolucion_cancelacion`), `lib/cuentaPaola.ts`, server actions, `/api/cuenta-paola-data`, pantalla `/cuenta-paola`, tab nueva en `NavTabs`, gatillo en `pago/page.tsx` + modo prefill en `GastoWizard`. `tsc --noEmit` y `eslint` limpios (verificados también de forma independiente, no solo por el reporte del propio Developer).
+
+**Acción manual pendiente fuera de este repo**: correr la migración `004_cuenta_paola.sql` a mano en el SQL Editor de Supabase — mismo patrón que las migraciones 001-003, no hay tooling automático.
+
+**Pendiente / próximo paso**: mostrar el código a Mili para aprobación → si aprueba, arrancar **Agente 4 (QA)**. Sin verificación end-to-end con Playwright todavía (no se corrió la app real en esta sesión).
+
+---
+
 ## 2026-06-26 (cont.) — Feature: responsive · Rama: `feature/responsive-ui`
 
 **Agente 3 (Developer) completado en 3 tandas** (se dividió por tamaño — ~15 archivos tocados en total, una sola tanda hubiera sido inmanejable de revisar):
