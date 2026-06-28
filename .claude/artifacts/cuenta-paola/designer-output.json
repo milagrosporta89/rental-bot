@@ -1,0 +1,94 @@
+{
+  "_notas_de_reuso": [
+    "Las 3 listas (comisiones, gastos de Paola, movimientos) reusan el patrón visual fila-por-movimiento de PagosSection.tsx (web/src/components/reservas/PagosSection.tsx) — sin menú de tres puntos por ahora, US-02 solo pide lectura/auditoría, no editar/eliminar desde acá.",
+    "El alta de movimiento_interno reusa el patrón de formulario+conversión de moneda de pago/page.tsx (cotización, monto_ars/monto_usd calculados) en vez de inventar uno nuevo.",
+    "El gatillo semi-automático (US-04) se resuelve con un modal de confirmación (mismo componente Dialog de web/src/components/ui/dialog.tsx que ya usan BloqueoModal/ReservaModal) embebido en pago/page.tsx, NO como pantalla nueva.",
+    "Si confirma el gatillo, navega a /gastos/nuevo con query params de prefill (?comisionIngresoId=<id>&monto=<x>&fecha=<y>) — el GastoWizard existente ya soporta entrar con query params (hoy solo ?edit=<id>); se le agrega un segundo modo de entrada 'prefill sin id existente', no se duplica el wizard."
+  ],
+  "flow": [
+    {
+      "step": 1,
+      "screen": "CuentaPaolaPage (/cuenta-paola)",
+      "fields_shown": ["saldo calculado", "lista comisiones (ingresos)", "lista gastos de Paola", "lista movimientos_internos"],
+      "user_action": "ver el estado actual o click en 'Registrar movimiento'",
+      "next_step": 2
+    },
+    {
+      "step": 2,
+      "screen": "MovimientoModal (dialog sobre CuentaPaolaPage)",
+      "fields_shown": ["fecha", "monto", "moneda", "cotizacion (si moneda=ARS o USD, mismo patrón ingresos/gastos)", "sentido", "detalle", "comprobante_url (opcional)"],
+      "user_action": "completa y confirma el alta",
+      "next_step": 1
+    },
+    {
+      "step": 3,
+      "screen": "GatilloComisionModal (dialog sobre pago/page.tsx, tras guardar un ingreso exitosamente)",
+      "fields_shown": ["pregunta: '¿Asentar este cobro como gasto de comisión?'"],
+      "user_action": "Sí → navega a /gastos/nuevo con prefill | No → sigue el flujo normal (vuelve al detalle de la reserva, comportamiento actual sin cambios)",
+      "next_step": 4
+    },
+    {
+      "step": 4,
+      "screen": "GastoWizard (/gastos/nuevo, modo prefill)",
+      "fields_shown": ["categoria=comision (precargado)", "monto (precargado, editable)", "fecha (precargado, editable)", "pagado_por=Fernando (precargado, editable)", "nombre_destinatario=Paola (precargado, editable)", "resto de campos del wizard existente, sin cambios"],
+      "user_action": "revisa, edita si hace falta, confirma el gasto — mismo flujo de 3 pasos (carga/confirmación/éxito) que ya existe",
+      "next_step": null
+    }
+  ],
+  "component_tree": [
+    {
+      "component": "CuentaPaolaPage",
+      "children": ["SaldoPaolaCard", "ListaMovimientoFinanciero (x3, una por tipo)", "MovimientoModal"],
+      "props": ["ingresosPaola", "gastosPaola", "movimientosInternos"],
+      "states": ["loading", "loaded", "error"]
+    },
+    {
+      "component": "SaldoPaolaCard",
+      "children": [],
+      "props": ["saldo: number", "moneda de referencia"],
+      "states": ["a_favor_paola", "a_favor_negocio", "neutro (saldo=0)"]
+    },
+    {
+      "component": "ListaMovimientoFinanciero",
+      "children": [],
+      "props": ["titulo", "items: {fecha, monto, moneda, detalle}[]", "vacio_mensaje"],
+      "states": ["idle", "vacio"]
+    },
+    {
+      "component": "MovimientoModal",
+      "children": ["FormularioMovimientoInterno"],
+      "props": ["open", "onClose", "onSaved"],
+      "states": ["idle", "loading", "error", "success"]
+    },
+    {
+      "component": "FormularioMovimientoInterno",
+      "children": [],
+      "props": ["form", "onChange", "error"],
+      "states": ["idle", "readonly (sin uso por ahora — no hay comprobante con OCR para este tipo de movimiento)"]
+    },
+    {
+      "component": "GatilloComisionModal",
+      "children": [],
+      "props": ["open", "ingresoId", "monto", "fecha", "onConfirm", "onDismiss"],
+      "states": ["idle", "loading"]
+    },
+    {
+      "component": "NavTabs (modificado)",
+      "children": [],
+      "props": ["agrega entrada 'Paola' al array tabs existente, mismo patrón que Calendario/Reservas/Gastos"],
+      "states": ["idle"]
+    }
+  ],
+  "validations_per_step": {
+    "step_1": ["ninguna — pantalla de solo lectura salvo el botón que abre el modal"],
+    "step_2": [
+      "monto numérico y > 0",
+      "moneda obligatoria (ARS|USD)",
+      "sentido obligatorio (a_favor_paola|a_favor_negocio)",
+      "fecha obligatoria, no futura (mismo criterio que FormularioGasto)",
+      "cotización obligatoria si la conversión de moneda la requiere (mismo patrón que pago/page.tsx)"
+    ],
+    "step_3": ["ninguna — es una confirmación binaria, no escribe nada hasta que el usuario llega al step 4 y confirma el gasto"],
+    "step_4": ["las validaciones ya existentes de FormularioGasto/GastoWizard, sin cambios"]
+  }
+}
