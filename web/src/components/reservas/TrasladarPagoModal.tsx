@@ -56,7 +56,7 @@ export function TrasladarPagoModal({ ingresoId, reservaOrigenId, onClose, onSave
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-sm" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-slate-700 font-medium">Trasladar pago a otra reserva</DialogTitle>
         </DialogHeader>
@@ -88,11 +88,11 @@ export function TrasladarPagoModal({ ingresoId, reservaOrigenId, onClose, onSave
 
         {error && <p className="text-xs text-red-500">{error}</p>}
 
-        <div className="flex justify-end gap-2 mt-2">
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-500 cursor-pointer">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2 mt-2">
+          <Button variant="ghost" size="sm" onClick={onClose} className="w-full sm:w-auto text-slate-500 cursor-pointer">
             Cancelar
           </Button>
-          <Button size="sm" onClick={confirmar} disabled={!seleccionada || loading} className="cursor-pointer">
+          <Button size="sm" onClick={confirmar} disabled={!seleccionada || loading} className="w-full sm:w-auto cursor-pointer">
             {loading ? 'Trasladando…' : 'Trasladar'}
           </Button>
         </div>

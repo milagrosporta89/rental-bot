@@ -182,16 +182,19 @@ export function ReservaModal(props: Props) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-md max-h-[90dvh]" onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader className="pb-1">
           <DialogTitle className="text-lg font-semibold text-slate-800">
             {mode === 'view' ? (
               <>
-                {props.reserva.nombre_pax}
-                <span className="text-slate-400 font-normal mx-2">·</span>
-                <span className="text-slate-500 font-normal">{CASA_LABELS[props.reserva.casa.replace(/\D/g, '')] ?? props.reserva.casa}</span>
-                <span className="text-slate-400 font-normal mx-2">·</span>
-                <span className="text-slate-500 font-normal text-base">#{props.reserva.id.replace(/^[A-Z]+-?/, '')}</span>
+                <div>{props.reserva.nombre_pax}</div>
+                <div className="text-sm font-normal text-slate-500">
+                  {CASA_LABELS[props.reserva.casa.replace(/\D/g, '')] ?? props.reserva.casa}
+                  <span className="text-slate-400 mx-1.5">·</span>
+                  {props.reserva.cantidad_noches} {props.reserva.cantidad_noches === 1 ? 'noche' : 'noches'}
+                  <span className="text-slate-400 mx-1.5">·</span>
+                  #{props.reserva.id.replace(/^[A-Z]+-?/, '')}
+                </div>
               </>
             ) : (
               <>
@@ -202,13 +205,13 @@ export function ReservaModal(props: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-3 pt-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-3 pt-1">
 
-          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-3 md:contents">
             <div className="md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Check-in {!readonly && '*'}</Label>
               <div
-                className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
+                className={`flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
                 onClick={() => !readonly && checkinRef.current?.showPicker()}
               >
                 <input
@@ -239,7 +242,7 @@ export function ReservaModal(props: Props) {
             <div className="md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Check-out {!readonly && '*'}</Label>
               <div
-                className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
+                className={`flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 ${readonly ? 'opacity-60' : 'cursor-pointer focus-within:ring-1 focus-within:ring-ring'}`}
                 onClick={() => {
                   if (!readonly && checkoutRef.current) {
                     checkoutRef.current.min = minCheckout
@@ -267,20 +270,22 @@ export function ReservaModal(props: Props) {
             <Input value={form.nombre_pax} disabled={readonly} onChange={(e) => set('nombre_pax', e.target.value)} className="text-sm" />
           </div>
 
-          <div className="col-span-1 md:col-span-1 space-y-1">
-            <Label className="text-xs text-slate-500">Huéspedes</Label>
-            <Input type="number" min={1} max={8} value={form.cantidad_pax} disabled={readonly} onChange={(e) => set('cantidad_pax', e.target.value)} className="text-sm" />
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-3 md:contents">
+            <div className="md:col-span-1 space-y-1">
+              <Label className="text-xs text-slate-500">Huéspedes</Label>
+              <Input type="number" min={1} max={8} value={form.cantidad_pax} disabled={readonly} onChange={(e) => set('cantidad_pax', e.target.value)} className="text-sm" />
+            </div>
+
+            <div className="md:col-span-4 space-y-1">
+              <Label className="text-xs text-slate-500">Teléfono</Label>
+              <Input type="tel" value={form.telefono} disabled={readonly} onChange={(e) => set('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))} className="text-sm" />
+            </div>
           </div>
 
-          <div className="col-span-1 md:col-span-4 space-y-1">
-            <Label className="text-xs text-slate-500">Teléfono</Label>
-            <Input type="tel" value={form.telefono} disabled={readonly} onChange={(e) => set('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))} className="text-sm" />
-          </div>
-
-          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-3 md:contents">
             <div className="md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Monto total</Label>
-              <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${readonly ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
+              <div className={`flex h-10 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${readonly ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
                 <span className="text-sm text-slate-600 shrink-0 select-none">USD</span>
                 <input
                   type="number" min={0} step={0.01}
@@ -295,7 +300,7 @@ export function ReservaModal(props: Props) {
             {mode === 'create' ? (
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Precio promedio/noche</Label>
-                <div className="flex h-9 items-center rounded-md border border-input bg-slate-50 px-3 text-sm text-slate-500">
+                <div className="flex h-10 items-center rounded-md border border-input bg-slate-50 px-3 text-sm text-slate-500">
                   USD {noches > 0 && form.monto_total_usd !== '' ? (parseFloat(form.monto_total_usd) / noches).toFixed(2) : '—'}
                 </div>
               </div>
@@ -314,7 +319,7 @@ export function ReservaModal(props: Props) {
             )}
           </div>
 
-          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-3 md:contents">
+          <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-3 md:contents">
             <div className="md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Plataforma</Label>
               <Select
@@ -398,17 +403,17 @@ export function ReservaModal(props: Props) {
 
         {!readonly && error && <p className="text-xs text-red-500 mt-2">{error}</p>}
 
-        <div className="flex justify-end gap-2 mt-4">
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-2 bg-white border-t border-slate-200 px-6 py-3 flex flex-col sm:flex-row sm:justify-end gap-2">
           {readonly ? (
             <>
-              <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-500 cursor-pointer">
+              <Button variant="ghost" size="sm" onClick={onClose} className="w-full sm:w-auto text-slate-500 cursor-pointer">
                 Cerrar
               </Button>
               {pendingCancelacion ? (
                 <Button
                   size="sm"
                   disabled={loading}
-                  className="cursor-pointer bg-rose-600 hover:bg-rose-700 text-white"
+                  className="w-full sm:w-auto cursor-pointer bg-rose-600 hover:bg-rose-700 text-white"
                   onClick={async () => {
                     if (!reservaId) return
                     setLoading(true)
@@ -423,7 +428,7 @@ export function ReservaModal(props: Props) {
                   Confirmar cancelación
                 </Button>
               ) : form.estado_reserva !== 'cancelada' ? (
-                <Button size="sm" className="cursor-pointer" onClick={() => { onClose(); router.push(`/reservas/${reservaId}/pago`) }}>
+                <Button size="sm" className="w-full sm:w-auto cursor-pointer" onClick={() => { onClose(); router.push(`/reservas/${reservaId}/pago`) }}>
                   <CreditCard className="w-3.5 h-3.5 mr-1.5" />
                   Asentar pago
                 </Button>
@@ -431,10 +436,10 @@ export function ReservaModal(props: Props) {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={onClose} className="text-slate-500 cursor-pointer">
+              <Button variant="ghost" size="sm" onClick={onClose} className="w-full sm:w-auto text-slate-500 cursor-pointer">
                 Cancelar
               </Button>
-              <Button size="sm" onClick={handleSubmit} disabled={loading} className="cursor-pointer">
+              <Button size="sm" onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto cursor-pointer">
                 {loading ? 'Guardando…' : mode === 'create' ? 'Crear' : 'Guardar'}
               </Button>
             </>

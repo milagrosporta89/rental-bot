@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { buscarGastoDuplicado, obtenerGasto } from '@/app/actions/gastos'
 import type { GastoDuplicado, GastoPayload } from '@/app/actions/gastos'
@@ -226,64 +227,99 @@ export function GastoWizard() {
     )
   }
 
+  const volverDesdeCarga = editId ? () => router.push('/gastos') : undefined
+
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
-        <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600 font-medium">{editId ? 'Editar gasto' : 'Nuevo gasto'}</span>
+    <div className="flex flex-col min-h-full">
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6 w-full flex-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-slate-600 font-medium">{editId ? 'Editar gasto' : 'Nuevo gasto'}</span>
+        </div>
+
+        <div className="hidden md:block">
+          <Stepper actual={PASO_NUM[paso]} />
+        </div>
+
+        {paso === 'carga' && (
+          <div className="space-y-4">
+            {!editId && (
+              <div className="space-y-2">
+                <ComprobanteDropzone
+                  uploadState={uploadState}
+                  comprobanteUrl={comprobanteUrl}
+                  onFile={handleFile}
+                  onRemove={removeComprobante}
+                />
+                {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
+                {!fromComprobante && !duplicado && (
+                  <p className="text-[11px] text-slate-400">
+                    Si subís el comprobante, completamos los datos automáticamente.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <FormularioGasto
+              form={form}
+              fromComprobante={fromComprobante}
+              ro={ro}
+              onChange={onChange}
+              error={formError}
+            />
+          </div>
+        )}
+
+        {paso === 'confirmacion' && (
+          <ConfirmacionGasto
+            resumen={resumen}
+            error={submitError}
+            modoEdicion={!!editId}
+          />
+        )}
+
+        {paso === 'exito' && (
+          <PantallaExito
+            mensaje={editId ? 'Gasto actualizado correctamente' : 'Gasto registrado correctamente'}
+          />
+        )}
       </div>
 
-      <Stepper actual={PASO_NUM[paso]} />
-
-      {paso === 'carga' && (
-        <div className="space-y-4">
-          {!editId && (
-            <div className="space-y-2">
-              <ComprobanteDropzone
-                uploadState={uploadState}
-                comprobanteUrl={comprobanteUrl}
-                onFile={handleFile}
-                onRemove={removeComprobante}
-              />
-              {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
-              {!fromComprobante && !duplicado && (
-                <p className="text-[11px] text-slate-400">
-                  Si subís el comprobante, completamos los datos automáticamente.
-                </p>
+      <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+        <div className="max-w-xl mx-auto">
+          {paso === 'carga' && (
+            <div className={`flex flex-col sm:flex-row gap-2 ${volverDesdeCarga ? 'sm:justify-between' : 'sm:justify-end'}`}>
+              {volverDesdeCarga && (
+                <Button size="sm" variant="outline" onClick={volverDesdeCarga} className="w-full sm:w-auto cursor-pointer">
+                  Volver
+                </Button>
               )}
+              <Button size="sm" onClick={irAConfirmacion} className="w-full sm:w-auto cursor-pointer">
+                Continuar
+              </Button>
             </div>
           )}
 
-          <FormularioGasto
-            form={form}
-            fromComprobante={fromComprobante}
-            ro={ro}
-            onChange={onChange}
-            onSubmit={irAConfirmacion}
-            onVolver={editId ? () => router.push('/gastos') : undefined}
-            error={formError}
-          />
+          {paso === 'confirmacion' && (
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPaso('carga')} disabled={loading} className="w-full sm:w-auto cursor-pointer">
+                Volver
+              </Button>
+              <Button size="sm" onClick={confirmar} disabled={loading} className="w-full sm:w-auto cursor-pointer">
+                {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                {editId ? 'Guardar cambios' : 'Confirmar gasto'}
+              </Button>
+            </div>
+          )}
+
+          {paso === 'exito' && (
+            <Button onClick={() => router.push('/gastos')} className="w-full cursor-pointer">
+              Continuar
+            </Button>
+          )}
         </div>
-      )}
-
-      {paso === 'confirmacion' && (
-        <ConfirmacionGasto
-          resumen={resumen}
-          onVolver={() => setPaso('carga')}
-          onConfirmar={confirmar}
-          loading={loading}
-          error={submitError}
-          modoEdicion={!!editId}
-        />
-      )}
-
-      {paso === 'exito' && (
-        <PantallaExito
-          mensaje={editId ? 'Gasto actualizado correctamente' : 'Gasto registrado correctamente'}
-          onContinuar={() => router.push('/gastos')}
-        />
-      )}
+      </div>
     </div>
   )
 }

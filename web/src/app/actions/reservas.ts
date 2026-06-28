@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { toDDMMYYYY } from '@/lib/dates'
 import { registradoPorActual } from '@/lib/auth'
 import { CASA_TITULAR } from '@/lib/types'
+import { verificarDisponibilidad } from '@/lib/disponibilidad'
 
 async function getNextId(supabase: ReturnType<typeof createAdminClient>): Promise<string> {
   const { data } = await supabase.from('reservas').select('id')
@@ -34,6 +35,9 @@ function toTitleCase(s: string): string {
 }
 
 export async function crearReserva(payload: ReservaPayload): Promise<{ id: string }> {
+  const conflicto = await verificarDisponibilidad(payload.casa, payload.fecha_entrada, payload.fecha_salida)
+  if (conflicto) throw new Error(conflicto)
+
   const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const id = await getNextId(supabase)
@@ -75,6 +79,11 @@ export async function editarReserva(
   payload: ReservaPayload,
   anterior: Record<string, unknown>
 ): Promise<void> {
+  if (payload.estado_reserva !== 'cancelada') {
+    const conflicto = await verificarDisponibilidad(payload.casa, payload.fecha_entrada, payload.fecha_salida, { excludeReservaId: id })
+    if (conflicto) throw new Error(conflicto)
+  }
+
   const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const casaNum = payload.casa.replace(/\D/g, '')

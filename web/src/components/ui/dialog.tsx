@@ -21,7 +21,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-[overlay-in_180ms_ease-out] data-[state=closed]:animate-[overlay-out_240ms_ease-in-out]",
       className
     )}
     {...props}
@@ -32,25 +32,72 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-))
+>(({ className, children, ...props }, ref) => {
+  const closeRef = React.useRef<HTMLButtonElement>(null)
+  const dragRef = React.useRef<HTMLDivElement>(null)
+  const drag = React.useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false })
+
+  // Deslizar hacia abajo para cerrar (como un bottom sheet nativo) — solo en mobile,
+  // arrastrando desde la manija. Dispara el cierre real haciendo click en el botón
+  // de cerrar (DialogPrimitive.Close) ya existente, en vez de duplicar el mecanismo de cierre.
+  function onTouchStart(e: React.TouchEvent) {
+    drag.current = { startY: e.touches[0].clientY, dragging: true }
+    if (dragRef.current) dragRef.current.style.transition = "none"
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!drag.current.dragging || !dragRef.current) return
+    const delta = e.touches[0].clientY - drag.current.startY
+    if (delta > 0) dragRef.current.style.transform = `translateY(${delta}px)`
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!drag.current.dragging || !dragRef.current) return
+    const delta = e.changedTouches[0].clientY - drag.current.startY
+    drag.current.dragging = false
+    if (delta > 80) {
+      closeRef.current?.click()
+      return
+    }
+    dragRef.current.style.transition = "transform 200ms ease-out"
+    dragRef.current.style.transform = ""
+  }
+
+  return (
+    <DialogPortal>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(
+          // Mobile: bottom sheet (anclado abajo, ancho completo, solo esquinas superiores redondeadas).
+          // sm+: modal centrado de siempre, sin cambios.
+          "fixed inset-x-0 bottom-0 sm:inset-x-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto z-50 flex flex-col w-full sm:max-w-lg max-h-[85dvh] sm:max-h-none overflow-hidden sm:translate-x-[-50%] sm:translate-y-[-50%] border bg-background shadow-lg rounded-t-2xl sm:rounded-lg data-[state=open]:animate-[sheet-in_220ms_ease-out] data-[state=closed]:animate-[sheet-out_280ms_ease-in-out] sm:animate-none",
+          className
+        )}
+        {...props}
+      >
+        {/* Manija + cruz de cierre: fuera del área scrolleable, quedan fijas */}
+        <div ref={dragRef} className="relative flex flex-col flex-1 min-h-0">
+          <div
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            className="sm:hidden shrink-0 flex justify-center pt-3 pb-2 touch-none cursor-grab active:cursor-grabbing"
+          >
+            <div className="h-1.5 w-10 rounded-full bg-slate-300" />
+          </div>
+
+          <DialogPrimitive.Close ref={closeRef} className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+
+          <div className="flex-1 min-h-0 overflow-y-auto grid gap-4 px-6 pb-6 pt-2 sm:pt-6">
+            {children}
+          </div>
+        </div>
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
@@ -73,7 +120,9 @@ const DialogFooter = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      // El primario va último en el JSX -> queda abajo en mobile (flex-col, sin reverse)
+      // y a la derecha en sm+. Los botones ocupan todo el ancho en mobile.
+      "flex flex-col gap-2 [&>button]:w-full sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2 sm:[&>button]:w-auto",
       className
     )}
     {...props}

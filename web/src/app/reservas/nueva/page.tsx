@@ -91,6 +91,7 @@ function NuevaReservaForm() {
   const checkinRef = useRef<HTMLInputElement>(null)
   const checkoutRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const fechaPagoRef = useRef<HTMLInputElement>(null)
 
   // Prefetch cotización al llegar al paso 2
   useEffect(() => {
@@ -289,8 +290,8 @@ function NuevaReservaForm() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="h-full overflow-auto flex flex-col">
+      <div className="max-w-xl mx-auto px-4 py-6 w-full flex-1">
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
@@ -305,10 +306,10 @@ function NuevaReservaForm() {
             <h1 className="text-lg font-semibold text-slate-800 mb-1">Nueva reserva</h1>
             <p className="text-xs text-slate-400 mb-5">Paso 1 de 2 · Datos de la reserva</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
               {/* Casa + Estado */}
-              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-4 md:contents">
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
                 <div className="md:col-span-2 space-y-1">
                   <Label className="text-xs text-slate-500">Casa *</Label>
                   <Select value={s1.casa} onValueChange={v => set1('casa', v)}>
@@ -340,11 +341,11 @@ function NuevaReservaForm() {
               </div>
 
               {/* Check-in + Check-out */}
-              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-4 md:contents">
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
                 <div className="md:col-span-2 space-y-1">
                   <Label className="text-xs text-slate-500">Check-in *</Label>
                   <div
-                    className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                    className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
                     onClick={() => checkinRef.current?.showPicker()}
                   >
                     <input
@@ -374,7 +375,7 @@ function NuevaReservaForm() {
                 <div className="md:col-span-2 space-y-1">
                   <Label className="text-xs text-slate-500">Check-out *</Label>
                   <div
-                    className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                    className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
                     onClick={() => { if (checkoutRef.current) { checkoutRef.current.min = minCheckout; checkoutRef.current.showPicker() } }}
                   >
                     <input
@@ -400,27 +401,28 @@ function NuevaReservaForm() {
                 <Input value={s1.nombre_pax} onChange={e => set1('nombre_pax', e.target.value)} className="text-sm" />
               </div>
 
-              {/* Huéspedes */}
-              <div className="col-span-1 md:col-span-1 space-y-1">
-                <Label className="text-xs text-slate-500">Huéspedes *</Label>
-                <Input
-                  type="number" min={1} max={20}
-                  value={s1.cantidad_pax}
-                  onChange={e => set1('cantidad_pax', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
+              {/* Huéspedes + Teléfono */}
+              <div className="col-span-1 md:col-span-3 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+                <div className="md:col-span-1 space-y-1">
+                  <Label className="text-xs text-slate-500">Huéspedes *</Label>
+                  <Input
+                    type="number" min={1} max={20}
+                    value={s1.cantidad_pax}
+                    onChange={e => set1('cantidad_pax', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
 
-              {/* Teléfono */}
-              <div className="col-span-1 md:col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Teléfono</Label>
-                <Input
-                  type="tel"
-                  value={s1.telefono}
-                  onChange={e => set1('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))}
-                  placeholder="549XXXXXXXXXX"
-                  className="text-sm"
-                />
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Teléfono</Label>
+                  <Input
+                    type="tel"
+                    value={s1.telefono}
+                    onChange={e => set1('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))}
+                    placeholder="549XXXXXXXXXX"
+                    className="text-sm"
+                  />
+                </div>
               </div>
 
               {/* Plataforma */}
@@ -438,7 +440,7 @@ function NuevaReservaForm() {
               {/* Monto */}
               <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Monto total *</Label>
-                <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 focus-within:ring-1 focus-within:ring-ring">
+                <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-1.5 focus-within:ring-1 focus-within:ring-ring">
                   <span className="text-sm text-slate-600 shrink-0">USD</span>
                   <input
                     type="number" min={0} step={0.01}
@@ -462,35 +464,6 @@ function NuevaReservaForm() {
             </div>
 
             {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
-
-            <div className="flex justify-end gap-2 mt-5">
-              <Button variant="ghost" size="sm" asChild className="text-slate-500">
-                <Link href="/calendario"><ArrowLeft className="w-3.5 h-3.5 mr-1" />Volver</Link>
-              </Button>
-
-              {s1.estado_reserva === '' && (
-                <Button size="sm" disabled className="opacity-50">
-                  Elegí un estado para continuar
-                </Button>
-              )}
-              {s1.estado_reserva === 'tentativa' && (
-                <Button size="sm" onClick={handleGuardarTentativa} disabled={loading}>
-                  {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                  Guardar reserva
-                </Button>
-              )}
-              {s1.estado_reserva === 'confirmada' && (
-                <Button size="sm" onClick={() => {
-                  const err = validarS1()
-                  if (err) { setError(err); return }
-                  setError('')
-                  setStep(2)
-                }}>
-                  Siguiente: asentar pago
-                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              )}
-            </div>
           </>
         )}
 
@@ -508,7 +481,7 @@ function NuevaReservaForm() {
               <span><span className="text-slate-400 text-xs">Total</span> {formatUSD(parseFloat(s1.monto_total_usd || '0'))}</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
               {/* Comprobante */}
               <div className="col-span-1 md:col-span-4 space-y-1.5">
@@ -552,7 +525,7 @@ function NuevaReservaForm() {
               </div>
 
               {/* Monto + Moneda */}
-              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-4 md:contents">
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
                 <div className="md:col-span-2 space-y-1">
                   <Label className="text-xs text-slate-500">Monto *</Label>
                   <Input
@@ -616,12 +589,19 @@ function NuevaReservaForm() {
               {/* Fecha del pago */}
               <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Fecha del pago</Label>
-                <Input
-                  type="date"
-                  value={s2.fecha}
-                  onChange={e => set2('fecha', e.target.value)}
-                  className="text-sm"
-                />
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                  onClick={() => fechaPagoRef.current?.showPicker()}
+                >
+                  <input
+                    ref={fechaPagoRef}
+                    type="date"
+                    value={s2.fecha}
+                    onChange={e => set2('fecha', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                  />
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
               </div>
 
               {/* Nombre destinatario */}
@@ -679,8 +659,45 @@ function NuevaReservaForm() {
             </div>
 
             {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+          </>
+        )}
+      </div>
 
-            <div className="flex justify-between mt-5">
+      <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+        <div className="max-w-xl mx-auto">
+          {step === 1 && (
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" asChild className="text-slate-500">
+                <Link href="/calendario"><ArrowLeft className="w-3.5 h-3.5 mr-1" />Volver</Link>
+              </Button>
+
+              {s1.estado_reserva === '' && (
+                <Button size="sm" disabled className="opacity-50">
+                  Elegí un estado para continuar
+                </Button>
+              )}
+              {s1.estado_reserva === 'tentativa' && (
+                <Button size="sm" onClick={handleGuardarTentativa} disabled={loading}>
+                  {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                  Guardar reserva
+                </Button>
+              )}
+              {s1.estado_reserva === 'confirmada' && (
+                <Button size="sm" onClick={() => {
+                  const err = validarS1()
+                  if (err) { setError(err); return }
+                  setError('')
+                  setStep(2)
+                }}>
+                  Siguiente: asentar pago
+                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="flex justify-between">
               <Button variant="ghost" size="sm" onClick={() => { setStep(1); setError('') }} className="text-slate-500">
                 <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Volver a datos
               </Button>
@@ -693,8 +710,8 @@ function NuevaReservaForm() {
                 Confirmar reserva
               </Button>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, ChevronRight, FileCheck2, Loader2, Upload, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Calendar, FileCheck2, Loader2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,6 +37,7 @@ function PagoPageInner() {
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
   const fileRef = useRef<HTMLInputElement>(null)
+  const fechaPagoRef = useRef<HTMLInputElement>(null)
 
   const [reserva, setReserva] = useState<Reserva | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -236,15 +237,9 @@ function PagoPageInner() {
   if (!editId && reserva.estado_reserva === 'cancelada') return (
     <div className="h-full overflow-auto">
       <div className="max-w-xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
-          <Link href="/calendario" className="hover:text-slate-600 transition-colors">Calendario</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/reservas" className="hover:text-slate-600 transition-colors">Reservas</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/reservas/${reserva.id}`} className="hover:text-slate-600 transition-colors">
-            {reserva.nombre_pax}
-          </Link>
-        </div>
+        <Link href={`/reservas/${reserva.id}`} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+        </Link>
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -269,21 +264,12 @@ function PagoPageInner() {
   const titulo = editId ? 'Editar pago' : 'Asentar pago'
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="h-full overflow-auto flex flex-col">
+      <div className="max-w-xl mx-auto px-4 py-6 w-full flex-1">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
-          <Link href="/calendario" className="hover:text-slate-600 transition-colors">Calendario</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/reservas" className="hover:text-slate-600 transition-colors">Reservas</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/reservas/${reserva.id}`} className="hover:text-slate-600 transition-colors">
-            {reserva.nombre_pax}
-          </Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-600 font-medium">{titulo}</span>
-        </div>
+        <Link href={`/reservas/${reserva.id}`} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+        </Link>
 
         <h1 className="text-lg font-semibold text-slate-800 mb-1">
           {titulo}{' '}
@@ -340,7 +326,7 @@ function PagoPageInner() {
         </div>
 
         {tipoPago && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
             {/* Comprobante — solo transferencia */}
             {tipoPago === 'transferencia' && (
@@ -413,10 +399,10 @@ function PagoPageInner() {
             )}
 
             {/* Monto | Moneda */}
-            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-4 md:contents">
+            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Monto *</Label>
-                <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${ro('monto') ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
+                <div className={`flex h-10 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${ro('monto') ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
                   <span className="text-sm text-slate-600 shrink-0 select-none">
                     {form.moneda === 'USD' ? 'USD' : '$'}
                   </span>
@@ -443,7 +429,7 @@ function PagoPageInner() {
             </div>
 
             {/* Cotización | Tipo */}
-            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-4 md:contents">
+            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
                 <Input type="number" min={0} value={form.cotizacion} onChange={e => set('cotizacion', e.target.value)} className="text-sm" />
@@ -461,7 +447,7 @@ function PagoPageInner() {
               </div>
             </div>
 
-            {/* Quién pagó | Fecha */}
+            {/* Quién pagó */}
             <div className="col-span-1 md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Quién pagó *</Label>
               <Input
@@ -472,51 +458,65 @@ function PagoPageInner() {
               />
             </div>
 
-            <div className="col-span-1 md:col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Fecha del pago</Label>
-              <Input type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} className="text-sm" />
-            </div>
+            {/* Fecha del pago | Destinatario */}
+            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Fecha del pago</Label>
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                  onClick={() => fechaPagoRef.current?.showPicker()}
+                >
+                  <input
+                    ref={fechaPagoRef}
+                    type="date"
+                    value={form.fecha}
+                    onChange={e => set('fecha', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                  />
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
+              </div>
 
-            {/* Destinatario */}
-            <div className="col-span-1 md:col-span-4 space-y-1">
-              <Label className="text-xs text-slate-500">Destinatario *</Label>
-              {ro('nombre_destinatario') ? (
-                <Input
-                  value={form.nombre_destinatario}
-                  readOnly
-                  className="text-sm bg-slate-50 text-slate-500 cursor-default"
-                />
-              ) : (
-                <>
-                  <Select
-                    value={destinatarioOtro ? 'otro' : form.nombre_destinatario}
-                    onValueChange={v => {
-                      if (v === 'otro') {
-                        setDestinatarioOtro(true)
-                        set('nombre_destinatario', '')
-                      } else {
-                        setDestinatarioOtro(false)
-                        set('nombre_destinatario', v)
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí el destinatario" /></SelectTrigger>
-                    <SelectContent>
-                      {DESTINATARIOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      <SelectItem value="otro">Otro…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {destinatarioOtro && (
-                    <Input
-                      value={form.nombre_destinatario}
-                      onChange={e => set('nombre_destinatario', toTitleCase(e.target.value))}
-                      placeholder="Nombre del destinatario"
-                      className="text-sm mt-1.5"
-                      autoFocus
-                    />
-                  )}
-                </>
-              )}
+              <div className="md:col-span-4 space-y-1">
+                <Label className="text-xs text-slate-500">Destinatario *</Label>
+                {ro('nombre_destinatario') ? (
+                  <Input
+                    value={form.nombre_destinatario}
+                    readOnly
+                    className="text-sm bg-slate-50 text-slate-500 cursor-default"
+                  />
+                ) : (
+                  <>
+                    <Select
+                      value={destinatarioOtro ? 'otro' : form.nombre_destinatario}
+                      onValueChange={v => {
+                        if (v === 'otro') {
+                          setDestinatarioOtro(true)
+                          set('nombre_destinatario', '')
+                        } else {
+                          setDestinatarioOtro(false)
+                          set('nombre_destinatario', v)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {DESTINATARIOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        <SelectItem value="otro">Otro…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {destinatarioOtro && (
+                      <Input
+                        value={form.nombre_destinatario}
+                        onChange={e => set('nombre_destinatario', toTitleCase(e.target.value))}
+                        placeholder="Nombre del destinatario"
+                        className="text-sm mt-1.5"
+                        autoFocus
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Banco | N° op. — solo transferencia */}
@@ -575,21 +575,25 @@ function PagoPageInner() {
             )}
 
             {error && <p className="col-span-1 md:col-span-4 text-xs text-red-500">{error}</p>}
-
-            <div className="col-span-1 md:col-span-4 flex justify-end">
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={loading || !form.monto || !form.tipo_movimiento || !form.quien_pago}
-                className="cursor-pointer"
-              >
-                {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                {editId ? 'Guardar cambios' : 'Confirmar pago'}
-              </Button>
-            </div>
           </div>
         )}
       </div>
+
+      {tipoPago && (
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+          <div className="max-w-xl mx-auto flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={loading || !form.monto || !form.tipo_movimiento || !form.quien_pago}
+              className="cursor-pointer"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              {editId ? 'Guardar cambios' : 'Confirmar pago'}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
