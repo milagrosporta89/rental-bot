@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { calcularSaldoPaola } from '@/lib/cuentaPaola'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva, SentidoMovimiento } from '@/lib/types'
@@ -19,23 +19,28 @@ interface DatosCuentaPaola {
   cancelacionesPendientes: Ingreso[]
 }
 
-function fetchDatos(): Promise<DatosCuentaPaola> {
-  return fetch('/api/cuenta-paola-data').then(r => r.json())
+async function fetchDatos(): Promise<DatosCuentaPaola> {
+  const r = await fetch('/api/cuenta-paola-data')
+  const json = await r.json()
+  if (!r.ok) throw new Error(json.error ?? 'Error al cargar los datos.')
+  return json
 }
 
 export default function CuentaPaolaPage() {
   const [datos, setDatos] = useState<DatosCuentaPaola | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
   const [modal, setModal] = useState<{ open: boolean; prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string } }>({ open: false })
   const [modalKey, setModalKey] = useState(0)
 
   useEffect(() => {
-    fetchDatos().then(setDatos).finally(() => setCargando(false))
+    fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
   }, [])
 
   const recargar = useCallback(() => {
     setCargando(true)
-    fetchDatos().then(setDatos).finally(() => setCargando(false))
+    setError('')
+    fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
   }, [])
 
   function abrirModal(prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string }) {
@@ -51,10 +56,24 @@ export default function CuentaPaolaPage() {
     abrirModal({ monto: Math.abs(total), sentido, detalle: `Cierre mensual de comisión — ${mes}` })
   }
 
-  if (cargando || !datos) {
+  if (cargando) {
     return (
       <div className="flex items-center justify-center h-full text-sm text-slate-400 gap-2">
         <Loader2 className="w-4 h-4 animate-spin" /> Cargando…
+      </div>
+    )
+  }
+
+  if (error || !datos) {
+    return (
+      <div className="flex items-center justify-center h-full px-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex gap-3 max-w-md">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">No se pudo cargar la cuenta de Paola</p>
+            <p className="text-sm text-amber-700 mt-1">{error || 'Error desconocido.'}</p>
+          </div>
+        </div>
       </div>
     )
   }
