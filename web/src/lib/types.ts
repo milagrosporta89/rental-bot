@@ -93,6 +93,25 @@ export interface Ingreso {
   registrado_por: string
   comprobante_url: string | null
   timestamp: string
+  resolucion_cancelacion: ResolucionCancelacion | null
+}
+
+export type SentidoMovimiento = 'a_favor_paola' | 'a_favor_negocio'
+export type ResolucionCancelacion = 'comision' | 'caja_chica'
+
+export interface MovimientoInterno {
+  id: string
+  fecha: string
+  monto: number
+  moneda: string
+  cotizacion: number
+  monto_ars: number | null
+  monto_usd: number | null
+  sentido: SentidoMovimiento
+  detalle: string | null
+  comprobante_url: string | null
+  registrado_por: string
+  timestamp: string
 }
 
 // Para FullCalendar
@@ -140,6 +159,22 @@ export const CASA_LABELS: Record<string, string> = {
 export const PLATAFORMA_LABEL: Record<string, string> = {
   directo: 'Directo',
   airbnb: 'Airbnb',
+}
+
+// % de comisión de Paola sobre monto_total_usd de una reserva concretada (no cancelada)
+export const COMISION_PAOLA_PORCENTAJE: Record<Plataforma, number> = {
+  directo: 0.15,
+  airbnb: 0.10,
+}
+
+export const SENTIDO_MOVIMIENTO_LABEL: Record<SentidoMovimiento, string> = {
+  a_favor_paola: 'A favor de Paola',
+  a_favor_negocio: 'A favor del negocio',
+}
+
+export const RESOLUCION_CANCELACION_LABEL: Record<ResolucionCancelacion, string> = {
+  comision: 'Comisión',
+  caja_chica: 'Caja chica',
 }
 
 export const CATEGORIA_GASTO_LABEL: Record<CategoriaGasto, string> = {

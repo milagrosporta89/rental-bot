@@ -1,5 +1,5 @@
 {
-  "_revision_nota": "2da revisión, post-aprobación de Designer. Mili señaló un gap real: la implementación falta capturar cuánto debería haber cobrado Paola por comisión (devengado, según monto_total_usd × 15%/10%) vs. lo que efectivamente cobró (el primer pago de cada reserva, que con la regla nueva va directo a su cuenta). Se agregan US-05 y US-06 para resolverlo, y se corrige una regla de US-01 que ya no aplica tal cual estaba. US-01 a US-04 quedan sin cambios de fondo, son un nivel distinto (saldo de caja crudo) que coexiste con la reconciliación nueva.",
+  "_revision_nota": "2da revisión, post-aprobación de Designer. Mili señaló un gap real: la implementación falta capturar cuánto debería haber cobrado Paola por comisión (devengado, según monto_total_usd × 15%/10%) vs. lo que efectivamente cobró (el primer pago de cada reserva, que con la regla nueva va directo a su cuenta). Se agregan US-05 y US-06 para resolverlo, y se corrige una regla de US-01 que ya no aplica tal cual estaba. US-01 a US-04 quedan sin cambios de fondo, son un nivel distinto (saldo de caja crudo) que coexiste con la reconciliación nueva. 3ra revisión (al arrancar el Developer): la fórmula de US-01 tenía el signo de 'gastos' invertido (sumaba en vez de restar) — se detectó al comparar contra obtenerBalancePaola() del bot, que resta gastado de cobrado. Corregido antes de escribir código.",
   "user_stories": [
     {
       "id": "US-01",
@@ -7,11 +7,11 @@
       "i_want": "ver el saldo corriente de Paola (comisiones cobradas, gastos que pagó de su bolsillo y movimientos de ajuste ya hechos)",
       "so_that": "sepa en cualquier momento si el negocio le debe plata a Paola o ella al negocio",
       "acceptance_criteria": [
-        "El saldo se calcula como: suma de ingresos con nombre_destinatario='Paola' + suma de gastos con pagado_por='Paola' − suma de movimientos_internos (restando 'a_favor_paola', sumando 'a_favor_negocio' o viceversa según signo).",
+        "El saldo se calcula como: Σ ingresos(destinatario='Paola').monto_usd − Σ gastos(pagado_por='Paola').monto_usd + Σ movimientos_internos(sentido='a_favor_paola').monto_usd − Σ movimientos_internos(sentido='a_favor_negocio').monto_usd. Misma fórmula que ya usa el comando 'Comisión Paola' del bot (cobrado − gastado), extendida con el ajuste de movimientos_internos que el bot no tiene.",
         "Match exacto (case-sensitive) en 'Paola' para nombre_destinatario y pagado_por, sin ilike.",
         "El saldo es un valor calculado en cada carga de la pantalla, nunca se persiste en una tabla.",
-        "Si el saldo es positivo se etiqueta como 'a favor de Paola' (el negocio le debe); si es negativo, 'a favor del negocio' (Paola le debe).",
-        "Este es un saldo de caja crudo (cuánta plata se movió), independiente de si lo cobrado coincide con lo que le correspondía por comisión — esa comparación vive en US-05."
+        "Si el saldo es ≥ 0 se etiqueta '✅ A favor de Paola' (mismo texto y mismo significado que el bot: es surplus, no implica que el negocio le deba nada — la comisión cobrada ya es definitivamente suya). Si es negativo, '⚠️ El negocio le debe' por el valor absoluto (gastos que ella fronteó superan lo que cobró de comisión).",
+        "Este es un saldo de caja crudo (cuánta plata se movió), independiente de si lo cobrado coincide con lo que le correspondía por comisión — esa comparación vive en US-05. OJO: la versión original de este criterio tenía el signo de 'gastos' invertido (sumaba en vez de restar) — corregido antes de implementar, ver _revision_nota."
       ]
     },
     {
@@ -127,7 +127,7 @@
     }
   ],
   "business_rules": [
-    "Saldo de caja de Paola (US-01) = Σ ingresos(destinatario=Paola) + Σ gastos(pagado_por=Paola) − Σ movimientos_internos (signo según 'sentido'). Es un número de caja crudo, no valida si lo cobrado correspondía — esa validación es US-05/US-06.",
+    "Saldo de caja de Paola (US-01) = Σ ingresos(destinatario=Paola).monto_usd − Σ gastos(pagado_por=Paola).monto_usd + Σ movimientos_internos(a_favor_paola).monto_usd − Σ movimientos_internos(a_favor_negocio).monto_usd. Es un número de caja crudo, no valida si lo cobrado correspondía — esa validación es US-05/US-06.",
     "Todo gasto con pagado_por='Paola' se considera plata que ella puso de su bolsillo, reembolsable por el negocio.",
     "Comisión devengada de una reserva = monto_total_usd × 15% (directo) o × 10% (airbnb) — solo aplica a reservas con estado_reserva ≠ 'cancelada'.",
     "El cierre de comisión (devengado vs. cobrado) se calcula reserva por reserva y se asigna al mes de fecha_salida (checkout) de la reserva, nunca al mes en que se cobró el dinero — esto evita que una reserva cobrada en un mes pero resuelta en otro distorsione el cierre.",

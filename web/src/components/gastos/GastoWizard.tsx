@@ -36,6 +36,21 @@ function toTitleCase(s: string) {
   return s.replace(/\b\w/g, c => c.toUpperCase())
 }
 
+// US-04: entrada desde el gatillo de "asentar cobro de Paola como gasto de comisión"
+// (web/src/components/reservas/GatilloComisionModal.tsx) — precarga sin venir de un edit existente.
+function formInicialDesdeParams(searchParams: ReturnType<typeof useSearchParams>): GastoFormState {
+  if (searchParams.get('prefillComision') !== '1') return FORM_INICIAL
+  return {
+    ...FORM_INICIAL,
+    categoria: 'comision',
+    monto: searchParams.get('monto') ?? '',
+    moneda: searchParams.get('moneda') === 'USD' ? 'USD' : 'ARS',
+    fecha: searchParams.get('fecha') ?? FORM_INICIAL.fecha,
+    pagadoPor: 'Fernando',
+    nombre_destinatario: 'Paola',
+  }
+}
+
 export function GastoWizard() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,7 +59,7 @@ export function GastoWizard() {
 
   const [cargandoEdicion, setCargandoEdicion] = useState(!!editId)
   const [paso, setPaso] = useState<Paso>('carga')
-  const [form, setForm] = useState<GastoFormState>(FORM_INICIAL)
+  const [form, setForm] = useState<GastoFormState>(() => formInicialDesdeParams(searchParams))
   const [fromComprobante, setFromComprobante] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
   const [uploadState, setUploadState] = useState<UploadState>('idle')

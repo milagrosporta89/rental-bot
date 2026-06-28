@@ -173,6 +173,52 @@ export async function trasladarPago(ingresoId: string, reservaDestinoId: string)
   ])
 }
 
+/**
+ * Clasificación manual (US-06) de un cobro de Paola en una reserva cancelada:
+ * 'comision' no hace nada más (la plata queda definitivamente de ella); 'caja_chica'
+ * además registra un movimiento_interno a_favor_negocio por el mismo monto, porque
+ * esa plata pasa a contar como reembolso de lo que el negocio le debe por gastos.
+ */
+export async function marcarResolucionCancelacion(
+  ingresoId: string,
+  resolucion: 'comision' | 'caja_chica'
+): Promise<void> {
+  const supabase = createAdminClient()
+  const { data: ingreso, error: ie } = await supabase
+    .from('ingresos')
+    .select('fecha, monto, moneda, cotizacion, monto_ars, monto_usd, resolucion_cancelacion')
+    .eq('id', ingresoId)
+    .single()
+  if (ie || !ingreso) throw new Error(ie?.message ?? 'Ingreso no encontrado.')
+  if (ingreso.resolucion_cancelacion) throw new Error('Este cobro ya fue clasificado.')
+
+  const { error } = await supabase
+    .from('ingresos')
+    .update({ resolucion_cancelacion: resolucion })
+    .eq('id', ingresoId)
+  if (error) throw new Error(error.message)
+
+  if (resolucion === 'caja_chica') {
+    const registrado_por = await registradoPorActual()
+    const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+    const { error: me } = await supabase.from('movimientos_internos').insert({
+      id: `MOV-${Date.now()}`,
+      fecha: ingreso.fecha,
+      monto: ingreso.monto,
+      moneda: ingreso.moneda,
+      cotizacion: ingreso.cotizacion,
+      monto_ars: ingreso.monto_ars,
+      monto_usd: ingreso.monto_usd,
+      sentido: 'a_favor_negocio',
+      detalle: `Caja chica — cobro de reserva cancelada (ingreso ${ingresoId})`,
+      comprobante_url: null,
+      registrado_por,
+      timestamp,
+    })
+    if (me) throw new Error(me.message)
+  }
+}
+
 export async function editarIngreso(
   id: string,
   reservaId: string,

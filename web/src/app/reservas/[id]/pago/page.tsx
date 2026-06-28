@@ -13,6 +13,7 @@ import { formatUSD } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
 import { registrarPago, editarIngreso, obtenerIngreso } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
+import { GatilloComisionModal } from '@/components/reservas/GatilloComisionModal'
 
 const DESTINATARIOS = ['Paola', 'Francisco', 'Fernando', 'Milagros', 'Inés']
 
@@ -62,6 +63,7 @@ function PagoPageInner() {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [gatilloOpen, setGatilloOpen] = useState(false)
 
   // Cargar reserva
   useEffect(() => {
@@ -214,7 +216,13 @@ function PagoPageInner() {
       } else {
         await registrarPago(reserva.id, payload)
       }
-      router.push(`/reservas/${reserva.id}`)
+
+      // US-04: gatillo (no automático) para asentar el cobro también como gasto de comisión
+      if (form.nombre_destinatario.trim() === 'Paola') {
+        setGatilloOpen(true)
+      } else {
+        router.push(`/reservas/${reserva.id}`)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar. Podés reintentar.')
     } finally {
@@ -594,6 +602,13 @@ function PagoPageInner() {
           </div>
         </div>
       )}
+
+      <GatilloComisionModal
+        open={gatilloOpen}
+        montoUsd={montoUSD}
+        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${Math.round(montoNum)}&moneda=${form.moneda}&fecha=${form.fecha}`)}
+        onDismiss={() => router.push(`/reservas/${reserva.id}`)}
+      />
     </div>
   )
 }

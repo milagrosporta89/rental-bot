@@ -1,0 +1,114 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { calcularSaldoPaola } from '@/lib/cuentaPaola'
+import type { Gasto, Ingreso, MovimientoInterno, Reserva, SentidoMovimiento } from '@/lib/types'
+import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
+import { ListaMovimientoFinanciero } from '@/components/cuenta-paola/ListaMovimientoFinanciero'
+import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
+import { CierreMensualSection } from '@/components/cuenta-paola/CierreMensualSection'
+import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
+
+interface DatosCuentaPaola {
+  ingresosPaola: Ingreso[]
+  gastosPaola: Gasto[]
+  movimientosInternos: MovimientoInterno[]
+  reservas: Reserva[]
+  cancelacionesPendientes: Ingreso[]
+}
+
+function fetchDatos(): Promise<DatosCuentaPaola> {
+  return fetch('/api/cuenta-paola-data').then(r => r.json())
+}
+
+export default function CuentaPaolaPage() {
+  const [datos, setDatos] = useState<DatosCuentaPaola | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [modal, setModal] = useState<{ open: boolean; prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string } }>({ open: false })
+  const [modalKey, setModalKey] = useState(0)
+
+  useEffect(() => {
+    fetchDatos().then(setDatos).finally(() => setCargando(false))
+  }, [])
+
+  const recargar = useCallback(() => {
+    setCargando(true)
+    fetchDatos().then(setDatos).finally(() => setCargando(false))
+  }, [])
+
+  function abrirModal(prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string }) {
+    setModalKey(k => k + 1)
+    setModal({ open: true, prefill })
+  }
+
+  function cerrarMesConTotal(total: number) {
+    // diferencia > 0 → devengado > cobrado → Paola cobró de menos → el negocio le debe (a_favor_paola)
+    const sentido: SentidoMovimiento = total > 0 ? 'a_favor_paola' : 'a_favor_negocio'
+    abrirModal({ monto: Math.abs(total), sentido, detalle: 'Cierre mensual de comisión' })
+  }
+
+  if (cargando || !datos) {
+    return (
+      <div className="flex items-center justify-center h-full text-sm text-slate-400 gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" /> Cargando…
+      </div>
+    )
+  }
+
+  const saldo = calcularSaldoPaola(datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
+
+  return (
+    <div className="h-full overflow-auto">
+      <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold text-slate-800">Cuenta de Paola</h1>
+          <Button size="sm" onClick={() => abrirModal()}>
+            Registrar movimiento
+          </Button>
+        </div>
+
+        <SaldoPaolaCard saldo={saldo} />
+
+        <ListaMovimientoFinanciero
+          titulo="Comisiones cobradas"
+          items={datos.ingresosPaola.map(i => ({ id: i.id, fecha: i.fecha, monto: i.monto, monto_usd: i.monto_usd, moneda: i.moneda, detalle: i.detalle }))}
+          vacioMensaje="Sin comisiones cobradas todavía."
+        />
+
+        <ListaMovimientoFinanciero
+          titulo="Gastos pagados por Paola"
+          items={datos.gastosPaola.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
+          vacioMensaje="Sin gastos pagados por Paola todavía."
+        />
+
+        <ListaMovimientoFinanciero
+          titulo="Movimientos de ajuste"
+          items={datos.movimientosInternos.map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, monto_usd: m.monto_usd, moneda: m.moneda, detalle: m.detalle }))}
+          vacioMensaje="Sin movimientos registrados todavía."
+        />
+
+        <CierreMensualSection
+          reservas={datos.reservas}
+          ingresosPaola={datos.ingresosPaola}
+          onCerrarMes={cerrarMesConTotal}
+        />
+
+        <CancelacionesPendientesSection
+          items={datos.cancelacionesPendientes}
+          reservas={datos.reservas}
+          onResuelto={recargar}
+        />
+      </div>
+
+      <MovimientoModal
+        key={modalKey}
+        open={modal.open}
+        prefill={modal.prefill}
+        onClose={() => setModal(m => ({ ...m, open: false }))}
+        onSaved={() => { setModal(m => ({ ...m, open: false })); recargar() }}
+      />
+    </div>
+  )
+}
