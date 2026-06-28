@@ -1,0 +1,112 @@
+{
+  "user_stories": [
+    {
+      "id": "US-01",
+      "as_a": "administradora",
+      "i_want": "ver el saldo corriente de Paola (comisiones cobradas, gastos que pagó de su bolsillo y movimientos de ajuste ya hechos)",
+      "so_that": "sepa en cualquier momento si el negocio le debe plata a Paola o ella al negocio",
+      "acceptance_criteria": [
+        "El saldo se calcula como: suma de ingresos con nombre_destinatario='Paola' + suma de gastos con pagado_por='Paola' − suma de movimientos_internos (restando 'a_favor_paola', sumando 'a_favor_negocio' o viceversa según signo).",
+        "Match exacto (case-sensitive) en 'Paola' para nombre_destinatario y pagado_por, sin ilike.",
+        "El saldo es un valor calculado en cada carga de la pantalla, nunca se persiste en una tabla.",
+        "Si el saldo es positivo se etiqueta como 'a favor de Paola' (el negocio le debe); si es negativo, 'a favor del negocio' (Paola le debe)."
+      ]
+    },
+    {
+      "id": "US-02",
+      "as_a": "administradora",
+      "i_want": "ver el detalle de comisiones cobradas, gastos pagados por Paola y movimientos de ajuste en listas separadas",
+      "so_that": "pueda auditar de dónde sale el saldo y no solo confiar en el número final",
+      "acceptance_criteria": [
+        "Tres listas: ingresos con destinatario Paola, gastos con pagado_por Paola, movimientos_internos.",
+        "Cada fila muestra fecha, monto, moneda y detalle/concepto.",
+        "Reusa el patrón visual de listado de PagosSection.tsx (no inventa un componente de lista nuevo)."
+      ]
+    },
+    {
+      "id": "US-03",
+      "as_a": "administradora",
+      "i_want": "registrar un movimiento interno cuando se hace una transferencia real para saldar diferencia con Paola",
+      "so_that": "el saldo calculado refleje lo que ya se pagó/cobró en la realidad y no siga creciendo indefinidamente",
+      "acceptance_criteria": [
+        "Formulario con: fecha, monto, moneda, cotización (si moneda≠USD, mismo patrón de conversión que ingresos/gastos), sentido ('a_favor_paola' | 'a_favor_negocio'), detalle, comprobante_url (opcional).",
+        "Al guardar, se recalcula el saldo mostrado en pantalla.",
+        "No tiene id_reserva ni ningún vínculo con reservas — es un movimiento entre Paola y el negocio, no asociado a una reserva puntual."
+      ]
+    },
+    {
+      "id": "US-04",
+      "as_a": "administradora",
+      "i_want": "que al guardar un ingreso con nombre_destinatario='Paola' se me pregunte si quiero asentarlo también como gasto de comisión",
+      "so_that": "no tenga que tipear de nuevo el mismo monto y fecha en el wizard de gastos",
+      "acceptance_criteria": [
+        "Es un gatillo (modal de confirmación), nunca una escritura automática — el usuario puede declinar.",
+        "Si confirma, abre el wizard de gastos (/gastos/nuevo) precargado con: categoria='comision', monto y fecha iguales al ingreso, pagado_por='Fernando', nombre_destinatario='Paola'.",
+        "Todos los campos precargados siguen siendo editables antes de confirmar el gasto — mismo patrón que los campos 'fromComprobante' ya editables del wizard existente.",
+        "Si el ingreso NO tiene nombre_destinatario='Paola' (match exacto), no aparece ningún gatillo — comportamiento actual sin cambios."
+      ]
+    }
+  ],
+  "form_fields": [
+    {
+      "name": "fecha",
+      "type": "date",
+      "required": true,
+      "validation": "no vacía",
+      "source_in_bot": "N/A — movimientos_internos no existe en el bot"
+    },
+    {
+      "name": "monto",
+      "type": "number",
+      "required": true,
+      "validation": "> 0",
+      "source_in_bot": "N/A"
+    },
+    {
+      "name": "moneda",
+      "type": "select (ARS|USD)",
+      "required": true,
+      "validation": "una de las dos",
+      "source_in_bot": "N/A"
+    },
+    {
+      "name": "sentido",
+      "type": "select (a_favor_paola|a_favor_negocio)",
+      "required": true,
+      "validation": "uno de los dos — define si el monto suma o resta al saldo de Paola",
+      "source_in_bot": "N/A"
+    },
+    {
+      "name": "detalle",
+      "type": "text",
+      "required": false,
+      "validation": "libre",
+      "source_in_bot": "N/A"
+    },
+    {
+      "name": "comprobante_url",
+      "type": "file",
+      "required": false,
+      "validation": "opcional, mismo patrón de subida que ingresos/gastos",
+      "source_in_bot": "N/A"
+    }
+  ],
+  "business_rules": [
+    "Todo ingreso con nombre_destinatario='Paola' (match exacto) se considera su comisión completa — no se calcula 15%/10%, el monto transferido ya es el dato real.",
+    "Todo gasto con pagado_por='Paola' se considera plata que ella puso de su bolsillo, reembolsable por el negocio.",
+    "Saldo de Paola = Σ ingresos(destinatario=Paola) + Σ gastos(pagado_por=Paola) − Σ movimientos_internos (signo según 'sentido').",
+    "El saldo es de solo lectura — no se persiste, se recalcula en cada carga de la pantalla.",
+    "El gasto de comisión que se genera desde el gatillo NO lleva id_reserva — queda sin vínculo estructurado a la reserva que lo originó (a decisión explícita de Mili).",
+    "pagado_por del gasto de comisión generado por el gatillo es siempre 'Fernando', sin importar de qué casa/titular sea la reserva.",
+    "Esta feature es exclusivamente de la web — no toca el comando 'Comisión Paola' del bot de WhatsApp, que queda con su lógica actual (solo lectura, sin restar movimientos_internos). Es aceptado que ambos números difieran.",
+    "movimientos_internos está acotado a la operatoria de Paola — no es una tabla genérica de transferencias entre todos los titulares."
+  ],
+  "out_of_scope": [
+    "Tocar o actualizar el comando 'Comisión Paola' del bot de WhatsApp.",
+    "Agregar id_reserva a la tabla gastos.",
+    "Calcular automáticamente el 15%/10% de comisión sobre el total de la reserva.",
+    "Flag de 'pendiente/compensado' por cada gasto individual pagado por Paola.",
+    "Generalizar movimientos_internos a transferencias entre Francisco/Milagros/Inés/Fernando — queda acotado a Paola.",
+    "Editar o eliminar movimientos_internos ya creados (alta únicamente, igual que el primer corte de otras tablas financieras)."
+  ]
+}
