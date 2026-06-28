@@ -12,7 +12,7 @@ import { TablaReconciliacionComision } from './TablaReconciliacionComision'
 interface Props {
   reservas: Reserva[]
   ingresosPaola: Ingreso[]
-  onCerrarMes: (total: number) => void
+  onCerrarMes: (total: number, mes: string) => void
 }
 
 function mesActualISO(): string {
@@ -46,7 +46,7 @@ export function CierreMensualSection({ reservas, ingresosPaola, onCerrarMes }: P
             </p>
           </div>
           {total !== 0 && (
-            <Button size="sm" variant="outline" onClick={() => onCerrarMes(total)}>
+            <Button size="sm" variant="outline" onClick={() => onCerrarMes(total, mes)}>
               Cerrar mes
             </Button>
           )}

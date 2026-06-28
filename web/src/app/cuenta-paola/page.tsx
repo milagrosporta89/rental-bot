@@ -43,10 +43,12 @@ export default function CuentaPaolaPage() {
     setModal({ open: true, prefill })
   }
 
-  function cerrarMesConTotal(total: number) {
+  function cerrarMesConTotal(total: number, mes: string) {
     // diferencia > 0 → devengado > cobrado → Paola cobró de menos → el negocio le debe (a_favor_paola)
     const sentido: SentidoMovimiento = total > 0 ? 'a_favor_paola' : 'a_favor_negocio'
-    abrirModal({ monto: Math.abs(total), sentido, detalle: 'Cierre mensual de comisión' })
+    // El mes queda en el detalle para que se note en "Movimientos de ajuste" si este mes ya se cerró antes —
+    // no hay un mecanismo de "mes cerrado" todavía, ver qa-output.json.
+    abrirModal({ monto: Math.abs(total), sentido, detalle: `Cierre mensual de comisión — ${mes}` })
   }
 
   if (cargando || !datos) {

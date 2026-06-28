@@ -116,6 +116,14 @@ export function FormularioGasto({ form, fromComprobante, ro, onChange, error }: 
         </>
       )}
 
+      {/* Precargado desde el gatillo de comisión (US-04) — sin comprobante, así que va editable, no como el bloque readonly de arriba */}
+      {!fromComprobante && form.nombre_destinatario && (
+        <div className="col-span-1 md:col-span-2 space-y-1">
+          <Label className="text-xs text-slate-500">Destinatario</Label>
+          <Input value={form.nombre_destinatario} onChange={e => onChange('nombre_destinatario', e.target.value)} className="text-sm" />
+        </div>
+      )}
+
       <div className="col-span-1 md:col-span-2 space-y-1">
         <Label className="text-xs text-slate-500">Detalle</Label>
         <Input value={form.detalle} onChange={e => onChange('detalle', e.target.value)} className="text-sm" />

@@ -33,7 +33,7 @@ const FORM_INICIAL: MovimientoFormState = {
 export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
   const [form, setForm] = useState<MovimientoFormState>(() => ({
     ...FORM_INICIAL,
-    monto: prefill ? String(Math.round(prefill.monto)) : '',
+    monto: prefill ? prefill.monto.toFixed(2) : '',
     sentido: prefill?.sentido ?? '',
     detalle: prefill?.detalle ?? '',
   }))
