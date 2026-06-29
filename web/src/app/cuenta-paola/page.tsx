@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteTotal, fechaUltimoCierre, comisionesPorAdelantado } from '@/lib/cuentaPaola'
+import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
 import { TablaMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
+import { TablaMovimientos } from '@/components/cuenta-paola/TablaMovimientos'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
 import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
@@ -81,7 +82,7 @@ export default function CuentaPaolaPage() {
   // cierre de cada tipo — mismo criterio que usa CierreCuentaSection, así no hay dos nociones
   // distintas de "qué es lo pendiente" en la misma pantalla. El saldo principal usa exactamente
   // la misma cuenta (comisión pendiente + gastos pendientes), nunca el acumulado de toda la vida.
-  const saldo = saldoPendienteTotal(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
+  const saldo = saldoPendienteDesglosado(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
   const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
   const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
@@ -104,7 +105,11 @@ export default function CuentaPaolaPage() {
           </Button>
         </div>
 
-        <SaldoPaolaCard saldo={saldo} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <SaldoPaolaCard titulo="Total pendiente con Paola" saldo={saldo.total} destacada />
+          <SaldoPaolaCard titulo="Pendiente de saldar — comisión" saldo={saldo.comision} />
+          <SaldoPaolaCard titulo="Pendiente de saldar — gastos" saldo={saldo.gastos} />
+        </div>
 
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — listas para cerrar</h2>
@@ -130,11 +135,13 @@ export default function CuentaPaolaPage() {
           vacioMensaje="Sin gastos pagados por Paola desde el último cierre."
         />
 
-        <TablaMovimientoFinanciero
-          titulo="Movimientos de ajuste"
-          items={datos.movimientosInternos.map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, monto_usd: m.monto_usd, moneda: m.moneda, detalle: m.detalle }))}
-          vacioMensaje="Sin movimientos registrados todavía."
-        />
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-2">Movimientos de ajuste</h2>
+          <TablaMovimientos
+            items={datos.movimientosInternos}
+            vacioMensaje="Sin movimientos registrados todavía."
+          />
+        </div>
 
         <CierreCuentaSection
           reservas={datos.reservas}
