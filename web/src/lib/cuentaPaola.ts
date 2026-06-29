@@ -1,28 +1,7 @@
 import { hoyISO, toISO } from './dates'
 import { COMISION_PAOLA_PORCENTAJE, Gasto, Ingreso, MovimientoInterno, Plataforma, Reserva, TipoMovimientoInterno } from './types'
 
-/**
- * Saldo de caja crudo de Paola — misma fórmula que obtenerBalancePaola() del bot
- * (cobrado − gastado), extendida con los ajustes ya hechos vía movimientos_internos.
- * Positivo = surplus suyo (no implica deuda); negativo = el negocio le debe el absoluto.
- */
-export function calcularSaldoPaola(
-  ingresosPaola: Ingreso[],
-  gastosPaola: Gasto[],
-  movimientos: MovimientoInterno[]
-): number {
-  const cobrado = ingresosPaola.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
-  const gastado = gastosPaola.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
-  const aFavorPaola = movimientos
-    .filter(m => m.sentido === 'a_favor_paola')
-    .reduce((s, m) => s + (m.monto_usd ?? 0), 0)
-  const aFavorNegocio = movimientos
-    .filter(m => m.sentido === 'a_favor_negocio')
-    .reduce((s, m) => s + (m.monto_usd ?? 0), 0)
-  return cobrado - gastado + aFavorPaola - aFavorNegocio
-}
-
-/** Comisión devengada de una reserva concretada — $0 si está cancelada. */
+/** Comisión que le corresponde a una reserva concretada — $0 si está cancelada. */
 export function comisionDevengada(reserva: Reserva): number {
   if (reserva.estado_reserva === 'cancelada') return 0
   const porcentaje = COMISION_PAOLA_PORCENTAJE[reserva.plataforma as Plataforma] ?? COMISION_PAOLA_PORCENTAJE.directo
@@ -75,4 +54,29 @@ export function reconciliacionDesdeUltimoCierre(
 /** Gastos pagados por Paola desde el último reembolso (excluido) hasta hoy. */
 export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoReembolsoISO: string | null): Gasto[] {
   return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)
+}
+
+/**
+ * Lo que falta saldar con Paola en este momento: comisión pendiente + gastos pendientes de
+ * reembolso, ambos desde el último cierre de cada tipo (mismo cálculo que usa "Cerrar cuenta").
+ * Positivo = el negocio le debe a Paola; negativo = Paola le debe al negocio.
+ */
+export function saldoPendienteTotal(
+  reservas: Reserva[],
+  ingresosPaola: Ingreso[],
+  gastosPaola: Gasto[],
+  movimientos: MovimientoInterno[]
+): number {
+  const fechaCierreComision = fechaUltimoCierre(movimientos, 'cierre_comision')
+  const fechaCierreReembolso = fechaUltimoCierre(movimientos, 'reembolso_gastos')
+
+  const totalComision = reconciliacionDesdeUltimoCierre(
+    reservas, ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null
+  ).reduce((s, f) => s + f.diferencia, 0)
+
+  const totalReembolso = gastosPendientesDeReembolso(
+    gastosPaola, fechaCierreReembolso ? toISO(fechaCierreReembolso) : null
+  ).reduce((s, g) => s + (g.monto_usd ?? 0), 0)
+
+  return totalComision + totalReembolso
 }

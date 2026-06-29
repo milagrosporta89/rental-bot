@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { calcularSaldoPaola, fechaUltimoCierre } from '@/lib/cuentaPaola'
+import { saldoPendienteTotal, fechaUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
@@ -77,11 +77,11 @@ export default function CuentaPaolaPage() {
     )
   }
 
-  const saldo = calcularSaldoPaola(datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
-
   // "Comisiones cobradas" y "Gastos pagados por Paola" muestran lo acumulado desde el último
   // cierre de cada tipo — mismo criterio que usa CierreCuentaSection, así no hay dos nociones
-  // distintas de "qué es lo pendiente" en la misma pantalla.
+  // distintas de "qué es lo pendiente" en la misma pantalla. El saldo principal usa exactamente
+  // la misma cuenta (comisión pendiente + gastos pendientes), nunca el acumulado de toda la vida.
+  const saldo = saldoPendienteTotal(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
   const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
   const comisionesPendientes = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola

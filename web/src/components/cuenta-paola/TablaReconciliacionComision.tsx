@@ -13,7 +13,7 @@ export function TablaReconciliacionComision({ filas }: { filas: FilaReconciliaci
             <tr className="border-b border-slate-200">
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Reserva</th>
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Plataforma</th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Devengado</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Le corresponde</th>
               <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Cobrado</th>
               <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Diferencia</th>
             </tr>
@@ -22,7 +22,7 @@ export function TablaReconciliacionComision({ filas }: { filas: FilaReconciliaci
             {filas.length === 0 ? (
               <tr>
                 <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">
-                  Sin reservas con checkout en este mes.
+                  Sin reservas con checkout desde el último cierre.
                 </td>
               </tr>
             ) : filas.map(({ reserva, devengado, cobrado, diferencia }) => (
