@@ -7,7 +7,7 @@ import { calcularSaldoPaola, fechaUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
-import { ListaMovimientoFinanciero } from '@/components/cuenta-paola/ListaMovimientoFinanciero'
+import { TablaMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
 import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
@@ -104,13 +104,13 @@ export default function CuentaPaolaPage() {
           <TablaComisionesCobradas ingresos={comisionesPendientes} reservas={datos.reservas} />
         </div>
 
-        <ListaMovimientoFinanciero
+        <TablaMovimientoFinanciero
           titulo="Gastos pagados por Paola — desde el último cierre"
           items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
           vacioMensaje="Sin gastos pagados por Paola desde el último cierre."
         />
 
-        <ListaMovimientoFinanciero
+        <TablaMovimientoFinanciero
           titulo="Movimientos de ajuste"
           items={datos.movimientosInternos.map(m => ({ id: m.id, fecha: m.fecha, monto: m.monto, monto_usd: m.monto_usd, moneda: m.moneda, detalle: m.detalle }))}
           vacioMensaje="Sin movimientos registrados todavía."

@@ -10,7 +10,7 @@ import { fechaUltimoCierre, gastosPendientesDeReembolso, reconciliacionDesdeUlti
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { TablaReconciliacionComision } from './TablaReconciliacionComision'
-import { ListaMovimientoFinanciero } from './ListaMovimientoFinanciero'
+import { TablaMovimientoFinanciero } from './TablaMovimientoFinanciero'
 
 interface Props {
   reservas: Reserva[]
@@ -100,7 +100,7 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
         <h2 className="text-sm font-medium text-slate-700 mb-2">
           Gastos pendientes de reembolso — {desde(fechaCierreReembolso)}
         </h2>
-        <ListaMovimientoFinanciero
+        <TablaMovimientoFinanciero
           items={gastosPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
           vacioMensaje="Sin gastos pendientes de reembolso."
         />

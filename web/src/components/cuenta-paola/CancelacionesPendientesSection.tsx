@@ -14,6 +14,8 @@ interface Props {
   onResuelto: () => void
 }
 
+const COLS = 4
+
 export function CancelacionesPendientesSection({ items, reservas, onResuelto }: Props) {
   const [pendiente, setPendiente] = useState<{ ingreso: Ingreso; resolucion: ResolucionCancelacion } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -38,43 +40,59 @@ export function CancelacionesPendientesSection({ items, reservas, onResuelto }: 
     }
   }
 
-  if (items.length === 0) {
-    return (
-      <div>
-        <h2 className="text-sm font-medium text-slate-700 mb-2">Cobros de reservas canceladas — pendiente de clasificar</h2>
-        <p className="text-sm text-slate-400 text-center py-6">Sin cobros pendientes de clasificar.</p>
-      </div>
-    )
-  }
+  const total = items.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
 
   return (
     <div>
       <h2 className="text-sm font-medium text-slate-700 mb-2">Cobros de reservas canceladas — pendiente de clasificar</h2>
-      <div className="divide-y divide-slate-50">
-        {items.map(ingreso => {
-          const reserva = reservaDe(ingreso)
-          return (
-            <div key={ingreso.id} className="py-3 flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-medium text-slate-700 tabular-nums">
-                  {ingreso.moneda} {ingreso.monto?.toLocaleString('es-AR')}
-                  {ingreso.monto_usd != null ? ` · ${formatUSD(ingreso.monto_usd)}` : ''}
-                </span>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {ingreso.fecha}{reserva ? ` · reserva #${reserva.id} (${reserva.nombre_pax}, cancelada)` : ''}
-                </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button size="sm" variant="outline" onClick={() => setPendiente({ ingreso, resolucion: 'comision' })}>
-                  Comisión
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setPendiente({ ingreso, resolucion: 'caja_chica' })}>
-                  Caja chica
-                </Button>
-              </div>
-            </div>
-          )
-        })}
+      <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead className="bg-slate-100">
+              <tr className="border-b border-slate-200">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Fecha</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Reserva</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Clasificar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">Sin cobros pendientes de clasificar.</td>
+                </tr>
+              ) : items.map(ingreso => {
+                const reserva = reservaDe(ingreso)
+                return (
+                  <tr key={ingreso.id} className="border-b border-slate-100">
+                    <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{ingreso.fecha}</td>
+                    <td className="px-4 py-2.5 text-slate-700 text-xs">{reserva ? `#${reserva.id} — ${reserva.nombre_pax}` : '—'}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">{formatUSD(ingreso.monto_usd)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setPendiente({ ingreso, resolucion: 'comision' })}>
+                          Comisión
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setPendiente({ ingreso, resolucion: 'caja_chica' })}>
+                          Caja chica
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            {items.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-slate-200 bg-slate-50 font-medium">
+                  <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={2}>Total</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(total)}</td>
+                  <td className="px-4 py-2.5"></td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
       </div>
 
       <Dialog open={pendiente !== null} onOpenChange={open => !open && setPendiente(null)}>
