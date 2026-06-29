@@ -9,8 +9,6 @@ interface Props {
 const COLS = 4
 
 export function TablaMovimientos({ items, vacioMensaje }: Props) {
-  const total = items.reduce((s, m) => s + (m.monto_usd ?? m.monto), 0)
-
   return (
     <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
@@ -37,15 +35,6 @@ export function TablaMovimientos({ items, vacioMensaje }: Props) {
               </tr>
             ))}
           </tbody>
-          {items.length > 0 && (
-            <tfoot>
-              <tr className="border-t border-slate-200 bg-slate-50 font-medium">
-                <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={2}>Total</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(total)}</td>
-                <td className="px-4 py-2.5"></td>
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
     </div>
