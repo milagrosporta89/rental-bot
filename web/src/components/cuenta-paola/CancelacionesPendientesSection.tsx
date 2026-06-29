@@ -44,7 +44,10 @@ export function CancelacionesPendientesSection({ items, reservas, onResuelto }: 
 
   return (
     <div>
-      <h2 className="text-sm font-medium text-slate-700 mb-2">Cobros de reservas canceladas — pendiente de clasificar</h2>
+      <h2 className="text-sm font-medium text-slate-700 mb-1">Cobros de reservas canceladas — pendiente de clasificar</h2>
+      <p className="text-[11px] text-slate-400 mb-2">
+        Comisión cobrada en reservas que después se cancelaron — hay que decidir si queda como comisión de Paola o se usa para saldar caja chica.
+      </p>
       <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">

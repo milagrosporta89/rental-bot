@@ -113,7 +113,7 @@ export default function CuentaPaolaPage() {
 
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas — listas para cerrar</h2>
-          <p className="text-xs text-slate-400 mb-2">
+          <p className="text-[11px] text-slate-400 mb-2">
             Cada cobro que entró a la cuenta de Paola desde el último cierre, de reservas que ya terminaron — el detalle de lo que compone la Comisión pendiente de más abajo.
           </p>
           <TablaComisionesCobradas
@@ -125,7 +125,7 @@ export default function CuentaPaolaPage() {
 
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas por adelantado — la reserva todavía no terminó</h2>
-          <p className="text-xs text-slate-400 mb-2">
+          <p className="text-[11px] text-slate-400 mb-2">
             Comisión ya cobrada de reservas futuras. Queda en stand-by, sin contar para ningún cierre, hasta que la reserva concluya.
           </p>
           <TablaComisionesCobradas
@@ -137,12 +137,16 @@ export default function CuentaPaolaPage() {
 
         <TablaMovimientoFinanciero
           titulo="Gastos pagados por Paola — desde el último cierre"
+          bajada="Gastos que Paola pagó de su bolsillo (limpieza, lavandería, etc.) desde el último reembolso."
           items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
           vacioMensaje="Sin gastos pagados por Paola desde el último cierre."
         />
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-2">Movimientos de ajuste</h2>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Movimientos de ajuste</h2>
+          <p className="text-[11px] text-slate-400 mb-2">
+            Transferencias reales ya hechas para saldar diferencias con Paola — lo que ya se pagó, no lo que falta.
+          </p>
           <TablaMovimientos
             items={datos.movimientosInternos}
             vacioMensaje="Sin movimientos registrados todavía."

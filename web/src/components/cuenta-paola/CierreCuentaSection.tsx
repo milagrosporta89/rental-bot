@@ -39,6 +39,9 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
     reservas, ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null
   )
   const totalComision = filasComision.reduce((s, f) => s + f.diferencia, 0)
+  // Las reservas ya saldadas (diferencia $0) no necesitan ninguna acción — no se muestran,
+  // para no mezclar lo que falta resolver con lo que ya está bien.
+  const filasConDiferencia = filasComision.filter(f => f.diferencia !== 0)
 
   const gastosPendientes = gastosPendientesDeReembolso(
     gastosPaola, fechaCierreReembolso ? toISO(fechaCierreReembolso) : null
@@ -95,16 +98,22 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-sm font-medium text-slate-700 mb-2">
+        <h2 className="text-sm font-medium text-slate-700 mb-1">
           Comisión pendiente — {desde(fechaCierreComision)}
         </h2>
-        <TablaReconciliacionComision filas={filasComision} />
+        <p className="text-[11px] text-slate-400 mb-2">
+          Reservas ya terminadas donde lo cobrado no coincide con lo que correspondía. Las que ya están saldadas no se listan.
+        </p>
+        <TablaReconciliacionComision filas={filasConDiferencia} />
       </div>
 
       <div>
-        <h2 className="text-sm font-medium text-slate-700 mb-2">
+        <h2 className="text-sm font-medium text-slate-700 mb-1">
           Gastos pendientes de reembolso — {desde(fechaCierreReembolso)}
         </h2>
+        <p className="text-[11px] text-slate-400 mb-2">
+          Gastos que Paola pagó de su bolsillo y todavía no se le devolvieron.
+        </p>
         <TablaMovimientoFinanciero
           items={gastosPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
           vacioMensaje="Sin gastos pendientes de reembolso."

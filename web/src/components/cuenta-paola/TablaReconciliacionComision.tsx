@@ -22,7 +22,7 @@ export function TablaReconciliacionComision({ filas }: { filas: FilaReconciliaci
             {filas.length === 0 ? (
               <tr>
                 <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">
-                  Sin reservas con checkout desde el último cierre.
+                  Sin diferencias pendientes — lo cobrado coincide con lo que correspondía.
                 </td>
               </tr>
             ) : filas.map(({ reserva, devengado, cobrado, diferencia }) => (

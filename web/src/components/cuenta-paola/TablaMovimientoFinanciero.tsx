@@ -11,18 +11,20 @@ export interface ItemMovimientoFinanciero {
 
 interface Props {
   titulo?: string
+  bajada?: string
   items: ItemMovimientoFinanciero[]
   vacioMensaje: string
 }
 
 const COLS = 4
 
-export function TablaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props) {
+export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje }: Props) {
   const total = items.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
 
   return (
     <div>
-      {titulo && <h2 className="text-sm font-medium text-slate-700 mb-2">{titulo}</h2>}
+      {titulo && <h2 className="text-sm font-medium text-slate-700 mb-1">{titulo}</h2>}
+      {bajada && <p className="text-[11px] text-slate-400 mb-2">{bajada}</p>}
       <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
