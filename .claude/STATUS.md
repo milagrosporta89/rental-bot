@@ -25,10 +25,19 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Sin verificación end-to-end (Playwright) en esta sesión** — bloqueado porque la migración `004_cuenta_paola.sql` todavía no está aplicada en Supabase real (tabla `movimientos_internos` y columna `ingresos.resolucion_cancelacion` no existen todavía en la base).
 
+**Migración 004 confirmada corrida por Mili en staging** (`https://evhlzntpimxfkbgyhcci.supabase.co`, el proyecto al que apunta `.env.local`/`.env.staging.local`).
+
+**Bug de runtime reportado y corregido**: `/cuenta-paola` crasheaba con "Cannot read properties of undefined (reading 'reduce')" cuando `/api/cuenta-paola-data` devolvía un error (exactamente por la migración no aplicada todavía en ese momento) — la página asumía que la respuesta siempre tenía la forma esperada. Commit `0c323e3`: ahora se muestra un cartel de error en vez de crashear.
+
+**Limpieza + simulación de datos en staging, autorizada explícitamente por Mili** (confirmó que esa base es de prueba/desarrollo, sin huéspedes reales, antes de borrar nada):
+- Borradas las 17 reservas `directo` que había + sus 15 ingresos asociados. Quedaron solo las 6 reservas `airbnb` preexistentes.
+- Insertado un set de datos simulados marcados con `notas: 'SIMULACION cuenta-paola'` (reservas) y prefijo `[SIM]` (ingresos/gastos), para poder identificarlos y limpiarlos después: 7 reservas nuevas (ids 14-20) cubriendo mes anterior con comisión ya saldada, mes anterior sin comisión cobrada (deuda real), mes actual con comisión cobrada de más (Paola debe devolver), reserva a 3 meses con comisión ya cobrada (no cierra hasta ese mes), cancelada con comisión cobrada (pendiente de clasificar), cancelada sin cobro, y un caso airbnb (10%) saldado. 5 ingresos a Paola, 4 gastos (2 pagados por Paola, 2 por Fernando, incluyendo el caso de comisión airbnb pagada directo por Fernando). **A propósito, ningún `movimiento_interno`** — pedido explícito de Mili para poder ver el estado "sin ajustes todavía".
+- Commit `f25b905`: en "Comisiones cobradas" el detalle ahora muestra "Reserva #N — nombre del huésped" en vez del texto genérico del ingreso (pedido de Mili tras ver la pantalla con datos reales).
+
 **Pendiente / próximo paso**:
-- Correr la migración `004_cuenta_paola.sql` a mano en el SQL Editor de Supabase.
+- Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
-- Una vez aplicada la migración: verificación end-to-end con Playwright contra datos reales (limpiando cualquier dato de prueba que se genere).
+- Limpiar los datos simulados (`notas = 'SIMULACION cuenta-paola'` / detalle `ilike '[SIM]%'`) cuando se termine de probar — no se borran solos.
 - Decidir merge a `master` o seguir puliendo estilos.
 
 ---
