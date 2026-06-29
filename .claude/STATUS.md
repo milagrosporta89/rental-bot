@@ -42,6 +42,8 @@ Entradas nuevas arriba. No se borran las viejas.
 - Dato simulado agregado para entender el comportamiento: un `movimiento_interno` que representa el cierre de mayo ya hecho (`MOV-SIM-mayo`, 180 USD a favor de Paola — coincide con la diferencia real de la reserva #15). Sirve para que Mili vea en carne propia la limitación ya anotada en `qa-output.json`: como no hay un "mes cerrado" real, la tabla de cierre de mayo va a seguir mostrando la misma diferencia de 180 aunque ya exista ese movimiento.
 - También se agregó n° de operación a un ingreso simulado (`ING-SIM-3`) para que la columna "Método de pago" no fuera siempre "Efectivo".
 
+**Gap detectado por Mili y corregido**: los 5 ingresos simulados a Paola no tenían su gasto de comisión espejo (lo que generaría el gatillo de US-04 en el flujo real). Se agregaron 4 gastos `categoria: comision` (Fernando → Paola) para las reservas #14, #16, #17 y #20, con el mismo monto/fecha que sus ingresos correspondientes (igual que precargaría el gatillo real). **A propósito, el ingreso de la reserva #18 (cancelada) queda sin su gasto espejo** — simula el caso de "Mili declinó el gatillo", razonable porque en ese momento todavía no se sabía si ese cobro se iba a clasificar como comisión o como caja chica.
+
 **Pendiente / próximo paso**:
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
