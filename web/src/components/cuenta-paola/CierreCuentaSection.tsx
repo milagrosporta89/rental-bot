@@ -4,11 +4,13 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatUSD } from '@/lib/utils'
 import { toISO, hoy } from '@/lib/dates'
 import { fechaUltimoCierre, gastosPendientesDeReembolso, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
-import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
+import { TITULARES_PAGADOR, type Gasto, type Ingreso, type MovimientoInterno, type Reserva } from '@/lib/types'
 import { TablaReconciliacionComision } from './TablaReconciliacionComision'
 import { TablaMovimientoFinanciero } from './TablaMovimientoFinanciero'
 
@@ -26,6 +28,7 @@ function desde(fecha: string | null): string {
 
 export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movimientosInternos, onCerrado }: Props) {
   const [confirmando, setConfirmando] = useState(false)
+  const [cuentaOrigen, setCuentaOrigen] = useState('Fernando')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -60,6 +63,7 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
           monto_usd: Math.abs(totalComision),
           sentido: totalComision > 0 ? 'a_favor_paola' : 'a_favor_negocio',
           tipo: 'cierre_comision',
+          cuenta_origen: cuentaOrigen,
           detalle: `Cierre de comisión pendiente ${desde(fechaCierreComision)}`,
           comprobante_url: null,
         })
@@ -74,6 +78,7 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
           monto_usd: totalReembolso,
           sentido: 'a_favor_paola',
           tipo: 'reembolso_gastos',
+          cuenta_origen: cuentaOrigen,
           detalle: `Reembolso de gastos pendientes ${desde(fechaCierreReembolso)}`,
           comprobante_url: null,
         })
@@ -132,6 +137,17 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
               Esto registra los movimientos correspondientes — hacé la transferencia real antes o después de confirmar acá. No se puede deshacer.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">¿De qué cuenta sale/a qué cuenta entra la plata? *</Label>
+            <Select value={cuentaOrigen} onValueChange={setCuentaOrigen}>
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {TITULARES_PAGADOR.filter(t => t !== 'Paola').map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
           {error && <p className="text-xs text-red-500">{error}</p>}
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={() => setConfirmando(false)} disabled={loading}>

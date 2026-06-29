@@ -211,6 +211,7 @@ export async function marcarResolucionCancelacion(
       monto_usd: ingreso.monto_usd,
       sentido: 'a_favor_negocio',
       tipo: 'caja_chica',
+      cuenta_origen: null, // no es una transferencia entre cuentas, es plata que Paola ya tenía
       detalle: `Caja chica — cobro de reserva cancelada (ingreso ${ingresoId})`,
       comprobante_url: null,
       registrado_por,

@@ -13,6 +13,7 @@ export interface MovimientoInternoPayload {
   monto_usd: number | null
   sentido: SentidoMovimiento
   tipo: TipoMovimientoInterno
+  cuenta_origen: string | null
   detalle: string | null
   comprobante_url: string | null
 }
@@ -46,7 +47,7 @@ export async function crearMovimientoInterno(payload: MovimientoInternoPayload):
       monto: payload.monto,
       moneda: payload.moneda,
       categoria: 'comision',
-      pagado_por: 'Fernando',
+      pagado_por: payload.cuenta_origen || 'Fernando',
       nombre_destinatario: 'Paola',
       banco_origen: 'Transferencia',
       nro_operacion: null,

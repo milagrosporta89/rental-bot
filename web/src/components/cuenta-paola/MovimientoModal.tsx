@@ -6,12 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { toDDMMYYYY } from '@/lib/dates'
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
-import type { SentidoMovimiento, TipoMovimientoInterno } from '@/lib/types'
 import { FormularioMovimientoInterno, type MovimientoFormState } from './FormularioMovimientoInterno'
 
 interface Props {
   open: boolean
-  prefill?: { monto: number; sentido: SentidoMovimiento; tipo: TipoMovimientoInterno; detalle?: string }
   onClose: () => void
   onSaved: () => void
 }
@@ -23,22 +21,17 @@ const FORM_INICIAL: MovimientoFormState = {
   cotizacion: '',
   sentido: '',
   tipo: '',
+  cuentaOrigen: '',
   detalle: '',
 }
 
 /**
  * El padre (CuentaPaolaPage) le pasa un `key` que cambia cada vez que se abre el modal,
- * forzando un remount — así el formulario arranca limpio/con el prefill correcto sin
- * necesidad de resetear estado síncronamente desde un efecto.
+ * forzando un remount — así el formulario arranca limpio sin necesidad de resetear estado
+ * síncronamente desde un efecto.
  */
-export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
-  const [form, setForm] = useState<MovimientoFormState>(() => ({
-    ...FORM_INICIAL,
-    monto: prefill ? prefill.monto.toFixed(2) : '',
-    sentido: prefill?.sentido ?? '',
-    tipo: prefill?.tipo ?? '',
-    detalle: prefill?.detalle ?? '',
-  }))
+export function MovimientoModal({ open, onClose, onSaved }: Props) {
+  const [form, setForm] = useState<MovimientoFormState>(FORM_INICIAL)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -64,6 +57,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
     if (!montoNum || montoNum <= 0) { setError('El monto debe ser mayor a 0.'); return }
     if (!form.sentido) { setError('Elegí el sentido del movimiento.'); return }
     if (!form.tipo) { setError('Elegí qué representa este movimiento.'); return }
+    if (!form.cuentaOrigen) { setError('Elegí la cuenta de origen/destino.'); return }
 
     const monto_usd = form.moneda === 'USD' ? montoNum : (cotizNum > 0 ? +(montoNum / cotizNum).toFixed(2) : null)
     const monto_ars = form.moneda === 'ARS' ? montoNum : (cotizNum > 0 ? +(montoNum * cotizNum).toFixed(2) : null)
@@ -79,6 +73,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
         monto_usd,
         sentido: form.sentido,
         tipo: form.tipo,
+        cuenta_origen: form.cuentaOrigen,
         detalle: form.detalle.trim() || null,
         comprobante_url: null,
       })
@@ -97,7 +92,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
           <DialogTitle>Registrar movimiento</DialogTitle>
         </DialogHeader>
 
-        <FormularioMovimientoInterno form={form} onChange={onChange} error={error} tipoBloqueado={!!prefill?.tipo} />
+        <FormularioMovimientoInterno form={form} onChange={onChange} error={error} />
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>

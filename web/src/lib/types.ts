@@ -115,6 +115,7 @@ export interface MovimientoInterno {
   monto_usd: number | null
   sentido: SentidoMovimiento
   tipo: TipoMovimientoInterno
+  cuenta_origen: string | null
   detalle: string | null
   comprobante_url: string | null
   registrado_por: string

@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SENTIDO_MOVIMIENTO_LABEL, SentidoMovimiento, TIPO_MOVIMIENTO_LABEL, TipoMovimientoInterno } from '@/lib/types'
+import { SENTIDO_MOVIMIENTO_LABEL, SentidoMovimiento, TIPO_MOVIMIENTO_LABEL, TipoMovimientoInterno, TITULARES_PAGADOR } from '@/lib/types'
 
 export interface MovimientoFormState {
   fecha: string // YYYY-MM-DD
@@ -10,6 +10,7 @@ export interface MovimientoFormState {
   cotizacion: string
   sentido: SentidoMovimiento | ''
   tipo: TipoMovimientoInterno | ''
+  cuentaOrigen: string
   detalle: string
 }
 
@@ -21,11 +22,9 @@ interface Props {
   form: MovimientoFormState
   onChange: (k: keyof MovimientoFormState, v: string) => void
   error?: string
-  /** true cuando el tipo viene precargado por un flujo dedicado (ej. cierre de cuenta) y no debería poder cambiarse */
-  tipoBloqueado?: boolean
 }
 
-export function FormularioMovimientoInterno({ form, onChange, error, tipoBloqueado }: Props) {
+export function FormularioMovimientoInterno({ form, onChange, error }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4">
       <div className="space-y-1">
@@ -35,16 +34,12 @@ export function FormularioMovimientoInterno({ form, onChange, error, tipoBloquea
 
       <div className="space-y-1 md:col-span-2">
         <Label className="text-xs text-slate-500">Concepto *</Label>
-        {tipoBloqueado ? (
-          <Input value={form.tipo ? TIPO_MOVIMIENTO_LABEL[form.tipo] : ''} readOnly className="text-sm bg-slate-50 text-slate-500 cursor-default" />
-        ) : (
-          <Select value={form.tipo} onValueChange={v => onChange('tipo', v)}>
-            <SelectTrigger className="text-sm"><SelectValue placeholder="¿Qué representa este movimiento?" /></SelectTrigger>
-            <SelectContent>
-              {TIPOS_SELECCIONABLES.map(t => <SelectItem key={t} value={t}>{TIPO_MOVIMIENTO_LABEL[t]}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={form.tipo} onValueChange={v => onChange('tipo', v)}>
+          <SelectTrigger className="text-sm"><SelectValue placeholder="¿Qué representa este movimiento?" /></SelectTrigger>
+          <SelectContent>
+            {TIPOS_SELECCIONABLES.map(t => <SelectItem key={t} value={t}>{TIPO_MOVIMIENTO_LABEL[t]}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-1">
@@ -55,6 +50,16 @@ export function FormularioMovimientoInterno({ form, onChange, error, tipoBloquea
             {(Object.entries(SENTIDO_MOVIMIENTO_LABEL) as [SentidoMovimiento, string][]).map(([v, label]) => (
               <SelectItem key={v} value={v}>{label}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <Label className="text-xs text-slate-500">Cuenta de origen/destino *</Label>
+        <Select value={form.cuentaOrigen} onValueChange={v => onChange('cuentaOrigen', v)}>
+          <SelectTrigger className="text-sm"><SelectValue placeholder="¿De/para qué cuenta?" /></SelectTrigger>
+          <SelectContent>
+            {TITULARES_PAGADOR.filter(t => t !== 'Paola').map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
