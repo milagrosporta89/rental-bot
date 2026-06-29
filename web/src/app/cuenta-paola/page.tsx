@@ -79,6 +79,13 @@ export default function CuentaPaolaPage() {
   }
 
   const saldo = calcularSaldoPaola(datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
+  const reservasPorId = new Map(datos.reservas.map(r => [r.id, r]))
+
+  function detalleComision(ingreso: Ingreso): string | null {
+    const reserva = ingreso.id_reserva ? reservasPorId.get(ingreso.id_reserva) : undefined
+    if (!reserva) return ingreso.detalle
+    return `Reserva #${reserva.id} — ${reserva.nombre_pax}`
+  }
 
   return (
     <div className="h-full overflow-auto">
@@ -94,7 +101,7 @@ export default function CuentaPaolaPage() {
 
         <ListaMovimientoFinanciero
           titulo="Comisiones cobradas"
-          items={datos.ingresosPaola.map(i => ({ id: i.id, fecha: i.fecha, monto: i.monto, monto_usd: i.monto_usd, moneda: i.moneda, detalle: i.detalle }))}
+          items={datos.ingresosPaola.map(i => ({ id: i.id, fecha: i.fecha, monto: i.monto, monto_usd: i.monto_usd, moneda: i.moneda, detalle: detalleComision(i) }))}
           vacioMensaje="Sin comisiones cobradas todavía."
         />
 
