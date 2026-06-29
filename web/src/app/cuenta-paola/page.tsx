@@ -4,12 +4,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { calcularSaldoPaola } from '@/lib/cuentaPaola'
+import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva, SentidoMovimiento } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
 import { ListaMovimientoFinanciero } from '@/components/cuenta-paola/ListaMovimientoFinanciero'
+import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
 import { CierreMensualSection } from '@/components/cuenta-paola/CierreMensualSection'
 import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
+
+// TODO: confirmar con Mili — por ahora "comisiones cobradas" y "gastos de Paola" se acotan
+// al mes calendario en curso. Una vez validada la experiencia, pasa a ser "desde el último
+// cierre" (para soportar un cierre tardío que no caiga justo el día 30).
+function esDelMesActual(fecha: string): boolean {
+  return toISO(fecha).slice(0, 7) === new Date().toISOString().slice(0, 7)
+}
 
 interface DatosCuentaPaola {
   ingresosPaola: Ingreso[]
@@ -79,13 +88,8 @@ export default function CuentaPaolaPage() {
   }
 
   const saldo = calcularSaldoPaola(datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
-  const reservasPorId = new Map(datos.reservas.map(r => [r.id, r]))
-
-  function detalleComision(ingreso: Ingreso): string | null {
-    const reserva = ingreso.id_reserva ? reservasPorId.get(ingreso.id_reserva) : undefined
-    if (!reserva) return ingreso.detalle
-    return `Reserva #${reserva.id} — ${reserva.nombre_pax}`
-  }
+  const comisionesDelMes = datos.ingresosPaola.filter(i => esDelMesActual(i.fecha))
+  const gastosPaolaDelMes = datos.gastosPaola.filter(g => esDelMesActual(g.fecha))
 
   return (
     <div className="h-full overflow-auto">
@@ -99,16 +103,15 @@ export default function CuentaPaolaPage() {
 
         <SaldoPaolaCard saldo={saldo} />
 
-        <ListaMovimientoFinanciero
-          titulo="Comisiones cobradas"
-          items={datos.ingresosPaola.map(i => ({ id: i.id, fecha: i.fecha, monto: i.monto, monto_usd: i.monto_usd, moneda: i.moneda, detalle: detalleComision(i) }))}
-          vacioMensaje="Sin comisiones cobradas todavía."
-        />
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — mes en curso</h2>
+          <TablaComisionesCobradas ingresos={comisionesDelMes} reservas={datos.reservas} />
+        </div>
 
         <ListaMovimientoFinanciero
-          titulo="Gastos pagados por Paola"
-          items={datos.gastosPaola.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
-          vacioMensaje="Sin gastos pagados por Paola todavía."
+          titulo="Gastos pagados por Paola — mes en curso"
+          items={gastosPaolaDelMes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
+          vacioMensaje="Sin gastos pagados por Paola este mes."
         />
 
         <ListaMovimientoFinanciero
