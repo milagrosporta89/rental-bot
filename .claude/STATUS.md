@@ -4,6 +4,21 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-06-29 — Feature: cuenta-paola · Rama: `feature/cuenta-paola`
+
+**Migraciones `006` y `007` confirmadas corridas por Mili.** Reset de datos repetido (la app bloquea crear reservas de prueba con `fecha_entrada` anterior a hoy desde la UI — esperable, es la validación real de `crearReserva`; el camino para datos simulados sigue siendo inserción directa vía REST, no la UI). Se encontraron y borraron filas extra respecto del último reset (14 reservas/13 ingresos/25 gastos/4 movimientos en vez de 13/12/23/2) — quedaron de intentos de Mili probando la UI manualmente antes de pegar con la validación.
+
+Mismo dataset que el reset anterior, reconstruido con los campos nuevos:
+- Gastos de comisión (`GAS-com-*`) ahora con `id_reserva` poblado (1, 3, 4, 7, 8, 12, 13).
+- Movimientos históricos con `cuenta_origen: 'Fernando'`.
+- Corregido de paso un error aritmético que tenía el cierre histórico de comisión desde el reset anterior ($6,90 en vez de $6,10 — el 10% real de la reserva #13 es $103,90, no $103,70).
+
+Verificado con script independiente: comisión pendiente $150, gastos pendientes $727,03, total $877,03 — igual que antes del reset, confirmando que el modelo "desde el último cierre" es estable.
+
+**Pendiente / próximo paso**: Mili sigue recorriendo `/cuenta-paola` con datos simulados.
+
+---
+
 ## 2026-06-28 — Feature: cuenta-paola · Rama: `feature/cuenta-paola`
 
 **Pipeline completo hasta Agente 3 (Developer), pendiente Agente 4 (QA).**
