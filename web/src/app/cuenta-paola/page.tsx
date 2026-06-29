@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado } from '@/lib/cuentaPaola'
+import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
@@ -93,7 +93,18 @@ export default function CuentaPaolaPage() {
   const adelantadas = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
   const idsAdelantadas = new Set(adelantadas.map(i => i.id))
   const comisionesDesdeUltimoCierre = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
-  const comisionesListasParaCerrar = comisionesDesdeUltimoCierre.filter(i => !idsAdelantadas.has(i.id))
+
+  // Mismo criterio que "Comisión pendiente" (más abajo, en Cerrar cuenta): si una reserva ya
+  // cobró exactamente lo que correspondía, no aporta nada y no se muestra — esta tabla es el
+  // detalle de esa otra, así que tienen que listar el mismo conjunto de reservas.
+  const reservasConDiferencia = new Set(
+    reconciliacionDesdeUltimoCierre(datos.reservas, datos.ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null)
+      .filter(f => f.diferencia !== 0)
+      .map(f => f.reserva.id)
+  )
+  const comisionesListasParaCerrar = comisionesDesdeUltimoCierre.filter(
+    i => !idsAdelantadas.has(i.id) && i.id_reserva && reservasConDiferencia.has(i.id_reserva)
+  )
 
   return (
     <div className="h-full overflow-auto">
