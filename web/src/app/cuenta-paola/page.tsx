@@ -112,7 +112,10 @@ export default function CuentaPaolaPage() {
         </div>
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — listas para cerrar</h2>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas — listas para cerrar</h2>
+          <p className="text-xs text-slate-400 mb-2">
+            Cada cobro que entró a la cuenta de Paola desde el último cierre, de reservas que ya terminaron — el detalle de lo que compone la Comisión pendiente de más abajo.
+          </p>
           <TablaComisionesCobradas
             ingresos={comisionesListasParaCerrar}
             reservas={datos.reservas}
@@ -121,7 +124,10 @@ export default function CuentaPaolaPage() {
         </div>
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas por adelantado — la reserva todavía no terminó</h2>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas por adelantado — la reserva todavía no terminó</h2>
+          <p className="text-xs text-slate-400 mb-2">
+            Comisión ya cobrada de reservas futuras. Queda en stand-by, sin contar para ningún cierre, hasta que la reserva concluya.
+          </p>
           <TablaComisionesCobradas
             ingresos={adelantadas}
             reservas={datos.reservas}

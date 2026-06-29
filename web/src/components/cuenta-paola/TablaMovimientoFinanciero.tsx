@@ -15,7 +15,7 @@ interface Props {
   vacioMensaje: string
 }
 
-const COLS = 3
+const COLS = 4
 
 export function TablaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props) {
   const total = items.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
@@ -29,7 +29,8 @@ export function TablaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props
             <thead className="bg-slate-100">
               <tr className="border-b border-slate-200">
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Fecha</th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto en $</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto USD</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Detalle</th>
               </tr>
             </thead>
@@ -42,9 +43,9 @@ export function TablaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{item.fecha}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">
-                    {item.moneda} {item.monto?.toLocaleString('es-AR')}
-                    {item.monto_usd != null && <span className="text-slate-400 font-normal"> · {formatUSD(item.monto_usd)}</span>}
+                    {item.moneda === 'USD' ? 'USD' : '$'} {item.monto?.toLocaleString('es-AR')}
                   </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{formatUSD(item.monto_usd)}</td>
                   <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{item.detalle || '—'}</td>
                 </tr>
               ))}
@@ -52,7 +53,7 @@ export function TablaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props
             {items.length > 0 && (
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50 font-medium">
-                  <td className="px-4 py-2.5 text-slate-700 text-xs">Total</td>
+                  <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={2}>Total</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(total)}</td>
                   <td className="px-4 py-2.5"></td>
                 </tr>
