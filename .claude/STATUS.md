@@ -15,7 +15,16 @@ Mismo dataset que el reset anterior, reconstruido con los campos nuevos:
 
 Verificado con script independiente: comisión pendiente $150, gastos pendientes $727,03, total $877,03 — igual que antes del reset, confirmando que el modelo "desde el último cierre" es estable.
 
-**Pendiente / próximo paso**: Mili sigue recorriendo `/cuenta-paola` con datos simulados.
+**Quita el total de "Movimientos de ajuste"** → commit `48750cd`: mezclaba sentidos opuestos (a_favor_paola y a_favor_negocio) sin considerar el signo, la suma no representaba nada real.
+
+**Tema grande para retomar, sin tocar código todavía** — escenario planteado por Mili: Fernando (quien transfiere para saldar la deuda del negocio con Paola) viaja mucho y a veces no se lo puede contactar. Si Paola necesita esa plata y no puede esperar, se cobra de más en la próxima reserva que entra para hacerse de parte de lo que le deben. Al día siguiente Fernando se pone al día con el balance sin saber que ella ya se autopagó → Paola cobra dos veces.
+
+Mi análisis (compartido con Mili en el chat, no implementado):
+- No es un problema que el modelo de datos resuelva solo — si Fernando transfiere sin mirar la app antes, va a pasar igual. Lo que el sistema sí puede hacer es que el autopago de Paola se vea reflejado en el saldo pendiente **en el momento en que ocurre**, no recién en el próximo "Cerrar cuenta" — así se achica la ventana de error.
+- La idea de Mili de usar "Comisiones cobradas por adelantado" (reservas futuras) para esto tiene una vuelta de tuerca: esa tabla se diseñó a propósito para NO compararse contra nada hasta que la reserva termine (por las cancelaciones). Si el excedente que Paola se autopaga queda escondido ahí dentro, queda invisible justo donde Fernando necesita verlo. Mejor: separar el excedente de lo que le corresponde a esa reserva puntual, y registrarlo de una como un movimiento explícito que baja el saldo pendiente ya — la reserva futura sigue su curso normal con su 15%/10% real, sin el excedente mezclado.
+- **Limitación de fondo encontrada pensando esto**: el modelo "desde el último cierre" asume que cada cierre liquida TODO lo pendiente de una sola vez (mueve un corte de fecha único por tipo). No está resuelto cómo registrar un pago *parcial* (Paola cobra una parte de la deuda, no toda) sin romper esa lógica de "todo lo de antes de esta fecha ya está saldado". Posible necesidad: una forma de marcar "se saldó una parte" sin mover el corte completo, o repensar el modelo de corte por fecha hacia algo más granular.
+
+**Pendiente / próximo paso**: diseñar esto con Mili antes de tocar código — no hay decisión tomada todavía, solo el análisis de arriba. Mili sigue recorriendo `/cuenta-paola` con datos simulados.
 
 ---
 
