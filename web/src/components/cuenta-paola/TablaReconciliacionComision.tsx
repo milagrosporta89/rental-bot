@@ -2,37 +2,43 @@ import { formatUSD } from '@/lib/utils'
 import { PLATAFORMA_LABEL, type Plataforma } from '@/lib/types'
 import type { FilaReconciliacion } from '@/lib/cuentaPaola'
 
-export function TablaReconciliacionComision({ filas }: { filas: FilaReconciliacion[] }) {
-  if (filas.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-6">Sin reservas con checkout en este mes.</p>
-  }
+const COLS = 5
 
+export function TablaReconciliacionComision({ filas }: { filas: FilaReconciliacion[] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-slate-400 border-b border-slate-200">
-            <th className="text-left py-2 font-medium">Reserva</th>
-            <th className="text-left py-2 font-medium">Plataforma</th>
-            <th className="text-right py-2 font-medium">Devengado</th>
-            <th className="text-right py-2 font-medium">Cobrado</th>
-            <th className="text-right py-2 font-medium">Diferencia</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {filas.map(({ reserva, devengado, cobrado, diferencia }) => (
-            <tr key={reserva.id}>
-              <td className="py-2 text-slate-700">#{reserva.id} · {reserva.nombre_pax}</td>
-              <td className="py-2 text-slate-500">{PLATAFORMA_LABEL[reserva.plataforma as Plataforma] ?? reserva.plataforma}</td>
-              <td className="py-2 text-right tabular-nums text-slate-700">{formatUSD(devengado)}</td>
-              <td className="py-2 text-right tabular-nums text-slate-700">{formatUSD(cobrado)}</td>
-              <td className={`py-2 text-right tabular-nums font-medium ${diferencia > 0 ? 'text-amber-600' : diferencia < 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
-                {formatUSD(diferencia)}
-              </td>
+    <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-slate-100">
+            <tr className="border-b border-slate-200">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Reserva</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Plataforma</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Devengado</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Cobrado</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Diferencia</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {filas.length === 0 ? (
+              <tr>
+                <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">
+                  Sin reservas con checkout en este mes.
+                </td>
+              </tr>
+            ) : filas.map(({ reserva, devengado, cobrado, diferencia }) => (
+              <tr key={reserva.id} className="border-b border-slate-100">
+                <td className="px-4 py-2.5 text-slate-700 text-xs">#{reserva.id} · {reserva.nombre_pax}</td>
+                <td className="px-4 py-2.5 text-slate-600 text-xs">{PLATAFORMA_LABEL[reserva.plataforma as Plataforma] ?? reserva.plataforma}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-slate-700 text-xs whitespace-nowrap">{formatUSD(devengado)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-slate-700 text-xs whitespace-nowrap">{formatUSD(cobrado)}</td>
+                <td className={`px-4 py-2.5 text-right tabular-nums font-medium text-xs whitespace-nowrap ${diferencia > 0 ? 'text-amber-600' : diferencia < 0 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                  {formatUSD(diferencia)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -6,15 +6,14 @@ interface Props {
   reservas: Reserva[]
 }
 
+// Mismo criterio que GastosTable.tsx / PagosSection.tsx: si tiene nro_operacion fue transferencia, si no, efectivo
 function metodoPago(ingreso: Ingreso): string {
   return ingreso.nro_operacion ? 'Transferencia' : 'Efectivo'
 }
 
-export function TablaComisionesCobradas({ ingresos, reservas }: Props) {
-  if (ingresos.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-6">Sin comisiones cobradas este mes.</p>
-  }
+const COLS = 6
 
+export function TablaComisionesCobradas({ ingresos, reservas }: Props) {
   const reservasPorId = new Map(reservas.map(r => [r.id, r]))
   const totalCobrado = ingresos.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
   const totalReservas = ingresos.reduce((s, i) => {
@@ -24,45 +23,55 @@ export function TablaComisionesCobradas({ ingresos, reservas }: Props) {
   const porcentajeTotal = totalReservas > 0 ? (totalCobrado / totalReservas) * 100 : 0
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-slate-400 border-b border-slate-200">
-            <th className="text-left py-2 font-medium">Fecha</th>
-            <th className="text-left py-2 font-medium">Reserva</th>
-            <th className="text-right py-2 font-medium">Monto reserva</th>
-            <th className="text-right py-2 font-medium">Cobrado</th>
-            <th className="text-right py-2 font-medium">% cobrado</th>
-            <th className="text-left py-2 font-medium">Método</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-50">
-          {ingresos.map(ingreso => {
-            const reserva = ingreso.id_reserva ? reservasPorId.get(ingreso.id_reserva) : undefined
-            const pct = reserva && reserva.monto_total_usd > 0
-              ? ((ingreso.monto_usd ?? 0) / reserva.monto_total_usd) * 100
-              : null
-            return (
-              <tr key={ingreso.id}>
-                <td className="py-2 text-slate-500">{ingreso.fecha}</td>
-                <td className="py-2 text-slate-700">{reserva ? `#${reserva.id} — ${reserva.nombre_pax}` : 'Sin reserva asociada'}</td>
-                <td className="py-2 text-right tabular-nums text-slate-600">{reserva ? formatUSD(reserva.monto_total_usd) : '—'}</td>
-                <td className="py-2 text-right tabular-nums text-slate-800 font-medium">{formatUSD(ingreso.monto_usd)}</td>
-                <td className="py-2 text-right tabular-nums text-slate-600">{pct != null ? `${pct.toFixed(1)}%` : '—'}</td>
-                <td className="py-2 text-slate-500">{metodoPago(ingreso)}</td>
+    <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-slate-100">
+            <tr className="border-b border-slate-200">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Fecha</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Reserva</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto reserva</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Cobrado</th>
+              <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">% cobrado</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Método de pago</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ingresos.length === 0 ? (
+              <tr>
+                <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">
+                  Sin comisiones cobradas este mes.
+                </td>
               </tr>
-            )
-          })}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-slate-200 font-medium">
-            <td className="py-2 text-slate-700" colSpan={3}>Total</td>
-            <td className="py-2 text-right tabular-nums text-slate-800">{formatUSD(totalCobrado)}</td>
-            <td className="py-2 text-right tabular-nums text-slate-600">{porcentajeTotal.toFixed(1)}%</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
+            ) : ingresos.map(ingreso => {
+              const reserva = ingreso.id_reserva ? reservasPorId.get(ingreso.id_reserva) : undefined
+              const pct = reserva && reserva.monto_total_usd > 0
+                ? ((ingreso.monto_usd ?? 0) / reserva.monto_total_usd) * 100
+                : null
+              return (
+                <tr key={ingreso.id} className="border-b border-slate-100">
+                  <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{ingreso.fecha}</td>
+                  <td className="px-4 py-2.5 text-slate-700 text-xs">{reserva ? `#${reserva.id} — ${reserva.nombre_pax}` : 'Sin reserva asociada'}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{reserva ? formatUSD(reserva.monto_total_usd) : '—'}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">{formatUSD(ingreso.monto_usd)}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{pct != null ? `${pct.toFixed(1)}%` : '—'}</td>
+                  <td className="px-4 py-2.5 text-slate-600 text-xs">{metodoPago(ingreso)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+          {ingresos.length > 0 && (
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50 font-medium">
+                <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={3}>Total</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(totalCobrado)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{porcentajeTotal.toFixed(1)}%</td>
+                <td className="px-4 py-2.5"></td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
     </div>
   )
 }
