@@ -4,6 +4,7 @@ import type { Ingreso, Reserva } from '@/lib/types'
 interface Props {
   ingresos: Ingreso[]
   reservas: Reserva[]
+  vacioMensaje?: string
 }
 
 // Mismo criterio que GastosTable.tsx / PagosSection.tsx: si tiene nro_operacion fue transferencia, si no, efectivo
@@ -13,7 +14,7 @@ function metodoPago(ingreso: Ingreso): string {
 
 const COLS = 6
 
-export function TablaComisionesCobradas({ ingresos, reservas }: Props) {
+export function TablaComisionesCobradas({ ingresos, reservas, vacioMensaje = 'Sin comisiones cobradas.' }: Props) {
   const reservasPorId = new Map(reservas.map(r => [r.id, r]))
   const totalCobrado = ingresos.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
   const totalReservas = ingresos.reduce((s, i) => {
@@ -40,7 +41,7 @@ export function TablaComisionesCobradas({ ingresos, reservas }: Props) {
             {ingresos.length === 0 ? (
               <tr>
                 <td colSpan={COLS} className="py-12 text-center text-sm text-slate-400">
-                  Sin comisiones cobradas este mes.
+                  {vacioMensaje}
                 </td>
               </tr>
             ) : ingresos.map(ingreso => {

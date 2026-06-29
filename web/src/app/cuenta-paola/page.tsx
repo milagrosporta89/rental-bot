@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteTotal, fechaUltimoCierre } from '@/lib/cuentaPaola'
+import { saldoPendienteTotal, fechaUltimoCierre, comisionesPorAdelantado } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
@@ -84,8 +84,15 @@ export default function CuentaPaolaPage() {
   const saldo = saldoPendienteTotal(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
   const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
-  const comisionesPendientes = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
   const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
+
+  // Comisiones cobradas por adelantado de reservas que todavía no terminaron — quedan "en
+  // stand-by" hasta que la reserva concluya, así que se muestran aparte de las que ya se
+  // pueden cerrar (esas sí entran en "desde el último cierre").
+  const adelantadas = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
+  const idsAdelantadas = new Set(adelantadas.map(i => i.id))
+  const comisionesDesdeUltimoCierre = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
+  const comisionesListasParaCerrar = comisionesDesdeUltimoCierre.filter(i => !idsAdelantadas.has(i.id))
 
   return (
     <div className="h-full overflow-auto">
@@ -100,8 +107,21 @@ export default function CuentaPaolaPage() {
         <SaldoPaolaCard saldo={saldo} />
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — desde el último cierre</h2>
-          <TablaComisionesCobradas ingresos={comisionesPendientes} reservas={datos.reservas} />
+          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — listas para cerrar</h2>
+          <TablaComisionesCobradas
+            ingresos={comisionesListasParaCerrar}
+            reservas={datos.reservas}
+            vacioMensaje="Sin comisiones listas para cerrar desde el último cierre."
+          />
+        </div>
+
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas por adelantado — la reserva todavía no terminó</h2>
+          <TablaComisionesCobradas
+            ingresos={adelantadas}
+            reservas={datos.reservas}
+            vacioMensaje="Sin comisiones cobradas por adelantado."
+          />
         </div>
 
         <TablaMovimientoFinanciero

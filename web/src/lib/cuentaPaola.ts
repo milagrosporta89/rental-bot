@@ -51,6 +51,21 @@ export function reconciliacionDesdeUltimoCierre(
     })
 }
 
+/**
+ * Comisiones que Paola ya cobró por adelantado, de reservas cuyo checkout todavía no llegó.
+ * Quedan "en stand-by": no entran a reconciliacionDesdeUltimoCierre (que solo mira checkouts ya
+ * ocurridos) hasta que la reserva efectivamente termine — recién ahí se sabe si correspondía.
+ * Reservas canceladas quedan afuera (van a la clasificación de US-06, no acá).
+ */
+export function comisionesPorAdelantado(ingresosPaola: Ingreso[], reservas: Reserva[]): Ingreso[] {
+  const hoy = hoyISO()
+  const reservasPorId = new Map(reservas.map(r => [r.id, r]))
+  return ingresosPaola.filter(i => {
+    const reserva = i.id_reserva ? reservasPorId.get(i.id_reserva) : undefined
+    return !!reserva && reserva.estado_reserva !== 'cancelada' && toISO(reserva.fecha_salida) > hoy
+  })
+}
+
 /** Gastos pagados por Paola desde el último reembolso (excluido) hasta hoy. */
 export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoReembolsoISO: string | null): Gasto[] {
   return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)
