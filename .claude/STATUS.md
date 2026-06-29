@@ -59,6 +59,10 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Saldo principal corregido** → commit `5680e6d`: Mili no entendía por qué el saldo mostraba +$427 habiendo puesto ~$700 de su bolsillo. Causa real: `calcularSaldoPaola` sumaba **todo el histórico** (incluidos períodos ya cerrados), mezclando lo resuelto con lo pendiente. Se reemplaza por `saldoPendienteTotal` = comisión pendiente + gastos pendientes de reembolso, ambos desde el último cierre de cada tipo — el mismo número que ya calculaba "Cerrar cuenta" (ahora $877,03 con los datos simulados, no $427). De paso, positivo ahora significa siempre "el negocio le debe a Paola", sin la ambigüedad de antes. También se cambió "Devengado" → "Le corresponde" en la tabla de reconciliación (jerga contable, no era intuitiva).
 
+**Cuenta de origen/destino en cada movimiento** → commit `a30e96b` + migración `006_movimiento_cuenta_origen.sql`: Mili notó que si Fernando transfiere internamente y no se asienta como salida de su cuenta, el saldo de esa cuenta se desfasa con el tiempo. Se agregó `cuenta_origen` (nullable) a `movimientos_internos`; el gasto espejo de `cierre_comision` ahora usa esa cuenta como `pagado_por` en vez de "Fernando" fijo; tanto "Registrar movimiento" como "Cerrar cuenta" la piden antes de confirmar. De paso se sacó el prop `prefill` de `MovimientoModal`, que había quedado sin uso.
+
+**Comisiones por adelantado separadas** → commit `ee23e79`: las comisiones que Paola ya cobró de reservas que todavía no terminaron (ej. reserva #4, checkout en septiembre) quedaban mezcladas dentro de "Comisiones cobradas" sin distinguirse de las que ya están listas para cerrar. Ahora son dos tablas separadas (`comisionesPorAdelantado()` en `lib/cuentaPaola.ts`).
+
 **Pendiente / próximo paso**:
 - `designer-output.json` quedó con una nota de la 3ra revisión pero sin reescribir el `component_tree`/`flow` línea por línea — el código es la fuente de verdad mientras tanto.
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
