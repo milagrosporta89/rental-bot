@@ -57,6 +57,8 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Todas las secciones de la pantalla pasan a tabla con fila de totales** → commit `aa38d68`: `ListaMovimientoFinanciero` se reemplaza por `TablaMovimientoFinanciero` (gastos de Paola, movimientos de ajuste, gastos pendientes de reembolso) y `CancelacionesPendientesSection` pasa a tabla con columna de acciones — mismo patrón visual que `TablaComisionesCobradas`/`TablaReconciliacionComision` en todos los casos.
 
+**Saldo principal corregido** → commit `5680e6d`: Mili no entendía por qué el saldo mostraba +$427 habiendo puesto ~$700 de su bolsillo. Causa real: `calcularSaldoPaola` sumaba **todo el histórico** (incluidos períodos ya cerrados), mezclando lo resuelto con lo pendiente. Se reemplaza por `saldoPendienteTotal` = comisión pendiente + gastos pendientes de reembolso, ambos desde el último cierre de cada tipo — el mismo número que ya calculaba "Cerrar cuenta" (ahora $877,03 con los datos simulados, no $427). De paso, positivo ahora significa siempre "el negocio le debe a Paola", sin la ambigüedad de antes. También se cambió "Devengado" → "Le corresponde" en la tabla de reconciliación (jerga contable, no era intuitiva).
+
 **Pendiente / próximo paso**:
 - `designer-output.json` quedó con una nota de la 3ra revisión pero sin reescribir el `component_tree`/`flow` línea por línea — el código es la fuente de verdad mientras tanto.
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
