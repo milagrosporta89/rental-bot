@@ -55,9 +55,10 @@ Entradas nuevas arriba. No se borran las viejas.
 - Comisión pendiente real (#2: seña pagada a la cuenta general, comisión de Paola nunca cobrada → +$180), cobro de más (#3: -$30), futura con comisión ya cobrada por adelantado (#4, no cierra hasta septiembre), cancelada con comisión cobrada pendiente de clasificar (#5), cancelada sin cobro (#6), airbnb futuras sin ningún pago — válido, todavía no inició la estadía (#9, #11), airbnb cancelada sin cobro (#10).
 - Verificado con un script de cálculo independiente (no solo confiando en la UI): comisión pendiente actual = +$150, gastos pendientes de reembolso = $727,03 — coincide con lo esperado a mano.
 
+**Todas las secciones de la pantalla pasan a tabla con fila de totales** → commit `aa38d68`: `ListaMovimientoFinanciero` se reemplaza por `TablaMovimientoFinanciero` (gastos de Paola, movimientos de ajuste, gastos pendientes de reembolso) y `CancelacionesPendientesSection` pasa a tabla con columna de acciones — mismo patrón visual que `TablaComisionesCobradas`/`TablaReconciliacionComision` en todos los casos.
+
 **Pendiente / próximo paso**:
 - `designer-output.json` quedó con una nota de la 3ra revisión pero sin reescribir el `component_tree`/`flow` línea por línea — el código es la fuente de verdad mientras tanto.
-- Mili pidió convertir todas las secciones de lista (gastos pagados por Paola, movimientos de ajuste, gastos pendientes de reembolso) a tablas con fila de totales, igual que "Comisiones cobradas" — en curso.
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
 - Limpiar los datos simulados (`notas = 'SIMULACION cuenta-paola'` / detalle `ilike '[SIM]%'`) cuando se termine de probar — no se borran solos.
