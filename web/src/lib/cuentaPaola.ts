@@ -71,27 +71,33 @@ export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoRee
   return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)
 }
 
+export interface SaldoPendienteDesglosado {
+  comision: number
+  gastos: number
+  total: number
+}
+
 /**
- * Lo que falta saldar con Paola en este momento: comisión pendiente + gastos pendientes de
- * reembolso, ambos desde el último cierre de cada tipo (mismo cálculo que usa "Cerrar cuenta").
- * Positivo = el negocio le debe a Paola; negativo = Paola le debe al negocio.
+ * Lo que falta saldar con Paola en este momento, desglosado: comisión pendiente y gastos
+ * pendientes de reembolso, ambos desde el último cierre de cada tipo (mismo cálculo que usa
+ * "Cerrar cuenta"). Positivo = el negocio le debe a Paola; negativo = Paola le debe al negocio.
  */
-export function saldoPendienteTotal(
+export function saldoPendienteDesglosado(
   reservas: Reserva[],
   ingresosPaola: Ingreso[],
   gastosPaola: Gasto[],
   movimientos: MovimientoInterno[]
-): number {
+): SaldoPendienteDesglosado {
   const fechaCierreComision = fechaUltimoCierre(movimientos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(movimientos, 'reembolso_gastos')
 
-  const totalComision = reconciliacionDesdeUltimoCierre(
+  const comision = reconciliacionDesdeUltimoCierre(
     reservas, ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null
   ).reduce((s, f) => s + f.diferencia, 0)
 
-  const totalReembolso = gastosPendientesDeReembolso(
+  const gastos = gastosPendientesDeReembolso(
     gastosPaola, fechaCierreReembolso ? toISO(fechaCierreReembolso) : null
   ).reduce((s, g) => s + (g.monto_usd ?? 0), 0)
 
-  return totalComision + totalReembolso
+  return { comision, gastos, total: comision + gastos }
 }

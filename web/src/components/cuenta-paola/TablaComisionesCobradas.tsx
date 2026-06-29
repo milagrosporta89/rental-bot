@@ -1,5 +1,5 @@
 import { formatUSD } from '@/lib/utils'
-import type { Ingreso, Reserva } from '@/lib/types'
+import { PLATAFORMA_LABEL, type Ingreso, type Plataforma, type Reserva } from '@/lib/types'
 
 interface Props {
   ingresos: Ingreso[]
@@ -12,7 +12,7 @@ function metodoPago(ingreso: Ingreso): string {
   return ingreso.nro_operacion ? 'Transferencia' : 'Efectivo'
 }
 
-const COLS = 6
+const COLS = 7
 
 export function TablaComisionesCobradas({ ingresos, reservas, vacioMensaje = 'Sin comisiones cobradas.' }: Props) {
   const reservasPorId = new Map(reservas.map(r => [r.id, r]))
@@ -31,6 +31,7 @@ export function TablaComisionesCobradas({ ingresos, reservas, vacioMensaje = 'Si
             <tr className="border-b border-slate-200">
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Fecha</th>
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Reserva</th>
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Plataforma</th>
               <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto reserva</th>
               <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Cobrado</th>
               <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">% cobrado</th>
@@ -53,6 +54,7 @@ export function TablaComisionesCobradas({ ingresos, reservas, vacioMensaje = 'Si
                 <tr key={ingreso.id} className="border-b border-slate-100">
                   <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{ingreso.fecha}</td>
                   <td className="px-4 py-2.5 text-slate-700 text-xs">{reserva ? `#${reserva.id} — ${reserva.nombre_pax}` : 'Sin reserva asociada'}</td>
+                  <td className="px-4 py-2.5 text-slate-600 text-xs">{reserva ? (PLATAFORMA_LABEL[reserva.plataforma as Plataforma] ?? reserva.plataforma) : '—'}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{reserva ? formatUSD(reserva.monto_total_usd) : '—'}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">{formatUSD(ingreso.monto_usd)}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{pct != null ? `${pct.toFixed(1)}%` : '—'}</td>
@@ -64,7 +66,7 @@ export function TablaComisionesCobradas({ ingresos, reservas, vacioMensaje = 'Si
           {ingresos.length > 0 && (
             <tfoot>
               <tr className="border-t border-slate-200 bg-slate-50 font-medium">
-                <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={3}>Total</td>
+                <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={4}>Total</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(totalCobrado)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{porcentajeTotal.toFixed(1)}%</td>
                 <td className="px-4 py-2.5"></td>
