@@ -99,6 +99,12 @@ export interface Ingreso {
 export type SentidoMovimiento = 'a_favor_paola' | 'a_favor_negocio'
 export type ResolucionCancelacion = 'comision' | 'caja_chica'
 
+// Determina si el movimiento genera o no un gasto espejo en /gastos (ver actions/movimientosInternos.ts):
+// solo 'cierre_comision' representa plata nunca contada antes. Los demás ya están contados en
+// otro lado (el gasto original, o no son una salida real) y generarían un doble conteo si también
+// se asentaran como gasto nuevo.
+export type TipoMovimientoInterno = 'cierre_comision' | 'reembolso_gastos' | 'caja_chica' | 'ajuste_libre'
+
 export interface MovimientoInterno {
   id: string
   fecha: string
@@ -108,6 +114,7 @@ export interface MovimientoInterno {
   monto_ars: number | null
   monto_usd: number | null
   sentido: SentidoMovimiento
+  tipo: TipoMovimientoInterno
   detalle: string | null
   comprobante_url: string | null
   registrado_por: string
@@ -170,6 +177,13 @@ export const COMISION_PAOLA_PORCENTAJE: Record<Plataforma, number> = {
 export const SENTIDO_MOVIMIENTO_LABEL: Record<SentidoMovimiento, string> = {
   a_favor_paola: 'A favor de Paola',
   a_favor_negocio: 'A favor del negocio',
+}
+
+export const TIPO_MOVIMIENTO_LABEL: Record<TipoMovimientoInterno, string> = {
+  cierre_comision: 'Comisión pendiente',
+  reembolso_gastos: 'Reembolso de gastos',
+  caja_chica: 'Caja chica',
+  ajuste_libre: 'Otro ajuste',
 }
 
 export const RESOLUCION_CANCELACION_LABEL: Record<ResolucionCancelacion, string> = {

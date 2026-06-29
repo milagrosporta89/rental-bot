@@ -1,7 +1,7 @@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SENTIDO_MOVIMIENTO_LABEL, SentidoMovimiento } from '@/lib/types'
+import { SENTIDO_MOVIMIENTO_LABEL, SentidoMovimiento, TIPO_MOVIMIENTO_LABEL, TipoMovimientoInterno } from '@/lib/types'
 
 export interface MovimientoFormState {
   fecha: string // YYYY-MM-DD
@@ -9,21 +9,42 @@ export interface MovimientoFormState {
   moneda: 'ARS' | 'USD'
   cotizacion: string
   sentido: SentidoMovimiento | ''
+  tipo: TipoMovimientoInterno | ''
   detalle: string
 }
+
+// caja_chica tiene su propio flujo dedicado (US-06, "Marcar como caja chica") — no se ofrece
+// como opción manual acá para no duplicar el camino.
+const TIPOS_SELECCIONABLES: TipoMovimientoInterno[] = ['cierre_comision', 'reembolso_gastos', 'ajuste_libre']
 
 interface Props {
   form: MovimientoFormState
   onChange: (k: keyof MovimientoFormState, v: string) => void
   error?: string
+  /** true cuando el tipo viene precargado por un flujo dedicado (ej. cierre de cuenta) y no debería poder cambiarse */
+  tipoBloqueado?: boolean
 }
 
-export function FormularioMovimientoInterno({ form, onChange, error }: Props) {
+export function FormularioMovimientoInterno({ form, onChange, error, tipoBloqueado }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4">
       <div className="space-y-1">
         <Label className="text-xs text-slate-500">Fecha *</Label>
         <Input type="date" value={form.fecha} onChange={e => onChange('fecha', e.target.value)} className="text-sm" />
+      </div>
+
+      <div className="space-y-1 md:col-span-2">
+        <Label className="text-xs text-slate-500">Concepto *</Label>
+        {tipoBloqueado ? (
+          <Input value={form.tipo ? TIPO_MOVIMIENTO_LABEL[form.tipo] : ''} readOnly className="text-sm bg-slate-50 text-slate-500 cursor-default" />
+        ) : (
+          <Select value={form.tipo} onValueChange={v => onChange('tipo', v)}>
+            <SelectTrigger className="text-sm"><SelectValue placeholder="¿Qué representa este movimiento?" /></SelectTrigger>
+            <SelectContent>
+              {TIPOS_SELECCIONABLES.map(t => <SelectItem key={t} value={t}>{TIPO_MOVIMIENTO_LABEL[t]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-1">

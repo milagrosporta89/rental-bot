@@ -10,7 +10,7 @@ export interface ItemMovimientoFinanciero {
 }
 
 interface Props {
-  titulo: string
+  titulo?: string
   items: ItemMovimientoFinanciero[]
   vacioMensaje: string
 }
@@ -18,7 +18,7 @@ interface Props {
 export function ListaMovimientoFinanciero({ titulo, items, vacioMensaje }: Props) {
   return (
     <div>
-      <h2 className="text-sm font-medium text-slate-700 mb-2">{titulo}</h2>
+      {titulo && <h2 className="text-sm font-medium text-slate-700 mb-2">{titulo}</h2>}
       {items.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">{vacioMensaje}</p>
       ) : (

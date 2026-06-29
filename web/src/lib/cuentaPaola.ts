@@ -1,5 +1,5 @@
-import { toISO } from './dates'
-import { COMISION_PAOLA_PORCENTAJE, Gasto, Ingreso, MovimientoInterno, Plataforma, Reserva } from './types'
+import { hoyISO, toISO } from './dates'
+import { COMISION_PAOLA_PORCENTAJE, Gasto, Ingreso, MovimientoInterno, Plataforma, Reserva, TipoMovimientoInterno } from './types'
 
 /**
  * Saldo de caja crudo de Paola — misma fórmula que obtenerBalancePaola() del bot
@@ -29,9 +29,11 @@ export function comisionDevengada(reserva: Reserva): number {
   return reserva.monto_total_usd * porcentaje
 }
 
-/** "YYYY-MM" de la fecha de salida (checkout) de una reserva. */
-function mesDeCheckout(reserva: Reserva): string {
-  return toISO(reserva.fecha_salida).slice(0, 7)
+/** Fecha (DD/MM/YYYY) del último movimiento_interno de un tipo dado, o null si nunca hubo uno. */
+export function fechaUltimoCierre(movimientos: MovimientoInterno[], tipo: TipoMovimientoInterno): string | null {
+  const delTipo = movimientos.filter(m => m.tipo === tipo)
+  if (delTipo.length === 0) return null
+  return delTipo.reduce((mas_reciente, m) => toISO(m.fecha) > toISO(mas_reciente.fecha) ? m : mas_reciente).fecha
 }
 
 export interface FilaReconciliacion {
@@ -42,18 +44,25 @@ export interface FilaReconciliacion {
 }
 
 /**
- * Reconciliación devengado-vs-cobrado de las reservas cuyo checkout cae en `mes` (YYYY-MM).
- * Ancla por fecha de checkout (no por fecha de cobro) para no distorsionar el cierre con
- * reservas cobradas en un mes pero resueltas en otro. Reservas canceladas no entran acá
- * (van a los "cobros pendientes de clasificar" de US-06).
+ * Reconciliación devengado-vs-cobrado de las reservas con checkout entre el último cierre de
+ * comisión (excluido) y hoy (incluido). Ancla por fecha de checkout, no por fecha de cobro,
+ * para no distorsionar el cierre con reservas cobradas en un momento pero resueltas en otro.
+ * Reservas canceladas o con checkout todavía no ocurrido quedan afuera.
  */
-export function reconciliacionDelMes(
+export function reconciliacionDesdeUltimoCierre(
   reservas: Reserva[],
   ingresosPaola: Ingreso[],
-  mes: string
+  fechaUltimoCierreISO: string | null
 ): FilaReconciliacion[] {
+  const hoy = hoyISO()
   return reservas
-    .filter(r => r.estado_reserva !== 'cancelada' && mesDeCheckout(r) === mes)
+    .filter(r => {
+      if (r.estado_reserva === 'cancelada') return false
+      const checkoutISO = toISO(r.fecha_salida)
+      if (checkoutISO > hoy) return false
+      if (fechaUltimoCierreISO && checkoutISO <= fechaUltimoCierreISO) return false
+      return true
+    })
     .map(reserva => {
       const devengado = comisionDevengada(reserva)
       const cobrado = ingresosPaola
@@ -61,4 +70,9 @@ export function reconciliacionDelMes(
         .reduce((s, i) => s + (i.monto_usd ?? 0), 0)
       return { reserva, devengado, cobrado, diferencia: devengado - cobrado }
     })
+}
+
+/** Gastos pagados por Paola desde el último reembolso (excluido) hasta hoy. */
+export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoReembolsoISO: string | null): Gasto[] {
+  return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)
 }

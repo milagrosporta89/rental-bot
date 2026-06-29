@@ -3,22 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { calcularSaldoPaola } from '@/lib/cuentaPaola'
+import { calcularSaldoPaola, fechaUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
-import type { Gasto, Ingreso, MovimientoInterno, Reserva, SentidoMovimiento } from '@/lib/types'
+import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
 import { ListaMovimientoFinanciero } from '@/components/cuenta-paola/ListaMovimientoFinanciero'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
-import { CierreMensualSection } from '@/components/cuenta-paola/CierreMensualSection'
+import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
 import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
-
-// TODO: confirmar con Mili — por ahora "comisiones cobradas" y "gastos de Paola" se acotan
-// al mes calendario en curso. Una vez validada la experiencia, pasa a ser "desde el último
-// cierre" (para soportar un cierre tardío que no caiga justo el día 30).
-function esDelMesActual(fecha: string): boolean {
-  return toISO(fecha).slice(0, 7) === new Date().toISOString().slice(0, 7)
-}
 
 interface DatosCuentaPaola {
   ingresosPaola: Ingreso[]
@@ -35,11 +28,16 @@ async function fetchDatos(): Promise<DatosCuentaPaola> {
   return json
 }
 
+function desdeFecha(fecha: string): (item: { fecha: string }) => boolean {
+  const desdeISO = fecha ? toISO(fecha) : null
+  return item => !desdeISO || toISO(item.fecha) > desdeISO
+}
+
 export default function CuentaPaolaPage() {
   const [datos, setDatos] = useState<DatosCuentaPaola | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
-  const [modal, setModal] = useState<{ open: boolean; prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string } }>({ open: false })
+  const [modalOpen, setModalOpen] = useState(false)
   const [modalKey, setModalKey] = useState(0)
 
   useEffect(() => {
@@ -52,17 +50,9 @@ export default function CuentaPaolaPage() {
     fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
   }, [])
 
-  function abrirModal(prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string }) {
+  function abrirModalLibre() {
     setModalKey(k => k + 1)
-    setModal({ open: true, prefill })
-  }
-
-  function cerrarMesConTotal(total: number, mes: string) {
-    // diferencia > 0 → devengado > cobrado → Paola cobró de menos → el negocio le debe (a_favor_paola)
-    const sentido: SentidoMovimiento = total > 0 ? 'a_favor_paola' : 'a_favor_negocio'
-    // El mes queda en el detalle para que se note en "Movimientos de ajuste" si este mes ya se cerró antes —
-    // no hay un mecanismo de "mes cerrado" todavía, ver qa-output.json.
-    abrirModal({ monto: Math.abs(total), sentido, detalle: `Cierre mensual de comisión — ${mes}` })
+    setModalOpen(true)
   }
 
   if (cargando) {
@@ -88,15 +78,21 @@ export default function CuentaPaolaPage() {
   }
 
   const saldo = calcularSaldoPaola(datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
-  const comisionesDelMes = datos.ingresosPaola.filter(i => esDelMesActual(i.fecha))
-  const gastosPaolaDelMes = datos.gastosPaola.filter(g => esDelMesActual(g.fecha))
+
+  // "Comisiones cobradas" y "Gastos pagados por Paola" muestran lo acumulado desde el último
+  // cierre de cada tipo — mismo criterio que usa CierreCuentaSection, así no hay dos nociones
+  // distintas de "qué es lo pendiente" en la misma pantalla.
+  const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
+  const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
+  const comisionesPendientes = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
+  const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
 
   return (
     <div className="h-full overflow-auto">
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-lg font-semibold text-slate-800">Cuenta de Paola</h1>
-          <Button size="sm" onClick={() => abrirModal()}>
+          <Button size="sm" onClick={abrirModalLibre}>
             Registrar movimiento
           </Button>
         </div>
@@ -104,14 +100,14 @@ export default function CuentaPaolaPage() {
         <SaldoPaolaCard saldo={saldo} />
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — mes en curso</h2>
-          <TablaComisionesCobradas ingresos={comisionesDelMes} reservas={datos.reservas} />
+          <h2 className="text-sm font-medium text-slate-700 mb-2">Comisiones cobradas — desde el último cierre</h2>
+          <TablaComisionesCobradas ingresos={comisionesPendientes} reservas={datos.reservas} />
         </div>
 
         <ListaMovimientoFinanciero
-          titulo="Gastos pagados por Paola — mes en curso"
-          items={gastosPaolaDelMes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
-          vacioMensaje="Sin gastos pagados por Paola este mes."
+          titulo="Gastos pagados por Paola — desde el último cierre"
+          items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
+          vacioMensaje="Sin gastos pagados por Paola desde el último cierre."
         />
 
         <ListaMovimientoFinanciero
@@ -120,10 +116,12 @@ export default function CuentaPaolaPage() {
           vacioMensaje="Sin movimientos registrados todavía."
         />
 
-        <CierreMensualSection
+        <CierreCuentaSection
           reservas={datos.reservas}
           ingresosPaola={datos.ingresosPaola}
-          onCerrarMes={cerrarMesConTotal}
+          gastosPaola={datos.gastosPaola}
+          movimientosInternos={datos.movimientosInternos}
+          onCerrado={recargar}
         />
 
         <CancelacionesPendientesSection
@@ -135,10 +133,9 @@ export default function CuentaPaolaPage() {
 
       <MovimientoModal
         key={modalKey}
-        open={modal.open}
-        prefill={modal.prefill}
-        onClose={() => setModal(m => ({ ...m, open: false }))}
-        onSaved={() => { setModal(m => ({ ...m, open: false })); recargar() }}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={() => { setModalOpen(false); recargar() }}
       />
     </div>
   )

@@ -210,6 +210,7 @@ export async function marcarResolucionCancelacion(
       monto_ars: ingreso.monto_ars,
       monto_usd: ingreso.monto_usd,
       sentido: 'a_favor_negocio',
+      tipo: 'caja_chica',
       detalle: `Caja chica — cobro de reserva cancelada (ingreso ${ingresoId})`,
       comprobante_url: null,
       registrado_por,

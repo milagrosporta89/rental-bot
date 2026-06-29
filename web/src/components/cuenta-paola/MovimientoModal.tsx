@@ -6,12 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button'
 import { toDDMMYYYY } from '@/lib/dates'
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
-import type { SentidoMovimiento } from '@/lib/types'
+import type { SentidoMovimiento, TipoMovimientoInterno } from '@/lib/types'
 import { FormularioMovimientoInterno, type MovimientoFormState } from './FormularioMovimientoInterno'
 
 interface Props {
   open: boolean
-  prefill?: { monto: number; sentido: SentidoMovimiento; detalle?: string }
+  prefill?: { monto: number; sentido: SentidoMovimiento; tipo: TipoMovimientoInterno; detalle?: string }
   onClose: () => void
   onSaved: () => void
 }
@@ -22,6 +22,7 @@ const FORM_INICIAL: MovimientoFormState = {
   moneda: 'ARS',
   cotizacion: '',
   sentido: '',
+  tipo: '',
   detalle: '',
 }
 
@@ -35,6 +36,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
     ...FORM_INICIAL,
     monto: prefill ? prefill.monto.toFixed(2) : '',
     sentido: prefill?.sentido ?? '',
+    tipo: prefill?.tipo ?? '',
     detalle: prefill?.detalle ?? '',
   }))
   const [loading, setLoading] = useState(false)
@@ -61,6 +63,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
     if (!form.fecha) { setError('La fecha es obligatoria.'); return }
     if (!montoNum || montoNum <= 0) { setError('El monto debe ser mayor a 0.'); return }
     if (!form.sentido) { setError('Elegí el sentido del movimiento.'); return }
+    if (!form.tipo) { setError('Elegí qué representa este movimiento.'); return }
 
     const monto_usd = form.moneda === 'USD' ? montoNum : (cotizNum > 0 ? +(montoNum / cotizNum).toFixed(2) : null)
     const monto_ars = form.moneda === 'ARS' ? montoNum : (cotizNum > 0 ? +(montoNum * cotizNum).toFixed(2) : null)
@@ -75,6 +78,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
         monto_ars,
         monto_usd,
         sentido: form.sentido,
+        tipo: form.tipo,
         detalle: form.detalle.trim() || null,
         comprobante_url: null,
       })
@@ -93,7 +97,7 @@ export function MovimientoModal({ open, prefill, onClose, onSaved }: Props) {
           <DialogTitle>Registrar movimiento</DialogTitle>
         </DialogHeader>
 
-        <FormularioMovimientoInterno form={form} onChange={onChange} error={error} />
+        <FormularioMovimientoInterno form={form} onChange={onChange} error={error} tipoBloqueado={!!prefill?.tipo} />
 
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>

@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { registradoPorActual } from '@/lib/auth'
-import type { SentidoMovimiento } from '@/lib/types'
+import type { SentidoMovimiento, TipoMovimientoInterno } from '@/lib/types'
 
 export interface MovimientoInternoPayload {
   fecha: string // DD/MM/YYYY
@@ -12,6 +12,7 @@ export interface MovimientoInternoPayload {
   monto_ars: number | null
   monto_usd: number | null
   sentido: SentidoMovimiento
+  tipo: TipoMovimientoInterno
   detalle: string | null
   comprobante_url: string | null
 }
@@ -34,11 +35,11 @@ export async function crearMovimientoInterno(payload: MovimientoInternoPayload):
   })
   if (error) throw new Error(error.message)
 
-  // 'a_favor_paola' es plata que sale de verdad de la cuenta del negocio hacia ella — tiene
-  // que quedar en /gastos como cualquier otra salida real, igual que ya hace el gatillo de
-  // comisión por reserva (US-04). 'a_favor_negocio' es plata que entra, no sale, así que no
-  // genera nada más (decisión explícita de Mili).
-  if (payload.sentido === 'a_favor_paola') {
+  // Solo 'cierre_comision' es plata real que nunca se contó en ningún lado — ese sí tiene que
+  // quedar en /gastos, igual que el gatillo de comisión por reserva (US-04). Los demás tipos
+  // (reembolso_gastos, caja_chica, ajuste_libre) o ya están contados en otro gasto, o no son
+  // una salida nueva — generar un gasto acá los contaría dos veces.
+  if (payload.tipo === 'cierre_comision') {
     const { error: ge } = await supabase.from('gastos').insert({
       id: `GAS-${Date.now() + 1}`,
       fecha: payload.fecha,
