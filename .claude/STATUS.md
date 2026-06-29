@@ -63,7 +63,14 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Comisiones por adelantado separadas** → commit `ee23e79`: las comisiones que Paola ya cobró de reservas que todavía no terminaron (ej. reserva #4, checkout en septiembre) quedaban mezcladas dentro de "Comisiones cobradas" sin distinguirse de las que ya están listas para cerrar. Ahora son dos tablas separadas (`comisionesPorAdelantado()` en `lib/cuentaPaola.ts`).
 
+**Tanda de ajustes finos** → commits `e042e4c`, `669cc90`, `8aefbf7` + migración `007_gasto_id_reserva.sql`:
+- El gasto de comisión del gatillo (US-04) ahora se vincula a la reserva por `id_reserva` (columna nueva, nullable) además de por texto en el detalle — Mili había descartado esto al principio, lo revisó y pidió agregarlo igual, porque el detalle se puede editar/borrar y el id no.
+- "Movimientos de ajuste" pasa a `TablaMovimientos.tsx` dedicada: un solo monto (antes mostraba el original + el equivalente USD duplicado, casi siempre igual) y una columna nueva de cuenta de origen.
+- "Comisiones cobradas" suma columna Plataforma.
+- El saldo principal se desglosa en 3 cards (total, comisión pendiente, gastos pendientes) en vez de una sola combinada — `saldoPendienteDesglosado()` reemplaza `saldoPendienteTotal()`.
+
 **Pendiente / próximo paso**:
+- Correr la migración `007_gasto_id_reserva.sql` en Supabase (además de la `006` ya avisada).
 - `designer-output.json` quedó con una nota de la 3ra revisión pero sin reescribir el `component_tree`/`flow` línea por línea — el código es la fuente de verdad mientras tanto.
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
