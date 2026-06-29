@@ -17,6 +17,7 @@ export interface GastoPayload {
   nro_operacion: string | null
   detalle: string | null
   comprobante_url: string | null
+  id_reserva: string | null
 }
 
 export interface GastoDuplicado {

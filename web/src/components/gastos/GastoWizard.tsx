@@ -30,6 +30,7 @@ const FORM_INICIAL: GastoFormState = {
   banco_origen: '',
   nro_operacion: '',
   detalle: '',
+  id_reserva: '',
 }
 
 function toTitleCase(s: string) {
@@ -38,8 +39,11 @@ function toTitleCase(s: string) {
 
 // US-04: entrada desde el gatillo de "asentar cobro de Paola como gasto de comisión"
 // (web/src/components/reservas/GatilloComisionModal.tsx) — precarga sin venir de un edit existente.
+// id_reserva vincula el gasto a la reserva que originó el cobro (en vez de depender solo del
+// texto de "detalle", que se puede editar/borrar) — decisión revisada por Mili.
 function formInicialDesdeParams(searchParams: ReturnType<typeof useSearchParams>): GastoFormState {
   if (searchParams.get('prefillComision') !== '1') return FORM_INICIAL
+  const idReserva = searchParams.get('idReserva') ?? ''
   return {
     ...FORM_INICIAL,
     categoria: 'comision',
@@ -48,6 +52,8 @@ function formInicialDesdeParams(searchParams: ReturnType<typeof useSearchParams>
     fecha: searchParams.get('fecha') ?? FORM_INICIAL.fecha,
     pagadoPor: 'Fernando',
     nombre_destinatario: 'Paola',
+    id_reserva: idReserva,
+    detalle: idReserva ? `Comisión reserva #${idReserva}` : '',
   }
 }
 
@@ -86,6 +92,7 @@ export function GastoWizard() {
         banco_origen: g.banco_origen ?? '',
         nro_operacion: g.nro_operacion ?? '',
         detalle: g.detalle ?? '',
+        id_reserva: g.id_reserva ?? '',
       })
       setCargandoEdicion(false)
     })
@@ -213,6 +220,7 @@ export function GastoWizard() {
       nro_operacion: nn(form.nro_operacion),
       detalle: nn(form.detalle),
       comprobante_url: comprobanteUrl || null,
+      id_reserva: nn(form.id_reserva),
     }
   }
 

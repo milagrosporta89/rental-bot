@@ -19,6 +19,8 @@ export interface GastoFormState {
   banco_origen: string
   nro_operacion: string
   detalle: string
+  /** id de la reserva que originó este gasto (solo viene seteado desde el gatillo de comisión, US-04) */
+  id_reserva: string
 }
 
 interface Props {
@@ -128,6 +130,12 @@ export function FormularioGasto({ form, fromComprobante, ro, onChange, error }: 
         <Label className="text-xs text-slate-500">Detalle</Label>
         <Input value={form.detalle} onChange={e => onChange('detalle', e.target.value)} className="text-sm" />
       </div>
+
+      {form.id_reserva && (
+        <p className="col-span-1 md:col-span-2 text-[11px] text-slate-400">
+          Vinculado a la reserva #{form.id_reserva}.
+        </p>
+      )}
 
       {error && <p className="col-span-1 md:col-span-2 text-xs text-red-500">{error}</p>}
     </div>

@@ -606,7 +606,7 @@ function PagoPageInner() {
       <GatilloComisionModal
         open={gatilloOpen}
         montoUsd={montoUSD}
-        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoNum}&moneda=${form.moneda}&fecha=${form.fecha}`)}
+        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoNum}&moneda=${form.moneda}&fecha=${form.fecha}&idReserva=${reserva.id}`)}
         onDismiss={() => router.push(`/reservas/${reserva.id}`)}
       />
     </div>

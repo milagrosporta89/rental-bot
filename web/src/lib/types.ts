@@ -71,6 +71,7 @@ export interface Gasto {
   cotizacion: number
   monto_ars: number | null
   monto_usd: number | null
+  id_reserva: string | null
 }
 
 export interface Ingreso {
