@@ -44,7 +44,20 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Gap detectado por Mili y corregido**: los 5 ingresos simulados a Paola no tenían su gasto de comisión espejo (lo que generaría el gatillo de US-04 en el flujo real). Se agregaron 4 gastos `categoria: comision` (Fernando → Paola) para las reservas #14, #16, #17 y #20, con el mismo monto/fecha que sus ingresos correspondientes (igual que precargaría el gatillo real). **A propósito, el ingreso de la reserva #18 (cancelada) queda sin su gasto espejo** — simula el caso de "Mili declinó el gatillo", razonable porque en ese momento todavía no se sabía si ese cobro se iba a clasificar como comisión o como caja chica.
 
+**Cambio de modelo grande, pedido por Mili tras entender el flujo** → commit `c443bc0` + migración `005_movimiento_tipo.sql`:
+- El cierre deja de ser "por mes calendario" y pasa a ser **"desde el último cierre"** de cada tipo — permite cierres tardíos, no atados al día 30.
+- `movimientos_internos` suma un campo `tipo` (`cierre_comision` | `reembolso_gastos` | `caja_chica` | `ajuste_libre`). Se corrigió un riesgo real de doble conteo: antes, **todo** movimiento a favor de Paola generaba un gasto espejo en `/gastos`; ahora solo lo genera `cierre_comision` (plata nunca contada) — `reembolso_gastos` no genera nada nuevo, porque esos gastos (limpieza, lavandería) ya están en `/gastos` desde el día que Paola los pagó, y duplicarlos sería pagarlos dos veces en los números.
+- `CierreCuentaSection` (reemplaza `CierreMensualSection`): dos bloques — comisión pendiente y gastos pendientes de reembolso, cada uno desde su último cierre — con un botón único que crea hasta 2 movimientos en un solo paso.
+- El botón genérico "Registrar movimiento" ahora pide el concepto (comisión pendiente / reembolso de gastos / otro ajuste).
+
+**Reset completo de datos en staging**, autorizado explícitamente por Mili, incorporando una regla de negocio que faltaba: **las reservas de Airbnb no tienen seña — todo se paga al check-in**. Se corrigió también un caso inválido que Mili señaló (una reserva *confirmada* con $0 cobrado no puede existir, porque nunca podría haberse iniciado sin al menos la seña). Datos nuevos (13 reservas, 12 ingresos, 23 gastos, 2 movimientos históricos — todos marcados `SIMULACION cuenta-paola` / `[SIM]`):
+- Período anterior ya cerrado (reservas #1, #7, #13, checkout ≤ 30/04) — no aparecen más en pantalla, a propósito, para probar que el filtro "desde el último cierre" las excluye.
+- Comisión pendiente real (#2: seña pagada a la cuenta general, comisión de Paola nunca cobrada → +$180), cobro de más (#3: -$30), futura con comisión ya cobrada por adelantado (#4, no cierra hasta septiembre), cancelada con comisión cobrada pendiente de clasificar (#5), cancelada sin cobro (#6), airbnb futuras sin ningún pago — válido, todavía no inició la estadía (#9, #11), airbnb cancelada sin cobro (#10).
+- Verificado con un script de cálculo independiente (no solo confiando en la UI): comisión pendiente actual = +$150, gastos pendientes de reembolso = $727,03 — coincide con lo esperado a mano.
+
 **Pendiente / próximo paso**:
+- `designer-output.json` quedó con una nota de la 3ra revisión pero sin reescribir el `component_tree`/`flow` línea por línea — el código es la fuente de verdad mientras tanto.
+- Mili pidió convertir todas las secciones de lista (gastos pagados por Paola, movimientos de ajuste, gastos pendientes de reembolso) a tablas con fila de totales, igual que "Comisiones cobradas" — en curso.
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
 - Limpiar los datos simulados (`notas = 'SIMULACION cuenta-paola'` / detalle `ilike '[SIM]%'`) cuando se termine de probar — no se borran solos.
