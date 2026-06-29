@@ -36,6 +36,12 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Reseed completo de `gastos`** (pedido explícito de Mili: "elimina todos los gastos de la tabla"): borrados los 14 que había (los 4 `[SIM]` de la tanda anterior + 10 preexistentes) y reemplazados por 19 gastos nuevos con montos realistas que Mili pasó de una planilla real (descartando los nombres propios de esa planilla — eran pagos de huéspedes, no gastos — y usando solo las filas de categoría: limpieza, lavandería, expensas, internet, community manager → `marketing`, electricidad → `luz`, impuestos comuna → `impuestos`). Repartidos en mayo 2026 (cerrado, 10 gastos) y junio 2026 (en curso, 9 gastos), `pagado_por`: limpieza/lavandería → Paola, el resto → Fernando. Mismo marcador `[SIM]` en el detalle para limpiar después.
 
+**Iteración de UX sobre la pantalla, pedida por Mili tras probar con los datos simulados** → commit `6d86e6b`:
+- "Comisiones cobradas" pasa de lista a **tabla** (`TablaComisionesCobradas.tsx`): fecha, reserva, monto de la reserva, cobrado, **% cobrado** (cobrado/monto reserva — muestra de un vistazo si Paola cobró de más o de menos respecto del 15%/10% nominal), método de pago, y una fila de totales (suma + % ponderado).
+- Tanto esa tabla como "Gastos pagados por Paola" se acotan al **mes calendario en curso** por ahora (placeholder explícito, TODO en el código) — Mili ya avisó que más adelante esto pasa a ser "desde el último cierre de caja", para soportar un cierre tardío que no caiga necesariamente el día 30. No implementado todavía, solo el filtro simple por mes.
+- Dato simulado agregado para entender el comportamiento: un `movimiento_interno` que representa el cierre de mayo ya hecho (`MOV-SIM-mayo`, 180 USD a favor de Paola — coincide con la diferencia real de la reserva #15). Sirve para que Mili vea en carne propia la limitación ya anotada en `qa-output.json`: como no hay un "mes cerrado" real, la tabla de cierre de mayo va a seguir mostrando la misma diferencia de 180 aunque ya exista ese movimiento.
+- También se agregó n° de operación a un ingreso simulado (`ING-SIM-3`) para que la columna "Método de pago" no fuera siempre "Efectivo".
+
 **Pendiente / próximo paso**:
 - Mili va a recorrer `/cuenta-paola` con los datos simulados poniéndose en el lugar de Paola — esperar su feedback de UX antes de seguir.
 - Decidir con Mili si la mitigación del "mes cerrado" alcanza o hace falta un mecanismo real.
