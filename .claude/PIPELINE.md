@@ -6,7 +6,18 @@ Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y 
 
 El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se aprobó) vive en `STATUS.md`, no acá. Este archivo describe el proceso, no una corrida puntual.
 
-**Cada feature tiene su propia carpeta de artifacts: `.claude/artifacts/<feature>/`** (`po-output.json`, `designer-output.json`, `qa-output.json`, y el `explore.md` si se guardó). Nunca uses el nombre de archivo plano sin la carpeta — eso fue un error de la primera corrida (gastos) que pisaba artifacts de una feature con la de otra; ya está corregido, no lo repitas.
+**Cada feature tiene su propia carpeta de artifacts: `.claude/artifacts/<feature>/`** (`po-output.json`, `designer-output.json`, `qa-output.json`, y `explore.md`, que ahora siempre se guarda — ver `commands/explore.md`). Nunca uses el nombre de archivo plano sin la carpeta — eso fue un error de la primera corrida (gastos) que pisaba artifacts de una feature con la de otra; ya está corregido, no lo repitas.
+
+## Cómo se ejecuta cada fase
+
+Cada una de las 4 fases (PO, Designer, Developer, QA) corre como un **subagente aislado** (Agent tool, `subagent_type: general-purpose`), no inline en la conversación con Mili — ver mecánica concreta en `commands/run-pipeline.md`. Motivo: evitar que el detalle de cada fase, sobre todo las verificaciones con Playwright de Developer/QA (screenshots, DOM, logs de red), se acumule en el historial de la sesión. Es la misma lógica que llevó a archivar `STATUS.md` por feature cerrada (ver `CONTEXT.md`): aislar lo que es ruido de proceso de lo que hace falta recordar.
+
+Cada subagente de fase:
+- Recibe en su prompt qué fase es, la feature, la rama (ya posicionada), qué artifacts previos leer y dónde escribir el suyo — autocontenido, sin asumir que vio esta conversación.
+- Hace su trabajo completo (incluidas idas y vueltas internas) dentro de su propio contexto aislado.
+- Termina con un **resumen corto** (no el JSON completo del artifact, no logs de Playwright) para mostrar en el chat antes del gate de aprobación. El detalle fino queda en el artifact en disco y en `viewer.html` (`node scripts/pipeline-viewer.mjs`), no se duplica en el chat ni en `STATUS.md`.
+
+El orquestador (esta conversación) nunca hace el trabajo de una fase directamente — lanza el subagente, muestra su resumen, espera la aprobación de Mili, y lanza el siguiente.
 
 ---
 

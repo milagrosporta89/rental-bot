@@ -46,4 +46,6 @@ Producí el resumen en este formato (en el chat; no hace falta guardarlo como ar
 [máximo 10, solo si son bloqueantes]
 ```
 
+**Guardá siempre este reporte en `.claude/artifacts/<feature>/explore.md`**, incluidas las respuestas de Mili a las preguntas bloqueantes una vez que las conteste — no es opcional. `/run-pipeline` ejecuta cada fase como un subagente aislado (ver `PIPELINE.md`) que no tiene acceso a esta conversación, solo a lo que esté en disco; si este archivo no existe, el Agente 1 (PO) no tiene de dónde partir.
+
 Cuando Mili responda las preguntas bloqueantes, quedás listo para correr `/run-pipeline <feature>`.
