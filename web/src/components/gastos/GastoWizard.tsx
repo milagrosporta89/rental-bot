@@ -337,7 +337,10 @@ export function GastoWizard() {
           )}
 
           {paso === 'exito' && (
-            <Button onClick={() => router.push('/gastos')} className="w-full cursor-pointer">
+            <Button
+              onClick={() => { router.refresh(); router.push('/gastos') }}
+              className="w-full cursor-pointer"
+            >
               Continuar
             </Button>
           )}

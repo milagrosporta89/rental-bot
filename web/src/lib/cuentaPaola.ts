@@ -20,35 +20,50 @@ export interface FilaReconciliacion {
   devengado: number
   cobrado: number
   diferencia: number
+  // Mismos valores en pesos, pero sumando lo que cada registro ya tiene asentado en su momento
+  // (ingreso.monto_ars real, o monto_total_usd * la cotización con la que se cargó la reserva)
+  // — nunca convertidos a la cotización de hoy, para no inventar ganancias o pérdidas cambiarias.
+  devengadoArs: number
+  cobradoArs: number
+  diferenciaArs: number
+}
+
+function filaDeReserva(reserva: Reserva, ingresosPaola: Ingreso[]): FilaReconciliacion {
+  const devengado = comisionDevengada(reserva)
+  const ingresosReserva = ingresosPaola.filter(i => i.id_reserva === reserva.id && i.resolucion_cancelacion !== 'caja_chica')
+  const cobrado = ingresosReserva.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
+  const devengadoArs = devengado * reserva.cotizacion
+  const cobradoArs = ingresosReserva.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
+  return { reserva, devengado, cobrado, diferencia: devengado - cobrado, devengadoArs, cobradoArs, diferenciaArs: devengadoArs - cobradoArs }
 }
 
 /**
- * Reconciliación devengado-vs-cobrado de las reservas con checkout entre el último cierre de
- * comisión (excluido) y hoy (incluido). Ancla por fecha de checkout, no por fecha de cobro,
- * para no distorsionar el cierre con reservas cobradas en un momento pero resueltas en otro.
- * Reservas canceladas o con checkout todavía no ocurrido quedan afuera.
+ * Reconciliación devengado-vs-cobrado de todas las reservas ya terminadas (no canceladas).
+ * No ancla por fecha de un cierre anterior: una reserva pendiente lo sigue estando sin importar
+ * cuándo se cargó en el sistema — anclar por checkout-vs-fecha-de-cierre rompía con reservas
+ * agregadas después de un cierre pero con checkout anterior a esa fecha (quedaban excluidas para
+ * siempre). Lo que sí queda resuelto automáticamente: en cuanto diferencia llega a 0 (porque se
+ * liquidó), deja de aparecer como pendiente en los filtros que usan este resultado.
  */
-export function reconciliacionDesdeUltimoCierre(
-  reservas: Reserva[],
-  ingresosPaola: Ingreso[],
-  fechaUltimoCierreISO: string | null
-): FilaReconciliacion[] {
+export function reconciliacionDesdeUltimoCierre(reservas: Reserva[], ingresosPaola: Ingreso[]): FilaReconciliacion[] {
   const hoy = hoyISO()
   return reservas
-    .filter(r => {
-      if (r.estado_reserva === 'cancelada') return false
-      const checkoutISO = toISO(r.fecha_salida)
-      if (checkoutISO > hoy) return false
-      if (fechaUltimoCierreISO && checkoutISO <= fechaUltimoCierreISO) return false
-      return true
-    })
-    .map(reserva => {
-      const devengado = comisionDevengada(reserva)
-      const cobrado = ingresosPaola
-        .filter(i => i.id_reserva === reserva.id)
-        .reduce((s, i) => s + (i.monto_usd ?? 0), 0)
-      return { reserva, devengado, cobrado, diferencia: devengado - cobrado }
-    })
+    .filter(r => r.estado_reserva !== 'cancelada' && toISO(r.fecha_salida) <= hoy)
+    .map(r => filaDeReserva(r, ingresosPaola))
+}
+
+/**
+ * Reservas ya resueltas (cobrado = devengado) — el espejo histórico de
+ * reconciliacionDesdeUltimoCierre: esa mira lo pendiente (diferencia !== 0), esta mira lo que ya
+ * quedó saldado (diferencia === 0), para poder revisar qué % cobró Paola en cada una. El
+ * "cobrado" excluye lo ya re-etiquetado como caja chica al liquidar (ver
+ * partirIngresoPorExcedente) — por eso una reserva conciliada queda con cobrado = devengado, no
+ * con el monto bruto que incluía el excedente.
+ */
+export function historicoReservasLiquidadas(reservas: Reserva[], ingresosPaola: Ingreso[]): FilaReconciliacion[] {
+  return reconciliacionDesdeUltimoCierre(reservas, ingresosPaola)
+    .filter(f => f.diferencia === 0)
+    .sort((a, b) => toISO(b.reserva.fecha_salida).localeCompare(toISO(a.reserva.fecha_salida)))
 }
 
 /**
@@ -71,10 +86,31 @@ export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoRee
   return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)
 }
 
+/**
+ * Saldo acumulado de caja chica: plata que es del negocio pero quedó en la cuenta de Paola (por
+ * comisión cobrada de más, o por un cobro de reserva cancelada clasificado como caja chica),
+ * menos lo que ya se usó para cubrir comisiones o reembolsos en liquidaciones posteriores.
+ * Es un stock que persiste entre liquidaciones, no algo que se resetee cada vez.
+ */
+export function saldoCajaChica(movimientos: MovimientoInterno[], campo: 'monto_usd' | 'monto_ars' = 'monto_usd'): number {
+  return movimientos.reduce((s, m) => {
+    if (m.tipo === 'cierre_comision') {
+      return m.sentido === 'a_favor_negocio' ? s + (m[campo] ?? 0) : s
+    }
+    if (m.tipo === 'caja_chica') {
+      return s + (m.sentido === 'a_favor_negocio' ? (m[campo] ?? 0) : -(m[campo] ?? 0))
+    }
+    return s
+  }, 0)
+}
+
 export interface SaldoPendienteDesglosado {
   comision: number
   gastos: number
   total: number
+  comisionArs: number
+  gastosArs: number
+  totalArs: number
 }
 
 /**
@@ -88,16 +124,17 @@ export function saldoPendienteDesglosado(
   gastosPaola: Gasto[],
   movimientos: MovimientoInterno[]
 ): SaldoPendienteDesglosado {
-  const fechaCierreComision = fechaUltimoCierre(movimientos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(movimientos, 'reembolso_gastos')
 
-  const comision = reconciliacionDesdeUltimoCierre(
-    reservas, ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null
-  ).reduce((s, f) => s + f.diferencia, 0)
+  const filasComision = reconciliacionDesdeUltimoCierre(reservas, ingresosPaola)
+  const comision = filasComision.reduce((s, f) => s + f.diferencia, 0)
+  const comisionArs = filasComision.reduce((s, f) => s + f.diferenciaArs, 0)
 
-  const gastos = gastosPendientesDeReembolso(
+  const gastosPendientes = gastosPendientesDeReembolso(
     gastosPaola, fechaCierreReembolso ? toISO(fechaCierreReembolso) : null
-  ).reduce((s, g) => s + (g.monto_usd ?? 0), 0)
+  )
+  const gastos = gastosPendientes.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
+  const gastosArs = gastosPendientes.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
 
-  return { comision, gastos, total: comision + gastos }
+  return { comision, gastos, total: comision + gastos, comisionArs, gastosArs, totalArs: comisionArs + gastosArs }
 }

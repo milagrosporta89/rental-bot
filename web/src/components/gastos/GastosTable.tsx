@@ -24,8 +24,11 @@ function categoriaLabel(c: string): string {
   return CATEGORIA_GASTO_LABEL[c as CategoriaGasto] ?? c
 }
 
-// Mismo criterio que PagosSection.tsx (ingresos): si tiene nro_operacion fue transferencia, si no, efectivo
+// Mismo criterio que PagosSection.tsx (ingresos): si tiene nro_operacion fue transferencia, si no, efectivo.
+// Excepto los gastos de comisión que crea la liquidación (espejo o red de seguridad) — no son ni
+// una cosa ni la otra, son una distribución interna, así que se marcan aparte.
 function metodoPago(g: Gasto): string {
+  if (g.banco_origen === 'Liquidación de comisión') return 'Liquidación de comisión'
   return g.nro_operacion ? 'Transferencia' : 'Efectivo'
 }
 
@@ -106,6 +109,7 @@ export function GastosTable() {
     setEliminando(true)
     try {
       await eliminarGasto(id)
+      setGastos(prev => prev.filter(g => g.id !== id))
     } finally {
       setEliminando(false)
       setConfirmDeleteId(null)

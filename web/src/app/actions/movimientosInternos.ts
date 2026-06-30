@@ -36,11 +36,10 @@ export async function crearMovimientoInterno(payload: MovimientoInternoPayload):
   })
   if (error) throw new Error(error.message)
 
-  // Solo 'cierre_comision' es plata real que nunca se contó en ningún lado — ese sí tiene que
-  // quedar en /gastos, igual que el gatillo de comisión por reserva (US-04). Los demás tipos
-  // (reembolso_gastos, caja_chica, ajuste_libre) o ya están contados en otro gasto, o no son
-  // una salida nueva — generar un gasto acá los contaría dos veces.
-  if (payload.tipo === 'cierre_comision') {
+  // Solo 'cierre_comision' a_favor_paola es plata real que sale del negocio hacia Paola — ese sí
+  // tiene que quedar en /gastos como costo de comisión. Si el sentido es a_favor_negocio (Paola
+  // cobró de más y queda como caja chica), no hay salida real de plata, no se crea gasto.
+  if (payload.tipo === 'cierre_comision' && payload.sentido === 'a_favor_paola') {
     const { error: ge } = await supabase.from('gastos').insert({
       id: `GAS-${Date.now() + 1}`,
       fecha: payload.fecha,
@@ -49,7 +48,7 @@ export async function crearMovimientoInterno(payload: MovimientoInternoPayload):
       categoria: 'comision',
       pagado_por: payload.cuenta_origen || 'Fernando',
       nombre_destinatario: 'Paola',
-      banco_origen: 'Transferencia',
+      banco_origen: 'Liquidación de comisión',
       nro_operacion: null,
       detalle: payload.detalle,
       registrado_por,

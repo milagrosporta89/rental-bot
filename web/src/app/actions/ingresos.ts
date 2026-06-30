@@ -221,6 +221,64 @@ export async function marcarResolucionCancelacion(
   }
 }
 
+/**
+ * Al liquidar comisiones, si Paola cobró de más en una reserva (no cancelada), el ingreso
+ * original se parte en dos: uno por la comisión que correspondía (queda igual que siempre,
+ * cuenta como "cobrado" en la reconciliación) y otro por el excedente, etiquetado como caja
+ * chica (igual criterio que marcarResolucionCancelacion) — así una reserva ya liquidada
+ * muestra el % de comisión real, no el monto bruto que incluía el excedente.
+ */
+export async function partirIngresoPorExcedente(idReserva: string, montoComisionUsd: number): Promise<void> {
+  const supabase = createAdminClient()
+  const { data: ingresos, error } = await supabase
+    .from('ingresos')
+    .select('*')
+    .eq('id_reserva', idReserva)
+    .eq('nombre_destinatario', 'Paola')
+    .is('resolucion_cancelacion', null)
+  if (error) throw new Error(error.message)
+  if (!ingresos || ingresos.length === 0) return
+
+  const ingreso = ingresos.reduce((mayor, i) => (i.monto_usd ?? 0) > (mayor.monto_usd ?? 0) ? i : mayor)
+  const excedenteUsd = (ingreso.monto_usd ?? 0) - montoComisionUsd
+  if (excedenteUsd <= 0) return
+
+  const proporcionComision = montoComisionUsd / (ingreso.monto_usd ?? 1)
+  const registrado_por = await registradoPorActual()
+  const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+
+  const { error: ue } = await supabase.from('ingresos').update({
+    monto: ingreso.monto * proporcionComision,
+    monto_ars: ingreso.monto_ars != null ? ingreso.monto_ars * proporcionComision : null,
+    monto_usd: montoComisionUsd,
+  }).eq('id', ingreso.id)
+  if (ue) throw new Error(ue.message)
+
+  const { error: ce } = await supabase.from('ingresos').insert({
+    id: `ING-${Date.now()}`,
+    fecha: ingreso.fecha,
+    casa: ingreso.casa,
+    monto: ingreso.monto * (1 - proporcionComision),
+    moneda: ingreso.moneda,
+    tipo: ingreso.tipo,
+    quien_pago: ingreso.quien_pago,
+    nombre_destinatario: ingreso.nombre_destinatario,
+    banco_destino: ingreso.banco_destino,
+    nro_operacion: null,
+    detalle: `Excedente de comisión — caja chica (de ${ingreso.id})`,
+    registrado_por,
+    comprobante_url: null,
+    timestamp,
+    cotizacion: ingreso.cotizacion,
+    monto_ars: ingreso.monto_ars != null ? ingreso.monto_ars * (1 - proporcionComision) : null,
+    monto_usd: excedenteUsd,
+    id_reserva: ingreso.id_reserva,
+    tipo_movimiento: ingreso.tipo_movimiento,
+    resolucion_cancelacion: 'caja_chica',
+  })
+  if (ce) throw new Error(ce.message)
+}
+
 export async function editarIngreso(
   id: string,
   reservaId: string,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -86,8 +86,19 @@ export function ReservaModal(props: Props) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [pendingCancelacion, setPendingCancelacion] = useState(false)
+  const [cotizacion, setCotizacion] = useState(mode === 'edit' || mode === 'view' ? props.reserva.cotizacion : 0)
   const checkinRef = useRef<HTMLInputElement>(null)
   const checkoutRef = useRef<HTMLInputElement>(null)
+
+  // Solo en modo creación hace falta una cotización nueva — en edición se conserva la que ya
+  // tenía la reserva, así no se pisa con 0 cada vez que se edita un campo cualquiera.
+  useEffect(() => {
+    if (mode !== 'create') return
+    fetch('/api/cotizacion')
+      .then(r => r.json())
+      .then((d: { cotizacion: number }) => { if (d.cotizacion > 0) setCotizacion(Math.round(d.cotizacion)) })
+      .catch(() => {})
+  }, [mode])
 
   const noches = calcularNoches(form.fecha_entrada, form.fecha_salida)
   const isAirbnb = form.plataforma === 'airbnb'
@@ -164,7 +175,7 @@ export function ReservaModal(props: Props) {
         telefono: form.telefono.trim() || null,
         monto_total_usd: montoTotal,
         saldo_usd: saldo,
-        cotizacion: 0,
+        cotizacion,
         estado_pago: form.estado_pago,
         plataforma: form.plataforma,
         notas: form.notas.trim() || null,
@@ -218,7 +229,6 @@ export function ReservaModal(props: Props) {
                   ref={checkinRef}
                   type="date"
                   value={toISO(form.fecha_entrada)}
-                  min={format(new Date(), 'yyyy-MM-dd')}
                   disabled={readonly}
                   onChange={(e) => {
                     const nuevaEntrada = toDDMMYYYY(e.target.value)

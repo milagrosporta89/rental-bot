@@ -10,7 +10,7 @@ const tabs = [
   { label: 'Calendario', href: '/calendario' },
   { label: 'Reservas', href: '/reservas' },
   { label: 'Gastos', href: '/gastos' },
-  { label: 'Paola', href: '/cuenta-paola' },
+  { label: 'Comisiones', href: '/cuenta-paola' },
 ]
 
 export function NavTabs() {

@@ -4,6 +4,7 @@ export interface ItemMovimientoFinanciero {
   id: string
   fecha: string
   monto: number
+  monto_ars: number | null
   monto_usd: number | null
   moneda: string
   detalle: string | null
@@ -20,6 +21,7 @@ const COLS = 4
 
 export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje }: Props) {
   const total = items.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
+  const totalPesos = items.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
 
   return (
     <div>
@@ -45,7 +47,7 @@ export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje 
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{item.fecha}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">
-                    {item.moneda === 'USD' ? 'USD' : '$'} {item.monto?.toLocaleString('es-AR')}
+                    {item.monto_ars != null ? `$ ${item.monto_ars.toLocaleString('es-AR')}` : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-600 text-xs whitespace-nowrap">{formatUSD(item.monto_usd)}</td>
                   <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{item.detalle || '—'}</td>
@@ -55,7 +57,8 @@ export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje 
             {items.length > 0 && (
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50 font-medium">
-                  <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={2}>Total</td>
+                  <td className="px-4 py-2.5 text-slate-700 text-xs">Total</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">$ {totalPesos.toLocaleString('es-AR')}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(total)}</td>
                   <td className="px-4 py-2.5"></td>
                 </tr>

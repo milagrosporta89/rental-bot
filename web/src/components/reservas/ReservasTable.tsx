@@ -14,10 +14,21 @@ import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type Filtro
 
 const supabase = createClient()
 const PAGE_SIZE_OPTIONS = [10, 18, 25, 50]
+const FILTROS_STORAGE_KEY = 'reservas-filtros-estado'
 
 type Filtro = 'proximas' | 'en_curso' | 'terminadas' | 'canceladas'
 type SortBy = 'fecha' | 'casa' | 'plataforma'
 type SortDir = 'asc' | 'desc'
+
+interface FiltrosPersistidos {
+  q: string
+  filtros: Filtro[]
+  sortBy: SortBy
+  sortDir: SortDir
+  page: number
+  pageSize: number
+  filtrosAvanzados: { fechaDesde: string; fechaHasta: string; casas: string[]; plataformas: string[] }
+}
 
 function casaNum(casa: string): string {
   return casa.replace(/\D/g, '')
@@ -37,6 +48,7 @@ function matchFiltro(r: Reserva, q: string): boolean {
     r.titular.toLowerCase().includes(ql) ||
     `casa ${num}`.includes(ql) ||
     num === q ||
+    r.id === q ||
     (r.estado_reserva ?? 'confirmada').toLowerCase().startsWith(ql) ||
     r.fecha_entrada.includes(q) ||
     (r.telefono ?? '').replace(/\D/g, '').includes(q)
@@ -104,7 +116,58 @@ export function ReservasTable() {
     return () => { supabase.removeChannel(ch) }
   }, [cargar])
 
-  useEffect(() => { setPage(0) }, [q, filtros, filtrosAvanzados, sortBy, sortDir, pageSize])
+  // Restaura la selección de filtros/orden/página al volver de ver el detalle de una reserva
+  // (sessionStorage, no la URL: alcanza con que sobreviva la navegación de ida y vuelta).
+  useEffect(() => {
+    const raw = sessionStorage.getItem(FILTROS_STORAGE_KEY)
+    if (!raw) return
+    try {
+      const saved: FiltrosPersistidos = JSON.parse(raw)
+      setQ(saved.q)
+      setFiltros(new Set(saved.filtros))
+      setSortBy(saved.sortBy)
+      setSortDir(saved.sortDir)
+      setPageSize(saved.pageSize)
+      setFiltrosAvanzados({
+        fechaDesde: saved.filtrosAvanzados.fechaDesde,
+        fechaHasta: saved.filtrosAvanzados.fechaHasta,
+        casas: new Set(saved.filtrosAvanzados.casas),
+        plataformas: new Set(saved.filtrosAvanzados.plataformas),
+      })
+      setPage(saved.page)
+    } catch {
+      sessionStorage.removeItem(FILTROS_STORAGE_KEY)
+    }
+  }, [])
+
+  useEffect(() => {
+    const data: FiltrosPersistidos = {
+      q,
+      filtros: Array.from(filtros),
+      sortBy,
+      sortDir,
+      page,
+      pageSize,
+      filtrosAvanzados: {
+        fechaDesde: filtrosAvanzados.fechaDesde,
+        fechaHasta: filtrosAvanzados.fechaHasta,
+        casas: Array.from(filtrosAvanzados.casas),
+        plataformas: Array.from(filtrosAvanzados.plataformas),
+      },
+    }
+    sessionStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify(data))
+  }, [q, filtros, sortBy, sortDir, page, pageSize, filtrosAvanzados])
+
+  // El reseteo de página solo debe dispararse por un cambio de filtro hecho por el usuario, no
+  // por la restauración inicial del efecto de arriba (que ya trae su propia página guardada).
+  const saltearResetDePaginaRef = useRef(true)
+  useEffect(() => {
+    if (saltearResetDePaginaRef.current) {
+      saltearResetDePaginaRef.current = false
+      return
+    }
+    setPage(0)
+  }, [q, filtros, filtrosAvanzados, sortBy, sortDir, pageSize])
 
   const porBusqueda = reservas.filter(r => matchFiltro(r, q))
 
@@ -154,7 +217,7 @@ export function ReservasTable() {
     }
   }
 
-  const COLS = 9
+  const COLS = 10
 
   return (
     <>
@@ -167,7 +230,7 @@ export function ReservasTable() {
       <div className="pb-5 space-y-3.5">
         <div className="flex items-end gap-2 sm:gap-5">
           <div className="space-y-1 flex-1 sm:flex-initial">
-            <Label className="text-xs text-slate-500">Buscar por nombre, casa o estado</Label>
+            <Label className="text-xs text-slate-500">Buscar por nombre, casa, nº de reserva o estado</Label>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               <Input
@@ -251,6 +314,7 @@ export function ReservasTable() {
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-slate-100 z-10">
             <tr className="border-b border-slate-200">
+              <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Nº</th>
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Titular</th>
               <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                 <button
@@ -315,6 +379,8 @@ export function ReservasTable() {
                   onClick={() => router.push(`/reservas/${r.id}`)}
                   className="border-b border-slate-100 hover:bg-slate-100 cursor-pointer transition-colors duration-150"
                 >
+                  <td className="px-4 py-2.5 text-slate-500 tabular-nums whitespace-nowrap">#{r.id}</td>
+
                   <td className="px-4 py-2.5 font-medium text-slate-800">{r.nombre_pax}</td>
 
                   <td className="px-4 py-2.5 min-w-[72px]">

@@ -196,6 +196,7 @@ function NuevaReservaForm() {
     try {
       const noches = calcularNoches(s1.fecha_entrada, s1.fecha_salida)
       const total = parseFloat(s1.monto_total_usd)
+      const cotizacion = await fetch('/api/cotizacion').then(r => r.json()).then((d: { cotizacion: number }) => d.cotizacion).catch(() => 0)
       await crearReserva({
         casa: s1.casa,
         estado_reserva: 'tentativa',
@@ -211,7 +212,7 @@ function NuevaReservaForm() {
         estado_pago: 'debe',
         plataforma: s1.plataforma,
         notas: s1.notas.trim() || null,
-        cotizacion: 0,
+        cotizacion,
       })
       router.push('/calendario')
     } catch (e) {

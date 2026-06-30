@@ -1,16 +1,19 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, History, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
+import { saldoPendienteDesglosado, saldoCajaChica, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
+import type { Moneda } from '@/lib/utils'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
+import { MonedaToggle } from '@/components/cuenta-paola/MonedaToggle'
 import { TablaMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
 import { TablaMovimientos } from '@/components/cuenta-paola/TablaMovimientos'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
-import { MovimientoModal } from '@/components/cuenta-paola/MovimientoModal'
+import { TablaReconciliacionComision } from '@/components/cuenta-paola/TablaReconciliacionComision'
 import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
 import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
 
@@ -34,12 +37,15 @@ function desdeFecha(fecha: string): (item: { fecha: string }) => boolean {
   return item => !desdeISO || toISO(item.fecha) > desdeISO
 }
 
+function desde(fecha: string | null): string {
+  return fecha ? `desde el ${fecha}` : '(histórico completo, todavía no hubo ningún cierre)'
+}
+
 export default function CuentaPaolaPage() {
   const [datos, setDatos] = useState<DatosCuentaPaola | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [modalKey, setModalKey] = useState(0)
+  const [moneda, setMoneda] = useState<Moneda>('USD')
 
   useEffect(() => {
     fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
@@ -50,11 +56,6 @@ export default function CuentaPaolaPage() {
     setError('')
     fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
   }, [])
-
-  function abrirModalLibre() {
-    setModalKey(k => k + 1)
-    setModalOpen(true)
-  }
 
   if (cargando) {
     return (
@@ -83,6 +84,8 @@ export default function CuentaPaolaPage() {
   // distintas de "qué es lo pendiente" en la misma pantalla. El saldo principal usa exactamente
   // la misma cuenta (comisión pendiente + gastos pendientes), nunca el acumulado de toda la vida.
   const saldo = saldoPendienteDesglosado(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
+  const cajaChica = saldoCajaChica(datos.movimientosInternos)
+  const cajaChicaArs = saldoCajaChica(datos.movimientosInternos, 'monto_ars')
   const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
   const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
@@ -94,43 +97,82 @@ export default function CuentaPaolaPage() {
   const idsAdelantadas = new Set(adelantadas.map(i => i.id))
   const comisionesDesdeUltimoCierre = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
 
-  // Mismo criterio que "Comisión pendiente" (más abajo, en Cerrar cuenta): si una reserva ya
-  // cobró exactamente lo que correspondía, no aporta nada y no se muestra — esta tabla es el
-  // detalle de esa otra, así que tienen que listar el mismo conjunto de reservas.
-  const reservasConDiferencia = new Set(
-    reconciliacionDesdeUltimoCierre(datos.reservas, datos.ingresosPaola, fechaCierreComision ? toISO(fechaCierreComision) : null)
-      .filter(f => f.diferencia !== 0)
-      .map(f => f.reserva.id)
+  // Reconciliación a nivel reserva (no por pago) — así una reserva sin ningún cobro a Paola
+  // también aparece como "a resolver", en vez de desaparecer por no tener ingreso que listar.
+  const filasReconciliacion = reconciliacionDesdeUltimoCierre(datos.reservas, datos.ingresosPaola)
+  const diferenciaPorReserva = new Map(filasReconciliacion.map(f => [f.reserva.id, f.diferencia]))
+  const comisionesPerfectas = comisionesDesdeUltimoCierre.filter(
+    i => !idsAdelantadas.has(i.id) && i.id_reserva && diferenciaPorReserva.get(i.id_reserva) === 0
   )
-  const comisionesListasParaCerrar = comisionesDesdeUltimoCierre.filter(
-    i => !idsAdelantadas.has(i.id) && i.id_reserva && reservasConDiferencia.has(i.id_reserva)
-  )
+  const filasComisionAResolver = filasReconciliacion.filter(f => f.diferencia !== 0)
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-8">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-8">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-lg font-semibold text-slate-800">Cuenta de Paola</h1>
-          <Button size="sm" onClick={abrirModalLibre}>
-            Registrar movimiento
-          </Button>
+          <h1 className="text-lg font-semibold text-slate-800">Comisiones y Caja chica</h1>
+          <div className="flex items-center gap-2">
+            <MonedaToggle value={moneda} onChange={setMoneda} />
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/cuenta-paola/historico">
+                <History className="w-3.5 h-3.5" /> Histórico de reservas cobradas
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <SaldoPaolaCard titulo="Total pendiente con Paola" saldo={saldo.total} destacada />
-          <SaldoPaolaCard titulo="Pendiente de saldar — comisión" saldo={saldo.comision} />
-          <SaldoPaolaCard titulo="Pendiente de saldar — gastos" saldo={saldo.gastos} />
+          <SaldoPaolaCard titulo="Total pendiente con Paola" saldo={saldo.total} saldoArs={saldo.totalArs} destacada moneda={moneda} />
+          <SaldoPaolaCard titulo="Pendiente de saldar — comisión" saldo={saldo.comision} saldoArs={saldo.comisionArs} moneda={moneda} />
+          <SaldoPaolaCard titulo="Caja chica" saldo={-cajaChica} saldoArs={-cajaChicaArs} moneda={moneda} />
+        </div>
+
+        <CierreCuentaSection
+          reservas={datos.reservas}
+          ingresosPaola={datos.ingresosPaola}
+          gastosPaola={datos.gastosPaola}
+          movimientosInternos={datos.movimientosInternos}
+          onCerrado={recargar}
+          moneda={moneda}
+        />
+
+        <div>
+          <h2 className="text-sm font-medium text-slate-700 mb-3">
+            Comisiones por reservas terminadas {desde(fechaCierreComision)}
+          </h2>
+
+          <div className="space-y-5 pl-1">
+            <div>
+              <h3 className="text-xs font-semibold text-slate-600 mb-1">Comisiones a resolver</h3>
+              <p className="text-[11px] text-slate-400 mb-2">
+                Reservas ya terminadas donde lo cobrado no coincide con lo que correspondía — incluye las que todavía no pagaron nada.
+              </p>
+              <TablaReconciliacionComision filas={filasComisionAResolver} moneda={moneda} />
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-slate-600 mb-1">Comisiones sin conflictos</h3>
+              <p className="text-[11px] text-slate-400 mb-2">
+                Reservas donde Paola cobró exactamente el 10% o 15% que le corresponde — ya están listas, no necesitan ningún ajuste.
+              </p>
+              <TablaComisionesCobradas
+                ingresos={comisionesPerfectas}
+                reservas={datos.reservas}
+                vacioMensaje="Sin comisiones sin conflictos desde el último cierre."
+                moneda={moneda}
+              />
+            </div>
+          </div>
         </div>
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas — listas para cerrar</h2>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Gastos pendientes de reembolso</h2>
           <p className="text-[11px] text-slate-400 mb-2">
-            Cada cobro que entró a la cuenta de Paola desde el último cierre, de reservas que ya terminaron — el detalle de lo que compone la Comisión pendiente de más abajo.
+            Gastos que Paola pagó de su bolsillo (limpieza, lavandería, etc.) desde el último cierre.
           </p>
-          <TablaComisionesCobradas
-            ingresos={comisionesListasParaCerrar}
-            reservas={datos.reservas}
-            vacioMensaje="Sin comisiones listas para cerrar desde el último cierre."
+          <TablaMovimientoFinanciero
+            items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_ars: g.monto_ars, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
+            vacioMensaje="Sin gastos pendientes de reembolso."
           />
         </div>
 
@@ -143,15 +185,9 @@ export default function CuentaPaolaPage() {
             ingresos={adelantadas}
             reservas={datos.reservas}
             vacioMensaje="Sin comisiones cobradas por adelantado."
+            moneda={moneda}
           />
         </div>
-
-        <TablaMovimientoFinanciero
-          titulo="Gastos pagados por Paola — desde el último cierre"
-          bajada="Gastos que Paola pagó de su bolsillo (limpieza, lavandería, etc.) desde el último reembolso."
-          items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
-          vacioMensaje="Sin gastos pagados por Paola desde el último cierre."
-        />
 
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-1">Movimientos de ajuste</h2>
@@ -164,27 +200,12 @@ export default function CuentaPaolaPage() {
           />
         </div>
 
-        <CierreCuentaSection
-          reservas={datos.reservas}
-          ingresosPaola={datos.ingresosPaola}
-          gastosPaola={datos.gastosPaola}
-          movimientosInternos={datos.movimientosInternos}
-          onCerrado={recargar}
-        />
-
         <CancelacionesPendientesSection
           items={datos.cancelacionesPendientes}
           reservas={datos.reservas}
           onResuelto={recargar}
         />
       </div>
-
-      <MovimientoModal
-        key={modalKey}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSaved={() => { setModalOpen(false); recargar() }}
-      />
     </div>
   )
 }

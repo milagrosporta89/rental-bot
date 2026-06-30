@@ -83,6 +83,61 @@ export async function crearGasto(payload: GastoPayload): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+/** ¿Ya hay un gasto de comisión asentado para esta reserva? (vía el gatillo al cobrar, o una liquidación anterior) */
+export async function gastoComisionExiste(idReserva: string): Promise<boolean> {
+  const supabase = createAdminClient()
+  const { data } = await supabase
+    .from('gastos')
+    .select('id')
+    .eq('id_reserva', idReserva)
+    .eq('categoria', 'comision')
+    .limit(1)
+  return (data?.length ?? 0) > 0
+}
+
+export interface GastoComisionPayload {
+  id_reserva: string
+  fecha: string // DD/MM/YYYY
+  monto_usd: number
+  monto_ars: number | null
+  cotizacion: number
+  pagado_por: string
+  detalle: string
+}
+
+/**
+ * Gasto de comisión creado desde la liquidación, con los mismos valores ya calculados ahí
+ * (cotización de la reserva, no una nueva consulta) — red de seguridad para cuando el gatillo
+ * al cobrar se salteó y ese costo real nunca quedó asentado en ningún lado.
+ */
+export async function crearGastoComision(payload: GastoComisionPayload): Promise<void> {
+  const registrado_por = await registradoPorActual()
+  const supabase = createAdminClient()
+  const id = `GAS-${Date.now()}`
+  const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+
+  const { error } = await supabase.from('gastos').insert({
+    id,
+    fecha: payload.fecha,
+    monto: payload.monto_usd,
+    moneda: 'USD',
+    categoria: 'comision',
+    pagado_por: payload.pagado_por,
+    nombre_destinatario: 'Paola',
+    banco_origen: 'Liquidación de comisión',
+    nro_operacion: null,
+    detalle: payload.detalle,
+    registrado_por,
+    comprobante_url: null,
+    timestamp,
+    cotizacion: payload.cotizacion,
+    monto_ars: payload.monto_ars,
+    monto_usd: payload.monto_usd,
+    id_reserva: payload.id_reserva,
+  })
+  if (error) throw new Error(error.message)
+}
+
 export async function obtenerGasto(id: string): Promise<Gasto | null> {
   const supabase = createAdminClient()
   const { data } = await supabase.from('gastos').select('*').eq('id', id).single()

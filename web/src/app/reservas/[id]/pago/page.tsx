@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { formatUSD } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
+import { comisionDevengada } from '@/lib/cuentaPaola'
 import { registrarPago, editarIngreso, obtenerIngreso } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
 import { GatilloComisionModal } from '@/components/reservas/GatilloComisionModal'
@@ -217,8 +218,10 @@ function PagoPageInner() {
         await registrarPago(reserva.id, payload)
       }
 
-      // US-04: gatillo (no automático) para asentar el cobro también como gasto de comisión
-      if (form.nombre_destinatario.trim() === 'Paola') {
+      // US-04: gatillo (no automático) para asentar el cobro también como gasto de comisión —
+      // solo en pagos nuevos. Al editar un pago ya existente el gasto (si correspondía) ya se
+      // resolvió en su momento; volver a preguntar llevaría a asentarlo dos veces.
+      if (!editId && form.nombre_destinatario.trim() === 'Paola') {
         setGatilloOpen(true)
       } else {
         router.push(`/reservas/${reserva.id}`)
@@ -270,6 +273,9 @@ function PagoPageInner() {
   const num = reserva.casa.replace(/\D/g, '')
   const idNum = reserva.id.replace(/^[A-Z]+-?/, '')
   const titulo = editId ? 'Editar pago' : 'Asentar pago'
+  // Nunca más que lo que efectivamente cobró (no se puede asentar como gasto plata que no llegó)
+  // ni más de lo que le corresponde (el excedente, si lo hay, queda como caja chica).
+  const montoComision = Math.min(montoUSD, comisionDevengada(reserva))
 
   return (
     <div className="h-full overflow-auto flex flex-col">
@@ -605,8 +611,9 @@ function PagoPageInner() {
 
       <GatilloComisionModal
         open={gatilloOpen}
-        montoUsd={montoUSD}
-        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoNum}&moneda=${form.moneda}&fecha=${form.fecha}&idReserva=${reserva.id}`)}
+        montoCobrado={montoUSD}
+        montoComision={montoComision}
+        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoComision.toFixed(2)}&moneda=USD&fecha=${form.fecha}&idReserva=${reserva.id}`)}
         onDismiss={() => router.push(`/reservas/${reserva.id}`)}
       />
     </div>
