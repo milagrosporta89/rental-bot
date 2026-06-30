@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Plus, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, AlertTriangle } from 'lucide-react'
 import { Reserva, Ingreso, CASA_COLORES, CASA_LABELS, PLATAFORMA_LABEL, ESTADO_VISUAL_BADGE, ESTADO_VISUAL_LABEL } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { PagosSection } from '@/components/reservas/PagosSection'
@@ -52,25 +52,19 @@ export default async function ReservaDetailPage({ params }: { params: Promise<{ 
     <div className="h-full overflow-auto">
       <div className="max-w-2xl mx-auto px-4 py-6">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
-          <Link href="/calendario" className="hover:text-slate-600 transition-colors">Calendario</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/reservas" className="hover:text-slate-600 transition-colors">Reservas</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-600 font-medium">{r.nombre_pax} · {CASA_LABELS[num] ?? r.casa}</span>
-        </div>
+        <Link href="/reservas" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+        </Link>
 
         {/* Encabezado */}
-        <div className="flex items-start justify-between mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-5">
           <div>
-            <h1 className="text-lg font-semibold text-slate-800">
-              {r.nombre_pax}
-              <span className="text-slate-400 font-normal mx-2">·</span>
-              <span className="text-slate-500 font-normal">{CASA_LABELS[num] ?? r.casa}</span>
-              <span className="text-slate-400 font-normal mx-2">·</span>
-              <span className="text-slate-500 font-normal text-base">#{r.id.replace(/^[A-Z]+-?/, '')}</span>
-            </h1>
+            <h1 className="text-lg font-semibold text-slate-800">{r.nombre_pax}</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {CASA_LABELS[num] ?? r.casa}
+              <span className="text-slate-400 mx-1.5">·</span>
+              {r.cantidad_noches} {r.cantidad_noches === 1 ? 'noche' : 'noches'}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ESTADO_VISUAL_BADGE[estado] ?? ESTADO_VISUAL_BADGE.confirmada}`}>
@@ -87,7 +81,7 @@ export default async function ReservaDetailPage({ params }: { params: Promise<{ 
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-              Datos de la reserva <span className="normal-case font-normal text-slate-300">#{r.id.replace(/^[A-Z]+-?/, '')}</span>
+              Reserva <span className="normal-case font-normal text-slate-300">#{r.id.replace(/^[A-Z]+-?/, '')}</span>
             </h2>
             {!terminada && <EditarReservaButton reserva={r} />}
           </div>

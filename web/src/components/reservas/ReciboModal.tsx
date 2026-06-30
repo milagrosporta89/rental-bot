@@ -40,7 +40,7 @@ export function ReciboModal({ pago, reserva, onClose }: Props) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-xs">
+      <DialogContent className="sm:max-w-xs">
         <DialogTitle className="sr-only">Recibo</DialogTitle>
 
         {error && <p className="text-xs text-red-500 mt-3">{error}</p>}

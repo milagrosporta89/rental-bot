@@ -1,0 +1,49 @@
+{
+  "summary": "PASS",
+  "_metodo": "Revisión de código estática contra cada criterio de aceptación de po-output.json, releyendo los archivos del Developer de forma independiente (no solo el resumen que dio el propio commit). NO se pudo verificar end-to-end con Playwright/app real: la migración 004_cuenta_paola.sql todavía no está aplicada en Supabase (acción manual pendiente, ver STATUS.md), así que la tabla movimientos_internos y la columna ingresos.resolucion_cancelacion no existen todavía en la base real — cualquier intento de ejercitar la app fallaría en runtime por eso, no por un bug de código.",
+  "results": [
+    {
+      "story_id": "US-01",
+      "status": "PASS",
+      "issue": "Ninguno tras la corrección de signo hecha por el Developer antes de codear (ver _revision_nota de po-output.json). Fórmula en lib/cuentaPaola.ts (cobrado − gastado + a_favor_paola − a_favor_negocio) coincide exactamente con el criterio corregido.",
+      "fix_suggestion": ""
+    },
+    {
+      "story_id": "US-02",
+      "status": "PASS",
+      "issue": "Las 3 listas existen (ListaMovimientoFinanciero ×3 en cuenta-paola/page.tsx). El criterio 'no inventa un componente de lista nueva' se interpretó como 'no inventa un patrón visual nuevo' (el component_tree del propio Designer ya nombraba explícitamente un componente nuevo 'ListaMovimientoFinanciero') — interpretación correcta, PagosSection.tsx es específico de Ingreso+Reserva con acciones de edición que no aplican acá.",
+      "fix_suggestion": ""
+    },
+    {
+      "story_id": "US-03",
+      "status": "PASS",
+      "issue": "Falta comprobante_url en el formulario visible (queda fijo en null al guardar) — el propio Designer ya había anotado esto como 'sin uso por ahora, no hay OCR para este tipo de movimiento', y el Developer dejó un TODO explícito en FormularioMovimientoInterno.tsx. No bloqueante, el campo es opcional según el PO.",
+      "fix_suggestion": "Si en algún momento se quiere adjuntar comprobante a un movimiento_interno, /api/comprobante necesita un tercer 'tipo' que no fuerce OCR (hoy solo acepta ingreso|gasto y siempre intenta extraer datos)."
+    },
+    {
+      "story_id": "US-04",
+      "status": "PASS",
+      "issue": "Encontrados y corregidos durante esta revisión (no estaban en el commit original del Developer): (1) el campo nombre_destinatario llegaba precargado en el payload pero invisible/no editable en la UI, porque FormularioGasto.tsx solo mostraba ese bloque cuando fromComprobante=true — violaba literalmente 'todos los campos precargados siguen siendo editables'. (2) el monto se redondeaba a entero (Math.round) al pasar de pago/page.tsx a la URL de prefill, perdiendo centavos respecto del ingreso original.",
+      "fix_suggestion": "Ambos corregidos en esta misma sesión: FormularioGasto.tsx ahora muestra un campo Destinatario editable cuando hay nombre_destinatario y no viene de un comprobante; pago/page.tsx ya no redondea el monto en la URL de prefill. tsc/eslint re-verificados limpios después del fix."
+    },
+    {
+      "story_id": "US-05",
+      "status": "PASS",
+      "issue": "Lógica de reconciliacionDelMes correcta (ancla por checkout, no por fecha de cobro; excluye canceladas; suma cobrado por id_reserva sin filtrar por mes de pago). El monto prefillado en el modal de cierre también se redondeaba (Math.round) — mismo tipo de bug que en US-04, corregido (ahora usa toFixed(2)).",
+      "fix_suggestion": "Corregido: MovimientoModal.tsx ya no redondea el monto del prefill."
+    },
+    {
+      "story_id": "US-06",
+      "status": "PASS",
+      "issue": "Lista de pendientes, las 2 acciones, y el efecto secundario de 'caja_chica' (crea movimiento_interno automático) coinciden con el criterio. marcarResolucionCancelacion además valida que no se reclasifique un ingreso ya resuelto (defensa no pedida explícitamente pero correcta).",
+      "fix_suggestion": ""
+    }
+  ],
+  "todos_found_in_code": [
+    "FormularioMovimientoInterno.tsx: TODO confirmar con Mili si hace falta subir comprobante en movimientos_internos (campo existe en la tabla pero sin UI de carga)."
+  ],
+  "critical_missing": [
+    "No hay forma de marcar un mes como 'ya cerrado' en US-05. Si se revisita el mismo mes después de haber creado el movimiento_interno de cierre, la tabla de reconciliación va a mostrar la MISMA diferencia otra vez (los datos de origen — reservas e ingresos — no cambian), y nada impide crear un segundo movimiento_interno duplicando el ajuste. Mitigación aplicada en esta revisión: el detalle del movimiento generado ahora incluye el mes ('Cierre mensual de comisión — 2026-06'), visible en la lista de 'Movimientos de ajuste' (US-02), para que quien cierra pueda notar a simple vista si ese mes ya tiene un ajuste registrado. Esto es una mitigación de auditoría, no una prevención real — no estaba en el alcance original de po-output.json, queda como decisión pendiente para Mili: ¿alcanza con la mitigación, o hace falta un mecanismo real (ej. una marca de 'mes cerrado')?",
+    "Sin verificación end-to-end (Playwright contra Supabase real) en esta ronda — bloqueado por la migración 004 todavía no aplicada en la base. Recomendado correrla antes de la próxima sesión de QA/uso real."
+  ]
+}

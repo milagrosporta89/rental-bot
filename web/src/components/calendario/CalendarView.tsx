@@ -369,7 +369,7 @@ export function CalendarView() {
       <h1 className="px-4 pt-4 pb-1 text-lg font-semibold text-slate-800">Ocupación por casa</h1>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200">
+      <div className="flex items-center flex-wrap gap-2 px-4 py-2 border-b border-slate-200">
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate('prev')}
@@ -441,7 +441,7 @@ export function CalendarView() {
         >
           Hoy
         </Button>
-        <div className="ml-auto">
+        <div className="md:ml-auto">
           <Button
             variant="outline"
             size="sm"

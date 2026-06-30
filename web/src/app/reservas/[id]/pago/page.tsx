@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { AlertTriangle, ChevronRight, FileCheck2, Loader2, Upload, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Calendar, FileCheck2, Loader2, Upload, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { formatUSD } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
+import { comisionDevengada } from '@/lib/cuentaPaola'
 import { registrarPago, editarIngreso, obtenerIngreso } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
+import { GatilloComisionModal } from '@/components/reservas/GatilloComisionModal'
 
 const DESTINATARIOS = ['Paola', 'Francisco', 'Fernando', 'Milagros', 'Inés']
 
@@ -37,6 +39,7 @@ function PagoPageInner() {
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
   const fileRef = useRef<HTMLInputElement>(null)
+  const fechaPagoRef = useRef<HTMLInputElement>(null)
 
   const [reserva, setReserva] = useState<Reserva | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -61,6 +64,7 @@ function PagoPageInner() {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [gatilloOpen, setGatilloOpen] = useState(false)
 
   // Cargar reserva
   useEffect(() => {
@@ -213,7 +217,15 @@ function PagoPageInner() {
       } else {
         await registrarPago(reserva.id, payload)
       }
-      router.push(`/reservas/${reserva.id}`)
+
+      // US-04: gatillo (no automático) para asentar el cobro también como gasto de comisión —
+      // solo en pagos nuevos. Al editar un pago ya existente el gasto (si correspondía) ya se
+      // resolvió en su momento; volver a preguntar llevaría a asentarlo dos veces.
+      if (!editId && form.nombre_destinatario.trim() === 'Paola') {
+        setGatilloOpen(true)
+      } else {
+        router.push(`/reservas/${reserva.id}`)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar. Podés reintentar.')
     } finally {
@@ -236,15 +248,9 @@ function PagoPageInner() {
   if (!editId && reserva.estado_reserva === 'cancelada') return (
     <div className="h-full overflow-auto">
       <div className="max-w-xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
-          <Link href="/calendario" className="hover:text-slate-600 transition-colors">Calendario</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/reservas" className="hover:text-slate-600 transition-colors">Reservas</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/reservas/${reserva.id}`} className="hover:text-slate-600 transition-colors">
-            {reserva.nombre_pax}
-          </Link>
-        </div>
+        <Link href={`/reservas/${reserva.id}`} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+        </Link>
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
@@ -267,23 +273,17 @@ function PagoPageInner() {
   const num = reserva.casa.replace(/\D/g, '')
   const idNum = reserva.id.replace(/^[A-Z]+-?/, '')
   const titulo = editId ? 'Editar pago' : 'Asentar pago'
+  // Nunca más que lo que efectivamente cobró (no se puede asentar como gasto plata que no llegó)
+  // ni más de lo que le corresponde (el excedente, si lo hay, queda como caja chica).
+  const montoComision = Math.min(montoUSD, comisionDevengada(reserva))
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="h-full overflow-auto flex flex-col">
+      <div className="max-w-xl mx-auto px-4 py-6 w-full flex-1">
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
-          <Link href="/calendario" className="hover:text-slate-600 transition-colors">Calendario</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href="/reservas" className="hover:text-slate-600 transition-colors">Reservas</Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/reservas/${reserva.id}`} className="hover:text-slate-600 transition-colors">
-            {reserva.nombre_pax}
-          </Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-slate-600 font-medium">{titulo}</span>
-        </div>
+        <Link href={`/reservas/${reserva.id}`} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" /> Atrás
+        </Link>
 
         <h1 className="text-lg font-semibold text-slate-800 mb-1">
           {titulo}{' '}
@@ -340,11 +340,11 @@ function PagoPageInner() {
         </div>
 
         {tipoPago && (
-          <div className="grid grid-cols-4 gap-x-3 gap-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
             {/* Comprobante — solo transferencia */}
             {tipoPago === 'transferencia' && (
-              <div className="col-span-4 space-y-1.5">
+              <div className="col-span-1 md:col-span-4 space-y-1.5">
                 <Label className="text-xs text-slate-500">Comprobante *</Label>
 
                 {uploadState === 'idle' && (
@@ -413,52 +413,56 @@ function PagoPageInner() {
             )}
 
             {/* Monto | Moneda */}
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Monto *</Label>
-              <div className={`flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${ro('monto') ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
-                <span className="text-sm text-slate-600 shrink-0 select-none">
-                  {form.moneda === 'USD' ? 'USD' : '$'}
-                </span>
-                <input
-                  type="number" min={0} step={0.01}
-                  value={form.monto}
-                  readOnly={ro('monto')}
-                  onChange={e => !ro('monto') && set('monto', e.target.value)}
-                  className="flex-1 min-w-0 bg-transparent outline-none text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Monto *</Label>
+                <div className={`flex h-10 items-center rounded-md border border-input bg-background px-3 gap-1.5 ${ro('monto') ? 'opacity-60' : 'focus-within:ring-1 focus-within:ring-ring'}`}>
+                  <span className="text-sm text-slate-600 shrink-0 select-none">
+                    {form.moneda === 'USD' ? 'USD' : '$'}
+                  </span>
+                  <input
+                    type="number" min={0} step={0.01}
+                    value={form.monto}
+                    readOnly={ro('monto')}
+                    onChange={e => !ro('monto') && set('monto', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Moneda *</Label>
+                <Select value={form.moneda} disabled={ro('moneda')} onValueChange={v => set('moneda', v)}>
+                  <SelectTrigger className={`text-sm ${ro('moneda') ? 'bg-slate-50 text-slate-500' : ''}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ARS">Pesos (ARS)</SelectItem>
+                    <SelectItem value="USD">Dólares (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Moneda *</Label>
-              <Select value={form.moneda} disabled={ro('moneda')} onValueChange={v => set('moneda', v)}>
-                <SelectTrigger className={`text-sm ${ro('moneda') ? 'bg-slate-50 text-slate-500' : ''}`}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ARS">Pesos (ARS)</SelectItem>
-                  <SelectItem value="USD">Dólares (USD)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Cotización | Tipo */}
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
-              <Input type="number" min={0} value={form.cotizacion} onChange={e => set('cotizacion', e.target.value)} className="text-sm" />
+            <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
+                <Input type="number" min={0} value={form.cotizacion} onChange={e => set('cotizacion', e.target.value)} className="text-sm" />
+              </div>
+
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Tipo de pago *</Label>
+                <Select value={form.tipo_movimiento} onValueChange={v => set('tipo_movimiento', v)}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí el tipo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="adelanto">Adelanto / seña</SelectItem>
+                    <SelectItem value="saldo">Saldo restante</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Tipo de pago *</Label>
-              <Select value={form.tipo_movimiento} onValueChange={v => set('tipo_movimiento', v)}>
-                <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí el tipo" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="adelanto">Adelanto / seña</SelectItem>
-                  <SelectItem value="saldo">Saldo restante</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Quién pagó | Fecha */}
-            <div className="col-span-2 space-y-1">
+            {/* Quién pagó */}
+            <div className="col-span-1 md:col-span-2 space-y-1">
               <Label className="text-xs text-slate-500">Quién pagó *</Label>
               <Input
                 value={form.quien_pago}
@@ -468,56 +472,70 @@ function PagoPageInner() {
               />
             </div>
 
-            <div className="col-span-2 space-y-1">
-              <Label className="text-xs text-slate-500">Fecha del pago</Label>
-              <Input type="date" value={form.fecha} onChange={e => set('fecha', e.target.value)} className="text-sm" />
-            </div>
+            {/* Fecha del pago | Destinatario */}
+            <div className="col-span-1 md:col-span-2 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+              <div className="md:col-span-2 space-y-1">
+                <Label className="text-xs text-slate-500">Fecha del pago</Label>
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                  onClick={() => fechaPagoRef.current?.showPicker()}
+                >
+                  <input
+                    ref={fechaPagoRef}
+                    type="date"
+                    value={form.fecha}
+                    onChange={e => set('fecha', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                  />
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
+              </div>
 
-            {/* Destinatario */}
-            <div className="col-span-4 space-y-1">
-              <Label className="text-xs text-slate-500">Destinatario *</Label>
-              {ro('nombre_destinatario') ? (
-                <Input
-                  value={form.nombre_destinatario}
-                  readOnly
-                  className="text-sm bg-slate-50 text-slate-500 cursor-default"
-                />
-              ) : (
-                <>
-                  <Select
-                    value={destinatarioOtro ? 'otro' : form.nombre_destinatario}
-                    onValueChange={v => {
-                      if (v === 'otro') {
-                        setDestinatarioOtro(true)
-                        set('nombre_destinatario', '')
-                      } else {
-                        setDestinatarioOtro(false)
-                        set('nombre_destinatario', v)
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí el destinatario" /></SelectTrigger>
-                    <SelectContent>
-                      {DESTINATARIOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                      <SelectItem value="otro">Otro…</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {destinatarioOtro && (
-                    <Input
-                      value={form.nombre_destinatario}
-                      onChange={e => set('nombre_destinatario', toTitleCase(e.target.value))}
-                      placeholder="Nombre del destinatario"
-                      className="text-sm mt-1.5"
-                      autoFocus
-                    />
-                  )}
-                </>
-              )}
+              <div className="md:col-span-4 space-y-1">
+                <Label className="text-xs text-slate-500">Destinatario *</Label>
+                {ro('nombre_destinatario') ? (
+                  <Input
+                    value={form.nombre_destinatario}
+                    readOnly
+                    className="text-sm bg-slate-50 text-slate-500 cursor-default"
+                  />
+                ) : (
+                  <>
+                    <Select
+                      value={destinatarioOtro ? 'otro' : form.nombre_destinatario}
+                      onValueChange={v => {
+                        if (v === 'otro') {
+                          setDestinatarioOtro(true)
+                          set('nombre_destinatario', '')
+                        } else {
+                          setDestinatarioOtro(false)
+                          set('nombre_destinatario', v)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {DESTINATARIOS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                        <SelectItem value="otro">Otro…</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {destinatarioOtro && (
+                      <Input
+                        value={form.nombre_destinatario}
+                        onChange={e => set('nombre_destinatario', toTitleCase(e.target.value))}
+                        placeholder="Nombre del destinatario"
+                        className="text-sm mt-1.5"
+                        autoFocus
+                      />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Banco | N° op. — solo transferencia */}
             {tipoPago === 'transferencia' && <>
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Banco destino</Label>
                 <Input
                   value={form.banco_destino}
@@ -527,7 +545,7 @@ function PagoPageInner() {
                 />
               </div>
 
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">N° operación</Label>
                 <Input
                   value={form.nro_operacion}
@@ -539,14 +557,14 @@ function PagoPageInner() {
             </>}
 
             {/* Detalle */}
-            <div className="col-span-4 space-y-1">
+            <div className="col-span-1 md:col-span-4 space-y-1">
               <Label className="text-xs text-slate-500">Detalle</Label>
               <Input value={form.detalle} onChange={e => set('detalle', e.target.value)} className="text-sm" />
             </div>
 
             {/* Preview saldo */}
             {montoNum > 0 && (
-              <div className="col-span-4 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 space-y-1.5 text-xs">
+              <div className="col-span-1 md:col-span-4 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-500">
                   <span>Saldo actual</span>
                   <span className="tabular-nums text-slate-700">{formatUSD(reserva.saldo_usd)}</span>
@@ -570,22 +588,34 @@ function PagoPageInner() {
               </div>
             )}
 
-            {error && <p className="col-span-4 text-xs text-red-500">{error}</p>}
-
-            <div className="col-span-4 flex justify-end">
-              <Button
-                size="sm"
-                onClick={handleSubmit}
-                disabled={loading || !form.monto || !form.tipo_movimiento || !form.quien_pago}
-                className="cursor-pointer"
-              >
-                {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                {editId ? 'Guardar cambios' : 'Confirmar pago'}
-              </Button>
-            </div>
+            {error && <p className="col-span-1 md:col-span-4 text-xs text-red-500">{error}</p>}
           </div>
         )}
       </div>
+
+      {tipoPago && (
+        <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+          <div className="max-w-xl mx-auto flex justify-end">
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={loading || !form.monto || !form.tipo_movimiento || !form.quien_pago}
+              className="cursor-pointer"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+              {editId ? 'Guardar cambios' : 'Confirmar pago'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <GatilloComisionModal
+        open={gatilloOpen}
+        montoCobrado={montoUSD}
+        montoComision={montoComision}
+        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoComision.toFixed(2)}&moneda=USD&fecha=${form.fecha}&idReserva=${reserva.id}`)}
+        onDismiss={() => router.push(`/reservas/${reserva.id}`)}
+      />
     </div>
   )
 }

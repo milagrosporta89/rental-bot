@@ -1,0 +1,196 @@
+{
+  "flow": [
+    {
+      "step": "US-01-header",
+      "screen": "web/src/components/layout/NavTabs.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop (md+): sin cambios — logo 'TempoBoard' a la izquierda, accesos en línea (Calendario, Reservas, Gastos, Dashboard) y botón de cerrar sesión a la derecha, todo en una fila. Mobile (<md): el header muestra solo el logo 'TempoBoard' a la izquierda y un botón de menú (ícono hamburguesa) a la derecha; los accesos en línea y el botón de cerrar sesión dejan de mostrarse inline. Al tocar el botón de menú se abre un panel desplegable (debajo del header o overlay) con una lista vertical: Calendario, Reservas, Gastos, Dashboard, Cerrar sesión — cada ítem navegable. El panel se cierra al elegir una opción, al tocar fuera del panel, o al volver a tocar el botón de menú (toggle).",
+      "next_step": null
+    },
+    {
+      "step": "US-02-calendario-toolbar",
+      "screen": "web/src/components/calendario/CalendarView.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop (md+): sin cambios — toolbar en una sola fila (prev/next + selector de mes a la izquierda, 'Hoy' al medio, 'Bloquear fechas' empujado a la derecha con ml-auto). Mobile (<md): la misma toolbar se envuelve (flex-wrap) en vez de forzar una fila — los controles prev/next + selector de mes pueden quedar en su propia línea y 'Hoy' + 'Bloquear fechas' envolver a una segunda línea si no entran, sin recortar ni ocultar ningún control. El banner de selección activa (debajo de la toolbar) y el cuerpo de FullCalendar no cambian — el calendario conserva su scroll horizontal existente.",
+      "next_step": null
+    },
+    {
+      "step": "US-03-tablas-toolbar-paginacion",
+      "screen": "web/src/components/reservas/ReservasTable.tsx + web/src/components/gastos/GastosTable.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop (md+): sin cambios en ninguna de las dos tablas — toolbar (buscador + botón Filtros + chips rápidos en ReservasTable) y paginador (rango + selector de tamaño de página a la izquierda, flechas + 'Página X de Y' a la derecha) en una fila cada uno. Mobile (<md): en GastosTable la fila de buscador + botón Filtros (hoy 'flex items-end gap-3' sin wrap) pasa a envolver o apilarse para no desbordar. En ReservasTable la fila ya tiene flex-wrap pero se revisa con viewport real: el buscador (hoy w-72 fijo) y los chips de filtro rápido deben poder angostarse/envolver sin quedar apretados. En ambas tablas, el paginador (hoy 'flex items-center justify-between' en una fila) se reorganiza en mobile — el bloque de rango+selector de tamaño y el bloque de flechas+contador pueden apilarse en dos filas en vez de compartir una sola línea angosta. El `<table>` en sí (con su overflow-x-auto) no se modifica en ningún caso.",
+      "next_step": null
+    },
+    {
+      "step": "US-04-formularios-reservas",
+      "screen": "web/src/components/modals/ReservaModal.tsx, web/src/components/modals/BloqueoModal.tsx, web/src/app/reservas/nueva/page.tsx (paso 1 y paso 2), web/src/app/reservas/[id]/pago/page.tsx, web/src/components/reservas/TrasladarPagoModal.tsx, web/src/components/reservas/ReciboModal.tsx, web/src/components/reservas/FiltrosModal.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop (md+): todas las grillas se mantienen como están hoy (grid-cols-4 en ReservaModal/nueva/pago, grid-cols-2 en BloqueoModal y en los bloques de fecha de FiltrosModal). Mobile (<md): cada celda de las grillas de 4 columnas pasa a ocupar el ancho completo (1 columna), salvo Check-in/Check-out, Monto+Moneda, y las 3 excepciones adicionales que Mili confirmó en este gate: Plataforma+Estado (ReservaModal), Casa+Estado (nueva/page.tsx paso 1), y Cotización ARS/USD+Tipo de pago (pago/page.tsx) — estas 5 quedan en 2 columnas en mobile. El resto de los pares que se habían marcado como ambiguos (Teléfono+Plataforma, Tipo de pago+Quién pagó, Fecha del pago+Destinatario, Banco destino+N° operación, Quién pagó+Fecha del pago) NO se confirmaron como excepción — quedan en 1 columna (default). En BloqueoModal, el bloque Desde/Hasta se mantiene en 2 columnas por ser par de fecha; Casa, Motivo y Notas pasan a ocupar el ancho completo. En FiltrosModal (reservas y gastos), el bloque de Rango de fechas (Desde/Hasta) se mantiene en 2 columnas por ser par de fecha; las grillas de checkboxes (Casa, Plataforma, Categoría, Pagado por) quedan para evaluación del Developer (no bloquea este gate). TrasladarPagoModal y ReciboModal ya son de una columna (sin grilla) — no requieren cambios estructurales.",
+      "next_step": null
+    },
+    {
+      "step": "US-05-formularios-gastos",
+      "screen": "web/src/components/gastos/FormularioGasto.tsx, web/src/components/gastos/ConfirmacionGasto.tsx, web/src/components/gastos/FiltrosModal.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop (md+): FormularioGasto mantiene su grid-cols-2 como hoy. Mobile (<md): cada celda pasa a ancho completo (1 columna), salvo Monto+Moneda (línea ~44-69) que se mantiene en 2 columnas por ser la excepción de negocio. Mili confirmó en este gate que Fecha+Pagado por y Destinatario+Banco origen+N° operación NO son excepción — quedan en 1 columna. CategoriaSelect (col-span-2 ya hoy) y Detalle (col-span-2 ya hoy) no cambian de comportamiento porque ya ocupan el ancho completo. ConfirmacionGasto no usa grilla (son filas label/valor en flex) — no requiere cambios estructurales en ningún breakpoint. FiltrosModal de gastos sigue el mismo criterio que el de reservas: el bloque de Rango de fechas se mantiene en 2 columnas (par de fecha), las grillas de checkboxes (Categoría, Pagado por) quedan para evaluación del Developer.",
+      "next_step": null
+    },
+    {
+      "step": "US-06-login",
+      "screen": "web/src/app/login/page.tsx + web/src/app/login/LoginForm.tsx",
+      "fields_shown": [],
+      "user_action": "Desktop y mobile: sin cambios estructurales — el formulario ya es de 1 columna (`space-y-4`, sin grillas) dentro de un contenedor `max-w-sm`. Se verifica visualmente en viewport 375px con la cuenta QA que email, contraseña y botón 'Ingresar' se vean completos y usables; si aparece algún problema puntual de padding o tamaño de texto, se ajusta como fix menor sin rediseño.",
+      "next_step": null
+    }
+  ],
+  "component_tree": [
+    {
+      "component": "NavTabs (modificado)",
+      "children": ["MobileMenuButton (nuevo)", "MobileMenuPanel (nuevo)"],
+      "props": [],
+      "states": ["menuAbierto: boolean (nuevo)"]
+    },
+    {
+      "component": "MobileMenuButton (nuevo)",
+      "children": [],
+      "props": ["onClick: () => void", "abierto: boolean"],
+      "states": []
+    },
+    {
+      "component": "MobileMenuPanel (nuevo)",
+      "children": ["lista de tabs (Calendario, Reservas, Gastos, Dashboard)", "botón Cerrar sesión"],
+      "props": ["abierto: boolean", "onClose: () => void", "tabs", "pathname activo"],
+      "states": []
+    },
+    {
+      "component": "CalendarView toolbar (modificado)",
+      "children": ["prev/next + selector de mes (existente)", "botón Hoy (existente)", "botón Bloquear fechas (existente)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "ReservasTable toolbar + paginador (modificado)",
+      "children": ["buscador (existente)", "botón Filtros (existente)", "chips de filtro rápido (existente)", "paginador (existente)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "GastosTable toolbar + paginador (modificado)",
+      "children": ["buscador (existente)", "botón Filtros (existente)", "paginador (existente)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "ReservaModal grilla de campos (modificado)",
+      "children": ["Check-in/Check-out (excepción 2 col)", "Monto total (excepción 2 col junto con Precio promedio/Estado de pago)", "Plataforma+Estado (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "BloqueoModal grilla de campos (modificado)",
+      "children": ["Desde/Hasta (excepción 2 col)", "Casa, Motivo, Notas (pasan a 1 col)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "reservas/nueva paso 1 grilla (modificado)",
+      "children": ["Check-in/Check-out (excepción 2 col)", "Casa+Estado (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "reservas/nueva paso 2 grilla (modificado)",
+      "children": ["Monto/Moneda (excepción 2 col)", "resto de campos (pasan a 1 col)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "reservas/[id]/pago grilla (modificado)",
+      "children": ["Monto/Moneda (excepción 2 col)", "Cotización ARS/USD+Tipo de pago (excepción 2 col, confirmada por Mili en este gate)", "resto de campos (pasan a 1 col, incluye Quién pagó+Fecha del pago y Banco destino+N° operación, NO confirmados como excepción)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "FormularioGasto grilla (modificado)",
+      "children": ["Monto/Moneda (excepción 2 col)", "CategoriaSelect (ya col completo)", "resto de campos (pasan a 1 col)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "FiltrosModal reservas y gastos (modificado)",
+      "children": ["Rango de fechas Desde/Hasta (excepción 2 col)", "grillas de checkboxes (evaluación Developer, no bloquea)"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "LoginForm (sin cambios estructurales)",
+      "children": ["Email", "Contraseña", "botón Ingresar"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "ConfirmacionGasto (sin cambios estructurales)",
+      "children": ["filas label/valor existentes"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "TrasladarPagoModal (sin cambios estructurales)",
+      "children": ["buscador existente", "lista de resultados existente"],
+      "props": [],
+      "states": []
+    },
+    {
+      "component": "ReciboModal (sin cambios estructurales)",
+      "children": ["imagen de recibo existente", "botones Compartir/Descargar existentes"],
+      "props": [],
+      "states": []
+    }
+  ],
+  "validations_per_step": {
+    "US-01-header": [
+      "En md+ el header se ve y comporta exactamente igual que hoy (logo + tabs en línea + logout), sin el botón hamburguesa visible.",
+      "En <md desaparecen los accesos en línea y el botón de logout inline, y aparece el botón de menú.",
+      "El menú desplegado lista las 5 opciones (Calendario, Reservas, Gastos, Dashboard, Cerrar sesión) y navega correctamente al tocarlas.",
+      "El menú se cierra al elegir una opción, al tocar fuera del panel, y al volver a tocar el botón (toggle) — no queda abierto pegado en pantalla.",
+      "El estado activo (resaltado del tab actual según pathname) sigue funcionando igual dentro del menú mobile que en la versión inline.",
+      "Cerrar sesión (form action='logout') sigue funcionando igual desde el menú mobile."
+    ],
+    "US-02-calendario-toolbar": [
+      "El cuerpo del calendario (FullCalendar) no cambia ni de tamaño ni de comportamiento en ningún breakpoint — sigue con su scroll horizontal existente.",
+      "En mobile ningún control de la toolbar (prev, next, selector de mes, Hoy, Bloquear fechas) queda cortado, oculto o inaccesible al tap.",
+      "El selector de mes (popover con año y grilla de meses) sigue abriendo y cerrando igual en mobile.",
+      "El banner de selección activa (debajo de la toolbar) no se rompe visualmente al envolver la toolbar en mobile.",
+      "En md+ la toolbar se ve exactamente igual que hoy (una sola fila)."
+    ],
+    "US-03-tablas-toolbar-paginacion": [
+      "El `<table>` de ReservasTable y GastosTable no cambia en ningún breakpoint — mismo scroll horizontal existente.",
+      "En mobile, buscador + botón Filtros (+ chips en ReservasTable) no se desbordan ni se cortan, y siguen siendo tocables/usables (no solo 'sin overflow').",
+      "El paginador en mobile no aprieta sus controles — el selector de tamaño de página, el contador de rango y las flechas siguen siendo legibles y tocables.",
+      "Los contadores de página ('Página X de Y', rango 'N–M de T') no se truncan ni quedan ilegibles en mobile.",
+      "En md+ toolbars y paginadores de ambas tablas se ven exactamente igual que hoy."
+    ],
+    "US-04-formularios-reservas": [
+      "En md+, todas las grillas (ReservaModal, BloqueoModal, nueva/page.tsx pasos 1 y 2, pago/page.tsx, FiltrosModal de reservas) se ven exactamente igual que hoy.",
+      "En mobile, todos los campos quedan accesibles y en una columna, salvo Check-in/Check-out y Monto/Moneda que se mantienen en 2 columnas.",
+      "El `DialogContent` de cada modal no requiere cambios — se verifica que sigue siendo scrollable y mobile-safe sin overflow horizontal.",
+      "El flujo de 2 pasos de reservas/nueva sigue funcionando igual (validación, navegación entre pasos, botones Volver/Siguiente) en mobile.",
+      "La carga de comprobante (drag&drop / file picker) en pago/page.tsx y nueva/page.tsx paso 2 sigue siendo usable en mobile (el drag&drop puede no aplicar pero el tap para abrir el file picker debe funcionar).",
+      "BloqueoModal sigue validando fechas obligatorias igual en mobile que en desktop.",
+      "TrasladarPagoModal y ReciboModal (sin grilla) se verifican igual de usables en mobile sin haber sido tocados.",
+      "Ningún campo readonly/disabled (ej. los que vienen de OCR de comprobante) pierde su estado visual al apilarse en 1 columna."
+    ],
+    "US-05-formularios-gastos": [
+      "En md+, FormularioGasto y FiltrosModal de gastos se ven exactamente igual que hoy.",
+      "En mobile, todos los campos de FormularioGasto quedan en 1 columna salvo Monto/Moneda (excepción 2 col).",
+      "Los campos condicionales que aparecen solo si vienen de comprobante (Destinatario, Banco origen, N° operación, todos readonly) se apilan correctamente sin quedar cortados.",
+      "ConfirmacionGasto (sin grilla) se verifica legible en mobile sin haber sido modificado.",
+      "El botón 'Continuar'/'Volver' del formulario sigue siendo usable y no queda recortado en mobile."
+    ],
+    "US-06-login": [
+      "El formulario de login se ve completo en viewport 375px con la cuenta QA (qa-responsive@example.com) — sin overflow horizontal ni elementos cortados.",
+      "Email, contraseña y botón Ingresar son tocables y legibles en mobile.",
+      "Si se detecta un problema puntual (padding, tamaño de texto), se documenta como fix menor — no se rediseña el formulario."
+    ]
+  }
+}

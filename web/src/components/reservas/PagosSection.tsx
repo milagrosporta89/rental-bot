@@ -6,6 +6,7 @@ import { MoreVertical } from 'lucide-react'
 import { Ingreso, Reserva } from '@/lib/types'
 import { eliminarIngreso } from '@/app/actions/ingresos'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { TrasladarPagoModal } from '@/components/reservas/TrasladarPagoModal'
 import { ReciboModal } from '@/components/reservas/ReciboModal'
@@ -17,7 +18,6 @@ export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [trasladarId, setTrasladarId] = useState<string | null>(null)
   const [reciboId, setReciboId] = useState<string | null>(null)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleDelete(id: string) {
@@ -68,66 +68,39 @@ export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: {
                   )}
                 </p>
               </div>
-              <div className="relative shrink-0">
-                <button
-                  onClick={() => setOpenMenuId(openMenuId === p.id ? null : p.id)}
-                  className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors"
-                  aria-label="Más acciones"
-                  aria-haspopup="menu"
-                  aria-expanded={openMenuId === p.id}
-                >
-                  <MoreVertical className="w-4 h-4" />
-                </button>
-
-                {openMenuId === p.id && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
-                    <div
-                      role="menu"
-                      className="absolute right-0 top-full mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-50"
-                    >
-                      <button
-                        role="menuitem"
-                        onClick={() => { setOpenMenuId(null); setReciboId(p.id) }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
-                      >
-                        Ver recibo
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={() => { setOpenMenuId(null); router.push(`/reservas/${reservaId}/pago?edit=${p.id}`) }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
-                      >
-                        Editar
-                      </button>
-                      {cancelada && (
-                        <button
-                          role="menuitem"
-                          onClick={() => { setOpenMenuId(null); setTrasladarId(p.id) }}
-                          className="w-full text-left px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
-                        >
-                          Trasladar a otra reserva
-                        </button>
-                      )}
-                      <div className="my-1 border-t border-slate-100" />
-                      <button
-                        role="menuitem"
-                        onClick={() => { setOpenMenuId(null); setConfirmDeleteId(p.id) }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-red-50 cursor-pointer"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-100 cursor-pointer transition-colors shrink-0"
+                    aria-label="Más acciones"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setReciboId(p.id)}>
+                    Ver recibo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push(`/reservas/${reservaId}/pago?edit=${p.id}`)}>
+                    Editar
+                  </DropdownMenuItem>
+                  {cancelada && (
+                    <DropdownMenuItem onClick={() => setTrasladarId(p.id)}>
+                      Trasladar a otra reserva
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={() => setConfirmDeleteId(p.id)}>
+                    Eliminar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )
         })}
       </div>
 
       <Dialog open={confirmDeleteId !== null} onOpenChange={open => !open && setConfirmDeleteId(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Eliminar pago</DialogTitle>
             <DialogDescription>

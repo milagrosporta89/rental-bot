@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ChevronRight, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { buscarGastoDuplicado, obtenerGasto } from '@/app/actions/gastos'
 import type { GastoDuplicado, GastoPayload } from '@/app/actions/gastos'
@@ -29,10 +30,31 @@ const FORM_INICIAL: GastoFormState = {
   banco_origen: '',
   nro_operacion: '',
   detalle: '',
+  id_reserva: '',
 }
 
 function toTitleCase(s: string) {
   return s.replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// US-04: entrada desde el gatillo de "asentar cobro de Paola como gasto de comisión"
+// (web/src/components/reservas/GatilloComisionModal.tsx) — precarga sin venir de un edit existente.
+// id_reserva vincula el gasto a la reserva que originó el cobro (en vez de depender solo del
+// texto de "detalle", que se puede editar/borrar) — decisión revisada por Mili.
+function formInicialDesdeParams(searchParams: ReturnType<typeof useSearchParams>): GastoFormState {
+  if (searchParams.get('prefillComision') !== '1') return FORM_INICIAL
+  const idReserva = searchParams.get('idReserva') ?? ''
+  return {
+    ...FORM_INICIAL,
+    categoria: 'comision',
+    monto: searchParams.get('monto') ?? '',
+    moneda: searchParams.get('moneda') === 'USD' ? 'USD' : 'ARS',
+    fecha: searchParams.get('fecha') ?? FORM_INICIAL.fecha,
+    pagadoPor: 'Fernando',
+    nombre_destinatario: 'Paola',
+    id_reserva: idReserva,
+    detalle: idReserva ? `Comisión reserva #${idReserva}` : '',
+  }
 }
 
 export function GastoWizard() {
@@ -43,7 +65,7 @@ export function GastoWizard() {
 
   const [cargandoEdicion, setCargandoEdicion] = useState(!!editId)
   const [paso, setPaso] = useState<Paso>('carga')
-  const [form, setForm] = useState<GastoFormState>(FORM_INICIAL)
+  const [form, setForm] = useState<GastoFormState>(() => formInicialDesdeParams(searchParams))
   const [fromComprobante, setFromComprobante] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
   const [uploadState, setUploadState] = useState<UploadState>('idle')
@@ -70,6 +92,7 @@ export function GastoWizard() {
         banco_origen: g.banco_origen ?? '',
         nro_operacion: g.nro_operacion ?? '',
         detalle: g.detalle ?? '',
+        id_reserva: g.id_reserva ?? '',
       })
       setCargandoEdicion(false)
     })
@@ -197,6 +220,7 @@ export function GastoWizard() {
       nro_operacion: nn(form.nro_operacion),
       detalle: nn(form.detalle),
       comprobante_url: comprobanteUrl || null,
+      id_reserva: nn(form.id_reserva),
     }
   }
 
@@ -226,64 +250,102 @@ export function GastoWizard() {
     )
   }
 
+  const volverDesdeCarga = editId ? () => router.push('/gastos') : undefined
+
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center gap-1.5 text-xs text-slate-400">
-        <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
-        <ChevronRight className="w-3 h-3" />
-        <span className="text-slate-600 font-medium">{editId ? 'Editar gasto' : 'Nuevo gasto'}</span>
+    <div className="flex flex-col min-h-full">
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-6 w-full flex-1">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Link href="/gastos" className="hover:text-slate-600 transition-colors">Gastos</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-slate-600 font-medium">{editId ? 'Editar gasto' : 'Nuevo gasto'}</span>
+        </div>
+
+        <div className="hidden md:block">
+          <Stepper actual={PASO_NUM[paso]} />
+        </div>
+
+        {paso === 'carga' && (
+          <div className="space-y-4">
+            {!editId && (
+              <div className="space-y-2">
+                <ComprobanteDropzone
+                  uploadState={uploadState}
+                  comprobanteUrl={comprobanteUrl}
+                  onFile={handleFile}
+                  onRemove={removeComprobante}
+                />
+                {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
+                {!fromComprobante && !duplicado && (
+                  <p className="text-[11px] text-slate-400">
+                    Si subís el comprobante, completamos los datos automáticamente.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <FormularioGasto
+              form={form}
+              fromComprobante={fromComprobante}
+              ro={ro}
+              onChange={onChange}
+              error={formError}
+            />
+          </div>
+        )}
+
+        {paso === 'confirmacion' && (
+          <ConfirmacionGasto
+            resumen={resumen}
+            error={submitError}
+            modoEdicion={!!editId}
+          />
+        )}
+
+        {paso === 'exito' && (
+          <PantallaExito
+            mensaje={editId ? 'Gasto actualizado correctamente' : 'Gasto registrado correctamente'}
+          />
+        )}
       </div>
 
-      <Stepper actual={PASO_NUM[paso]} />
-
-      {paso === 'carga' && (
-        <div className="space-y-4">
-          {!editId && (
-            <div className="space-y-2">
-              <ComprobanteDropzone
-                uploadState={uploadState}
-                comprobanteUrl={comprobanteUrl}
-                onFile={handleFile}
-                onRemove={removeComprobante}
-              />
-              {duplicado && <DuplicadoBloqueo gastoExistente={duplicado} />}
-              {!fromComprobante && !duplicado && (
-                <p className="text-[11px] text-slate-400">
-                  Si subís el comprobante, completamos los datos automáticamente.
-                </p>
+      <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+        <div className="max-w-xl mx-auto">
+          {paso === 'carga' && (
+            <div className={`flex flex-col sm:flex-row gap-2 ${volverDesdeCarga ? 'sm:justify-between' : 'sm:justify-end'}`}>
+              {volverDesdeCarga && (
+                <Button size="sm" variant="outline" onClick={volverDesdeCarga} className="w-full sm:w-auto cursor-pointer">
+                  Volver
+                </Button>
               )}
+              <Button size="sm" onClick={irAConfirmacion} className="w-full sm:w-auto cursor-pointer">
+                Continuar
+              </Button>
             </div>
           )}
 
-          <FormularioGasto
-            form={form}
-            fromComprobante={fromComprobante}
-            ro={ro}
-            onChange={onChange}
-            onSubmit={irAConfirmacion}
-            onVolver={editId ? () => router.push('/gastos') : undefined}
-            error={formError}
-          />
+          {paso === 'confirmacion' && (
+            <div className="flex flex-col sm:flex-row sm:justify-between gap-2">
+              <Button size="sm" variant="outline" onClick={() => setPaso('carga')} disabled={loading} className="w-full sm:w-auto cursor-pointer">
+                Volver
+              </Button>
+              <Button size="sm" onClick={confirmar} disabled={loading} className="w-full sm:w-auto cursor-pointer">
+                {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                {editId ? 'Guardar cambios' : 'Confirmar gasto'}
+              </Button>
+            </div>
+          )}
+
+          {paso === 'exito' && (
+            <Button
+              onClick={() => { router.refresh(); router.push('/gastos') }}
+              className="w-full cursor-pointer"
+            >
+              Continuar
+            </Button>
+          )}
         </div>
-      )}
-
-      {paso === 'confirmacion' && (
-        <ConfirmacionGasto
-          resumen={resumen}
-          onVolver={() => setPaso('carga')}
-          onConfirmar={confirmar}
-          loading={loading}
-          error={submitError}
-          modoEdicion={!!editId}
-        />
-      )}
-
-      {paso === 'exito' && (
-        <PantallaExito
-          mensaje={editId ? 'Gasto actualizado correctamente' : 'Gasto registrado correctamente'}
-          onContinuar={() => router.push('/gastos')}
-        />
-      )}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,4 @@
 import type { ReactNode } from 'react'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { CATEGORIA_GASTO_LABEL, CategoriaGasto } from '@/lib/types'
 
 export interface ResumenGasto {
@@ -18,9 +16,6 @@ export interface ResumenGasto {
 
 interface Props {
   resumen: ResumenGasto
-  onVolver: () => void
-  onConfirmar: () => void
-  loading: boolean
   error?: string
   modoEdicion?: boolean
 }
@@ -28,7 +23,7 @@ interface Props {
 // Mismo lenguaje visual que el comprobante de pago de ingresos (web/src/lib/recibo.ts):
 // filas de label/valor alineadas en la misma línea, sin logo ni generación de imagen —
 // esto vive directo en la pantalla, no hace falta exportarlo a JPG.
-export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, error, modoEdicion }: Props) {
+export function ConfirmacionGasto({ resumen, error, modoEdicion }: Props) {
   const catLabel = CATEGORIA_GASTO_LABEL[resumen.categoria as CategoriaGasto] ?? resumen.categoria
   const tieneComprobante = Boolean(resumen.nro_operacion || resumen.comprobante_url)
 
@@ -63,16 +58,6 @@ export function ConfirmacionGasto({ resumen, onVolver, onConfirmar, loading, err
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}
-
-      <div className="flex justify-between">
-        <Button size="sm" variant="outline" onClick={onVolver} disabled={loading} className="cursor-pointer">
-          Volver
-        </Button>
-        <Button size="sm" onClick={onConfirmar} disabled={loading} className="cursor-pointer">
-          {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-          {modoEdicion ? 'Guardar cambios' : 'Confirmar gasto'}
-        </Button>
-      </div>
     </div>
   )
 }

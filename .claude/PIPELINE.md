@@ -1,25 +1,39 @@
-# Pipeline de 4 agentes — replicar un flujo del bot a la web
+# Pipeline de 4 agentes — construir cualquier feature nueva en la web
 
-Plantilla reutilizable. Se invoca con `/run-pipeline <feature>` (ver `commands/run-pipeline.md`), donde `<feature>` es el nombre del flujo del bot a replicar (ej: `gastos`, `ingresos`, `comision`).
+Plantilla reutilizable, **se aplica siempre a toda feature nueva** (decisión de Mili, 2026-06-26) — tenga o no equivalente en el bot de WhatsApp. Se invoca con `/run-pipeline <feature>` (ver `commands/run-pipeline.md`), donde `<feature>` es el nombre de la feature (ej: `gastos`, `auth-header`, `ingresos`).
 
-Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y tener la aprobación de Mili sobre ese relevamiento — el pipeline no vuelve a investigar el dominio desde cero, parte de lo ya explorado.
+Requiere haber corrido antes `/explore <feature>` (ver `commands/explore.md`) y tener la aprobación de Mili sobre ese relevamiento — el pipeline no vuelve a investigar el dominio desde cero, parte de lo ya explorado. Si la feature no tiene equivalente en el bot (ej: login), `/explore` igual corre, pero investiga lo que sí aplica (dependencias ya instaladas, patrones existentes en la web, configuración necesaria) en vez de buscar un handler que no existe — ver `commands/explore.md`.
 
 El estado de avance de cada corrida (qué fase quedó hecha, qué falta, qué se aprobó) vive en `STATUS.md`, no acá. Este archivo describe el proceso, no una corrida puntual.
+
+**Cada feature tiene su propia carpeta de artifacts: `.claude/artifacts/<feature>/`** (`po-output.json`, `designer-output.json`, `qa-output.json`, y `explore.md`, que ahora siempre se guarda — ver `commands/explore.md`). Nunca uses el nombre de archivo plano sin la carpeta — eso fue un error de la primera corrida (gastos) que pisaba artifacts de una feature con la de otra; ya está corregido, no lo repitas.
+
+## Cómo se ejecuta cada fase
+
+Cada una de las 4 fases (PO, Designer, Developer, QA) corre como un **subagente aislado** (Agent tool, `subagent_type: general-purpose`), no inline en la conversación con Mili — ver mecánica concreta en `commands/run-pipeline.md`. Motivo: evitar que el detalle de cada fase, sobre todo las verificaciones con Playwright de Developer/QA (screenshots, DOM, logs de red), se acumule en el historial de la sesión. Es la misma lógica que llevó a archivar `STATUS.md` por feature cerrada (ver `CONTEXT.md`): aislar lo que es ruido de proceso de lo que hace falta recordar.
+
+Cada subagente de fase:
+- Recibe en su prompt qué fase es, la feature, la rama (ya posicionada), qué artifacts previos leer y dónde escribir el suyo — autocontenido, sin asumir que vio esta conversación.
+- Hace su trabajo completo (incluidas idas y vueltas internas) dentro de su propio contexto aislado.
+- Termina con un **resumen corto** (no el JSON completo del artifact, no logs de Playwright) para mostrar en el chat antes del gate de aprobación. El detalle fino queda en el artifact en disco y en `viewer.html` (`node scripts/pipeline-viewer.mjs`), no se duplica en el chat ni en `STATUS.md`.
+
+El orquestador (esta conversación) nunca hace el trabajo de una fase directamente — lanza el subagente, muestra su resumen, espera la aprobación de Mili, y lanza el siguiente.
 
 ---
 
 ## Setup inicial
 
 1. Creá la rama `feature/<feature>-ui` y posicionate en ella (si ya existe, posicionate y avisá que ya existía).
-2. Confirmá en qué rama quedaste antes de seguir.
+2. Creá la carpeta `.claude/artifacts/<feature>/` si no existe.
+3. Confirmá en qué rama quedaste antes de seguir.
 
 ---
 
 ## AGENTE 1: Product Owner
 
-**Rol:** Traducir el flujo del bot a requerimientos de UI.
+**Rol:** Traducir el relevamiento de `/explore <feature>` a requerimientos de UI (haya o no flujo de bot detrás).
 
-Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprobado por Mili), producí `.claude/artifacts/po-output.json`:
+Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprobado por Mili), producí `.claude/artifacts/<feature>/po-output.json`:
 
 ```json
 {
@@ -42,7 +56,7 @@ Con base en el relevamiento de `/explore <feature>` (artifact o resumen ya aprob
     }
   ],
   "business_rules": ["..."],
-  "out_of_scope": ["cosas que el bot hace pero NO se replican en esta iteración"]
+  "out_of_scope": ["cosas que podrían esperarse de esta feature pero NO se incluyen en esta iteración (del bot si aplica, o de expectativas razonables si no)"]
 }
 ```
 
@@ -55,7 +69,7 @@ Mostralo en pantalla y esperá aprobación antes de seguir.
 
 **Rol:** Definir estructura y estados de la UI (sin CSS todavía).
 
-Leé `.claude/artifacts/po-output.json` y producí `.claude/artifacts/designer-output.json`:
+Leé `.claude/artifacts/<feature>/po-output.json` y producí `.claude/artifacts/<feature>/designer-output.json`:
 
 ```json
 {
@@ -117,7 +131,7 @@ Mostralo y esperá aprobación.
 
 **Rol:** Revisar que el código cumple los criterios del PO.
 
-Leé `.claude/artifacts/po-output.json` y el código del Developer. Para cada user story y criterio de aceptación, verificá si el código lo cumple. Producí `.claude/artifacts/qa-output.json`:
+Leé `.claude/artifacts/<feature>/po-output.json` y el código del Developer. Para cada user story y criterio de aceptación, verificá si el código lo cumple. Producí `.claude/artifacts/<feature>/qa-output.json`:
 
 ```json
 {

@@ -91,6 +91,7 @@ function NuevaReservaForm() {
   const checkinRef = useRef<HTMLInputElement>(null)
   const checkoutRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const fechaPagoRef = useRef<HTMLInputElement>(null)
 
   // Prefetch cotización al llegar al paso 2
   useEffect(() => {
@@ -195,6 +196,7 @@ function NuevaReservaForm() {
     try {
       const noches = calcularNoches(s1.fecha_entrada, s1.fecha_salida)
       const total = parseFloat(s1.monto_total_usd)
+      const cotizacion = await fetch('/api/cotizacion').then(r => r.json()).then((d: { cotizacion: number }) => d.cotizacion).catch(() => 0)
       await crearReserva({
         casa: s1.casa,
         estado_reserva: 'tentativa',
@@ -210,7 +212,7 @@ function NuevaReservaForm() {
         estado_pago: 'debe',
         plataforma: s1.plataforma,
         notas: s1.notas.trim() || null,
-        cotizacion: 0,
+        cotizacion,
       })
       router.push('/calendario')
     } catch (e) {
@@ -289,8 +291,8 @@ function NuevaReservaForm() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full overflow-auto">
-      <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="h-full overflow-auto flex flex-col">
+      <div className="max-w-xl mx-auto px-4 py-6 w-full flex-1">
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-5">
@@ -305,122 +307,127 @@ function NuevaReservaForm() {
             <h1 className="text-lg font-semibold text-slate-800 mb-1">Nueva reserva</h1>
             <p className="text-xs text-slate-400 mb-5">Paso 1 de 2 · Datos de la reserva</p>
 
-            <div className="grid grid-cols-4 gap-x-3 gap-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
-              {/* Casa */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Casa *</Label>
-                <Select value={s1.casa} onValueChange={v => set1('casa', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(CASA_LABELS).map(([num, label]) => (
-                      <SelectItem key={num} value={num}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Casa + Estado */}
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Casa *</Label>
+                  <Select value={s1.casa} onValueChange={v => set1('casa', v)}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(CASA_LABELS).map(([num, label]) => (
+                        <SelectItem key={num} value={num}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              {/* Estado reserva */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Estado *</Label>
-                <Select
-                  value={s1.estado_reserva}
-                  onValueChange={v => set1('estado_reserva', v as 'tentativa' | 'confirmada')}
-                >
-                  <SelectTrigger className="text-sm">
-                    <SelectValue placeholder="Elegí un estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tentativa">Tentativa</SelectItem>
-                    <SelectItem value="confirmada">Confirmada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Check-in */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Check-in *</Label>
-                <div
-                  className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
-                  onClick={() => checkinRef.current?.showPicker()}
-                >
-                  <input
-                    ref={checkinRef}
-                    type="date"
-                    value={toISO(s1.fecha_entrada)}
-                    onChange={e => {
-                      const nueva = toDDMMYYYY(e.target.value)
-                      const nd = parse(nueva, 'dd/MM/yyyy', new Date())
-                      const sd = parse(s1.fecha_salida, 'dd/MM/yyyy', new Date())
-                      setS1(prev => ({
-                        ...prev,
-                        fecha_entrada: nueva,
-                        fecha_salida: isValid(sd) && sd <= nd
-                          ? format(addDays(nd, 1), 'dd/MM/yyyy')
-                          : prev.fecha_salida,
-                      }))
-                      setError('')
-                    }}
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
-                  />
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                {/* Estado reserva */}
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Estado *</Label>
+                  <Select
+                    value={s1.estado_reserva}
+                    onValueChange={v => set1('estado_reserva', v as 'tentativa' | 'confirmada')}
+                  >
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="Elegí un estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="tentativa">Tentativa</SelectItem>
+                      <SelectItem value="confirmada">Confirmada</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              {/* Check-out */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Check-out *</Label>
-                <div
-                  className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
-                  onClick={() => { if (checkoutRef.current) { checkoutRef.current.min = minCheckout; checkoutRef.current.showPicker() } }}
-                >
-                  <input
-                    ref={checkoutRef}
-                    type="date"
-                    value={toISO(s1.fecha_salida)}
-                    min={minCheckout}
-                    onChange={e => set1('fecha_salida', toDDMMYYYY(e.target.value))}
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
-                  />
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              {/* Check-in + Check-out */}
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Check-in *</Label>
+                  <div
+                    className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                    onClick={() => checkinRef.current?.showPicker()}
+                  >
+                    <input
+                      ref={checkinRef}
+                      type="date"
+                      value={toISO(s1.fecha_entrada)}
+                      onChange={e => {
+                        const nueva = toDDMMYYYY(e.target.value)
+                        const nd = parse(nueva, 'dd/MM/yyyy', new Date())
+                        const sd = parse(s1.fecha_salida, 'dd/MM/yyyy', new Date())
+                        setS1(prev => ({
+                          ...prev,
+                          fecha_entrada: nueva,
+                          fecha_salida: isValid(sd) && sd <= nd
+                            ? format(addDays(nd, 1), 'dd/MM/yyyy')
+                            : prev.fecha_salida,
+                        }))
+                        setError('')
+                      }}
+                      className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                    />
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Check-out */}
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Check-out *</Label>
+                  <div
+                    className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                    onClick={() => { if (checkoutRef.current) { checkoutRef.current.min = minCheckout; checkoutRef.current.showPicker() } }}
+                  >
+                    <input
+                      ref={checkoutRef}
+                      type="date"
+                      value={toISO(s1.fecha_salida)}
+                      min={minCheckout}
+                      onChange={e => set1('fecha_salida', toDDMMYYYY(e.target.value))}
+                      className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                    />
+                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  </div>
                 </div>
               </div>
 
               {noches > 0 && (
-                <p className="col-span-4 text-xs text-slate-400 -mt-2">{noches} noches</p>
+                <p className="col-span-1 md:col-span-4 text-xs text-slate-400 -mt-2">{noches} noches</p>
               )}
 
               {/* Nombre */}
-              <div className="col-span-3 space-y-1">
+              <div className="col-span-1 md:col-span-3 space-y-1">
                 <Label className="text-xs text-slate-500">Nombre completo *</Label>
                 <Input value={s1.nombre_pax} onChange={e => set1('nombre_pax', e.target.value)} className="text-sm" />
               </div>
 
-              {/* Huéspedes */}
-              <div className="col-span-1 space-y-1">
-                <Label className="text-xs text-slate-500">Huéspedes *</Label>
-                <Input
-                  type="number" min={1} max={20}
-                  value={s1.cantidad_pax}
-                  onChange={e => set1('cantidad_pax', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
+              {/* Huéspedes + Teléfono */}
+              <div className="col-span-1 md:col-span-3 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+                <div className="md:col-span-1 space-y-1">
+                  <Label className="text-xs text-slate-500">Huéspedes *</Label>
+                  <Input
+                    type="number" min={1} max={20}
+                    value={s1.cantidad_pax}
+                    onChange={e => set1('cantidad_pax', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
 
-              {/* Teléfono */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Teléfono</Label>
-                <Input
-                  type="tel"
-                  value={s1.telefono}
-                  onChange={e => set1('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))}
-                  placeholder="549XXXXXXXXXX"
-                  className="text-sm"
-                />
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Teléfono</Label>
+                  <Input
+                    type="tel"
+                    value={s1.telefono}
+                    onChange={e => set1('telefono', e.target.value.replace(/[^0-9+\-\s()]/g, ''))}
+                    placeholder="549XXXXXXXXXX"
+                    className="text-sm"
+                  />
+                </div>
               </div>
 
               {/* Plataforma */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Plataforma</Label>
                 <Select value={s1.plataforma} onValueChange={v => set1('plataforma', v as Plataforma)}>
                   <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
@@ -432,9 +439,9 @@ function NuevaReservaForm() {
               </div>
 
               {/* Monto */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Monto total *</Label>
-                <div className="flex h-9 items-center rounded-md border border-input bg-background px-3 gap-1.5 focus-within:ring-1 focus-within:ring-ring">
+                <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-1.5 focus-within:ring-1 focus-within:ring-ring">
                   <span className="text-sm text-slate-600 shrink-0">USD</span>
                   <input
                     type="number" min={0} step={0.01}
@@ -446,7 +453,7 @@ function NuevaReservaForm() {
               </div>
 
               {/* Notas */}
-              <div className="col-span-4 space-y-1">
+              <div className="col-span-1 md:col-span-4 space-y-1">
                 <Label className="text-xs text-slate-500">Notas</Label>
                 <Textarea
                   value={s1.notas}
@@ -458,35 +465,6 @@ function NuevaReservaForm() {
             </div>
 
             {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
-
-            <div className="flex justify-end gap-2 mt-5">
-              <Button variant="ghost" size="sm" asChild className="text-slate-500">
-                <Link href="/calendario"><ArrowLeft className="w-3.5 h-3.5 mr-1" />Volver</Link>
-              </Button>
-
-              {s1.estado_reserva === '' && (
-                <Button size="sm" disabled className="opacity-50">
-                  Elegí un estado para continuar
-                </Button>
-              )}
-              {s1.estado_reserva === 'tentativa' && (
-                <Button size="sm" onClick={handleGuardarTentativa} disabled={loading}>
-                  {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
-                  Guardar reserva
-                </Button>
-              )}
-              {s1.estado_reserva === 'confirmada' && (
-                <Button size="sm" onClick={() => {
-                  const err = validarS1()
-                  if (err) { setError(err); return }
-                  setError('')
-                  setStep(2)
-                }}>
-                  Siguiente: asentar pago
-                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                </Button>
-              )}
-            </div>
           </>
         )}
 
@@ -504,10 +482,10 @@ function NuevaReservaForm() {
               <span><span className="text-slate-400 text-xs">Total</span> {formatUSD(parseFloat(s1.monto_total_usd || '0'))}</span>
             </div>
 
-            <div className="grid grid-cols-4 gap-x-3 gap-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-3 gap-y-2 md:gap-y-4">
 
               {/* Comprobante */}
-              <div className="col-span-4 space-y-1.5">
+              <div className="col-span-1 md:col-span-4 space-y-1.5">
                 <Label className="text-xs text-slate-500">Comprobante (opcional)</Label>
                 {uploadState === 'idle' && (
                   <button
@@ -547,32 +525,34 @@ function NuevaReservaForm() {
                 />
               </div>
 
-              {/* Monto */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Monto *</Label>
-                <Input
-                  type="number" min={0} step={0.01}
-                  value={s2.monto}
-                  onChange={e => set2('monto', e.target.value)}
-                  className="text-sm"
-                />
-              </div>
+              {/* Monto + Moneda */}
+              <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Monto *</Label>
+                  <Input
+                    type="number" min={0} step={0.01}
+                    value={s2.monto}
+                    onChange={e => set2('monto', e.target.value)}
+                    className="text-sm"
+                  />
+                </div>
 
-              {/* Moneda */}
-              <div className="col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Moneda *</Label>
-                <Select value={s2.moneda} onValueChange={v => set2('moneda', v as 'ARS' | 'USD')}>
-                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ARS">Pesos (ARS)</SelectItem>
-                    <SelectItem value="USD">Dólares (USD)</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Moneda */}
+                <div className="md:col-span-2 space-y-1">
+                  <Label className="text-xs text-slate-500">Moneda *</Label>
+                  <Select value={s2.moneda} onValueChange={v => set2('moneda', v as 'ARS' | 'USD')}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ARS">Pesos (ARS)</SelectItem>
+                      <SelectItem value="USD">Dólares (USD)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Cotización (solo si USD) */}
               {s2.moneda === 'USD' && (
-                <div className="col-span-2 space-y-1">
+                <div className="col-span-1 md:col-span-2 space-y-1">
                   <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
                   <Input
                     type="number" min={0}
@@ -585,7 +565,7 @@ function NuevaReservaForm() {
               )}
 
               {/* Tipo de movimiento */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Tipo de pago *</Label>
                 <Select
                   value={s2.tipo_movimiento}
@@ -602,48 +582,55 @@ function NuevaReservaForm() {
               </div>
 
               {/* Quién pagó */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Quién pagó *</Label>
                 <Input value={s2.quien_pago} onChange={e => set2('quien_pago', e.target.value)} className="text-sm" />
               </div>
 
               {/* Fecha del pago */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Fecha del pago</Label>
-                <Input
-                  type="date"
-                  value={s2.fecha}
-                  onChange={e => set2('fecha', e.target.value)}
-                  className="text-sm"
-                />
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-background px-3 gap-2 cursor-pointer focus-within:ring-1 focus-within:ring-ring"
+                  onClick={() => fechaPagoRef.current?.showPicker()}
+                >
+                  <input
+                    ref={fechaPagoRef}
+                    type="date"
+                    value={s2.fecha}
+                    onChange={e => set2('fecha', e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent outline-none text-sm [&::-webkit-calendar-picker-indicator]:hidden"
+                  />
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                </div>
               </div>
 
               {/* Nombre destinatario */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Destinatario</Label>
                 <Input value={s2.nombre_destinatario} onChange={e => set2('nombre_destinatario', e.target.value)} className="text-sm" />
               </div>
 
               {/* Banco y N° operación (si hay comprobante de transferencia) */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Banco destino</Label>
                 <Input value={s2.banco_destino} onChange={e => set2('banco_destino', e.target.value)} className="text-sm" />
               </div>
 
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">N° operación</Label>
                 <Input value={s2.nro_operacion} onChange={e => set2('nro_operacion', e.target.value)} className="text-sm" />
               </div>
 
               {/* Detalle */}
-              <div className="col-span-2 space-y-1">
+              <div className="col-span-1 md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Detalle</Label>
                 <Input value={s2.detalle} onChange={e => set2('detalle', e.target.value)} className="text-sm" />
               </div>
 
               {/* Calculados */}
               {montoNum > 0 && (
-                <div className="col-span-4 bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-1 text-xs">
+                <div className="col-span-1 md:col-span-4 bg-slate-50 rounded-lg border border-slate-200 px-4 py-3 space-y-1 text-xs">
                   <div className="flex justify-between text-slate-500">
                     <span>Equivalente ARS</span>
                     <span className="tabular-nums font-medium text-slate-700">
@@ -673,8 +660,45 @@ function NuevaReservaForm() {
             </div>
 
             {error && <p className="text-xs text-red-500 mt-3">{error}</p>}
+          </>
+        )}
+      </div>
 
-            <div className="flex justify-between mt-5">
+      <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-3 shrink-0">
+        <div className="max-w-xl mx-auto">
+          {step === 1 && (
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" asChild className="text-slate-500">
+                <Link href="/calendario"><ArrowLeft className="w-3.5 h-3.5 mr-1" />Volver</Link>
+              </Button>
+
+              {s1.estado_reserva === '' && (
+                <Button size="sm" disabled className="opacity-50">
+                  Elegí un estado para continuar
+                </Button>
+              )}
+              {s1.estado_reserva === 'tentativa' && (
+                <Button size="sm" onClick={handleGuardarTentativa} disabled={loading}>
+                  {loading ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : null}
+                  Guardar reserva
+                </Button>
+              )}
+              {s1.estado_reserva === 'confirmada' && (
+                <Button size="sm" onClick={() => {
+                  const err = validarS1()
+                  if (err) { setError(err); return }
+                  setError('')
+                  setStep(2)
+                }}>
+                  Siguiente: asentar pago
+                  <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              )}
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="flex justify-between">
               <Button variant="ghost" size="sm" onClick={() => { setStep(1); setError('') }} className="text-slate-500">
                 <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Volver a datos
               </Button>
@@ -687,8 +711,8 @@ function NuevaReservaForm() {
                 Confirmar reserva
               </Button>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

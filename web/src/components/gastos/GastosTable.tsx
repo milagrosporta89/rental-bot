@@ -24,8 +24,11 @@ function categoriaLabel(c: string): string {
   return CATEGORIA_GASTO_LABEL[c as CategoriaGasto] ?? c
 }
 
-// Mismo criterio que PagosSection.tsx (ingresos): si tiene nro_operacion fue transferencia, si no, efectivo
+// Mismo criterio que PagosSection.tsx (ingresos): si tiene nro_operacion fue transferencia, si no, efectivo.
+// Excepto los gastos de comisión que crea la liquidación (espejo o red de seguridad) — no son ni
+// una cosa ni la otra, son una distribución interna, así que se marcan aparte.
 function metodoPago(g: Gasto): string {
+  if (g.banco_origen === 'Liquidación de comisión') return 'Liquidación de comisión'
   return g.nro_operacion ? 'Transferencia' : 'Efectivo'
 }
 
@@ -106,6 +109,7 @@ export function GastosTable() {
     setEliminando(true)
     try {
       await eliminarGasto(id)
+      setGastos(prev => prev.filter(g => g.id !== id))
     } finally {
       setEliminando(false)
       setConfirmDeleteId(null)
@@ -131,10 +135,10 @@ export function GastosTable() {
         </div>
 
         {/* Toolbar */}
-        <div className="pb-4 flex items-end gap-3">
-          <div className="space-y-1">
+        <div className="pb-4 flex items-end gap-2 sm:gap-3">
+          <div className="space-y-1 flex-1 sm:flex-initial">
             <Label className="text-xs text-slate-500">Buscar por categoría, pagador o detalle</Label>
-            <div className="relative w-72">
+            <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               <Input
                 value={q}
@@ -146,12 +150,13 @@ export function GastosTable() {
 
           <button
             onClick={() => setFiltrosModalOpen(true)}
-            className="relative flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-label="Filtros"
+            title="Filtros"
+            className="relative flex items-center justify-center h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filtros
             {contarFiltrosActivos(filtrosAvanzados) > 0 && (
-              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-semibold">
+              <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-semibold">
                 {contarFiltrosActivos(filtrosAvanzados)}
               </span>
             )}
@@ -238,24 +243,19 @@ export function GastosTable() {
           </div>
 
           {/* Paginador */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-100 shrink-0">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-500">
-                {lista.length === 0 ? '0 de 0' : `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, lista.length)} de ${lista.length}`}
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs text-slate-500">Mostrar</span>
-                <select
-                  value={pageSize}
-                  onChange={e => setPageSize(Number(e.target.value))}
-                  aria-label="Cantidad de registros por página"
-                  className="h-7 w-16 text-xs bg-white border border-slate-200 rounded-md"
-                >
-                  {PAGE_SIZE_OPTIONS.map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-slate-200 bg-slate-100 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500">Mostrar</span>
+              <select
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value))}
+                aria-label="Cantidad de registros por página"
+                className="h-7 w-16 text-xs bg-white border border-slate-200 rounded-md"
+              >
+                {PAGE_SIZE_OPTIONS.map(n => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
             </div>
 
             <div className="flex items-center gap-2">
@@ -268,7 +268,7 @@ export function GastosTable() {
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-xs text-slate-600 font-medium px-1 whitespace-nowrap tabular-nums" aria-live="polite">
-                Página {page + 1} de {totalPages}
+                {page + 1} de {totalPages}
               </span>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
@@ -292,7 +292,7 @@ export function GastosTable() {
       />
 
       <Dialog open={confirmDeleteId !== null} onOpenChange={open => !open && setConfirmDeleteId(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Eliminar gasto</DialogTitle>
             <DialogDescription>

@@ -2,9 +2,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { esTerminada } from '@/lib/dates'
+import { registradoPorActual } from '@/lib/auth'
 import type { Ingreso } from '@/lib/types'
-
-const REGISTRADO_POR = 'Milagros'
 
 export interface IngresoPayload {
   id_reserva: string | null
@@ -48,6 +47,7 @@ async function recalcularSaldo(reservaId: string): Promise<void> {
 }
 
 export async function crearIngreso(payload: IngresoPayload): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
   const id = `ING-${Date.now()}`
   const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
@@ -56,7 +56,7 @@ export async function crearIngreso(payload: IngresoPayload): Promise<void> {
     ...payload,
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (error?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)
@@ -68,6 +68,7 @@ export async function registrarPago(
   reservaId: string,
   payload: IngresoPayload
 ): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
 
   const { data: reservaActual } = await supabase.from('reservas').select('estado_reserva').eq('id', reservaId).single()
@@ -82,7 +83,7 @@ export async function registrarPago(
     ...payload,
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
-    registrado_por: REGISTRADO_POR,
+    registrado_por,
     timestamp,
   })
   if (ie?.code === '23505') throw new Error(`El número de operación ${payload.nro_operacion} ya fue registrado.`)
@@ -121,6 +122,7 @@ export async function eliminarIngreso(id: string, reservaId: string): Promise<vo
 
 /** Mueve un pago de una reserva cancelada a otra reserva ya creada */
 export async function trasladarPago(ingresoId: string, reservaDestinoId: string): Promise<void> {
+  const registrado_por = await registradoPorActual()
   const supabase = createAdminClient()
 
   const { data: ingreso } = await supabase.from('ingresos').select('id_reserva').eq('id', ingresoId).single()
@@ -161,14 +163,120 @@ export async function trasladarPago(ingresoId: string, reservaDestinoId: string)
     {
       timestamp, id_registro: reservaOrigenId, tipo_registro: 'reserva', campo: 'pago_trasladado',
       valor_anterior: ingresoId, valor_nuevo: `trasladado a reserva ${reservaDestinoId}`,
-      modificado_por: REGISTRADO_POR, aprobado_por: REGISTRADO_POR,
+      modificado_por: registrado_por, aprobado_por: registrado_por,
     },
     {
       timestamp, id_registro: reservaDestinoId, tipo_registro: 'reserva', campo: 'pago_trasladado',
       valor_anterior: ingresoId, valor_nuevo: `recibido desde reserva ${reservaOrigenId}`,
-      modificado_por: REGISTRADO_POR, aprobado_por: REGISTRADO_POR,
+      modificado_por: registrado_por, aprobado_por: registrado_por,
     },
   ])
+}
+
+/**
+ * Clasificación manual (US-06) de un cobro de Paola en una reserva cancelada:
+ * 'comision' no hace nada más (la plata queda definitivamente de ella); 'caja_chica'
+ * además registra un movimiento_interno a_favor_negocio por el mismo monto, porque
+ * esa plata pasa a contar como reembolso de lo que el negocio le debe por gastos.
+ */
+export async function marcarResolucionCancelacion(
+  ingresoId: string,
+  resolucion: 'comision' | 'caja_chica'
+): Promise<void> {
+  const supabase = createAdminClient()
+  const { data: ingreso, error: ie } = await supabase
+    .from('ingresos')
+    .select('fecha, monto, moneda, cotizacion, monto_ars, monto_usd, resolucion_cancelacion')
+    .eq('id', ingresoId)
+    .single()
+  if (ie || !ingreso) throw new Error(ie?.message ?? 'Ingreso no encontrado.')
+  if (ingreso.resolucion_cancelacion) throw new Error('Este cobro ya fue clasificado.')
+
+  const { error } = await supabase
+    .from('ingresos')
+    .update({ resolucion_cancelacion: resolucion })
+    .eq('id', ingresoId)
+  if (error) throw new Error(error.message)
+
+  if (resolucion === 'caja_chica') {
+    const registrado_por = await registradoPorActual()
+    const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+    const { error: me } = await supabase.from('movimientos_internos').insert({
+      id: `MOV-${Date.now()}`,
+      fecha: ingreso.fecha,
+      monto: ingreso.monto,
+      moneda: ingreso.moneda,
+      cotizacion: ingreso.cotizacion,
+      monto_ars: ingreso.monto_ars,
+      monto_usd: ingreso.monto_usd,
+      sentido: 'a_favor_negocio',
+      tipo: 'caja_chica',
+      cuenta_origen: null, // no es una transferencia entre cuentas, es plata que Paola ya tenía
+      detalle: `Caja chica — cobro de reserva cancelada (ingreso ${ingresoId})`,
+      comprobante_url: null,
+      registrado_por,
+      timestamp,
+    })
+    if (me) throw new Error(me.message)
+  }
+}
+
+/**
+ * Al liquidar comisiones, si Paola cobró de más en una reserva (no cancelada), el ingreso
+ * original se parte en dos: uno por la comisión que correspondía (queda igual que siempre,
+ * cuenta como "cobrado" en la reconciliación) y otro por el excedente, etiquetado como caja
+ * chica (igual criterio que marcarResolucionCancelacion) — así una reserva ya liquidada
+ * muestra el % de comisión real, no el monto bruto que incluía el excedente.
+ */
+export async function partirIngresoPorExcedente(idReserva: string, montoComisionUsd: number): Promise<void> {
+  const supabase = createAdminClient()
+  const { data: ingresos, error } = await supabase
+    .from('ingresos')
+    .select('*')
+    .eq('id_reserva', idReserva)
+    .eq('nombre_destinatario', 'Paola')
+    .is('resolucion_cancelacion', null)
+  if (error) throw new Error(error.message)
+  if (!ingresos || ingresos.length === 0) return
+
+  const ingreso = ingresos.reduce((mayor, i) => (i.monto_usd ?? 0) > (mayor.monto_usd ?? 0) ? i : mayor)
+  const excedenteUsd = (ingreso.monto_usd ?? 0) - montoComisionUsd
+  if (excedenteUsd <= 0) return
+
+  const proporcionComision = montoComisionUsd / (ingreso.monto_usd ?? 1)
+  const registrado_por = await registradoPorActual()
+  const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+
+  const { error: ue } = await supabase.from('ingresos').update({
+    monto: ingreso.monto * proporcionComision,
+    monto_ars: ingreso.monto_ars != null ? ingreso.monto_ars * proporcionComision : null,
+    monto_usd: montoComisionUsd,
+  }).eq('id', ingreso.id)
+  if (ue) throw new Error(ue.message)
+
+  const { error: ce } = await supabase.from('ingresos').insert({
+    id: `ING-${Date.now()}`,
+    fecha: ingreso.fecha,
+    casa: ingreso.casa,
+    monto: ingreso.monto * (1 - proporcionComision),
+    moneda: ingreso.moneda,
+    tipo: ingreso.tipo,
+    quien_pago: ingreso.quien_pago,
+    nombre_destinatario: ingreso.nombre_destinatario,
+    banco_destino: ingreso.banco_destino,
+    nro_operacion: null,
+    detalle: `Excedente de comisión — caja chica (de ${ingreso.id})`,
+    registrado_por,
+    comprobante_url: null,
+    timestamp,
+    cotizacion: ingreso.cotizacion,
+    monto_ars: ingreso.monto_ars != null ? ingreso.monto_ars * (1 - proporcionComision) : null,
+    monto_usd: excedenteUsd,
+    id_reserva: ingreso.id_reserva,
+    tipo_movimiento: ingreso.tipo_movimiento,
+    resolucion_cancelacion: 'caja_chica',
+  })
+  if (ce) throw new Error(ce.message)
 }
 
 export async function editarIngreso(
