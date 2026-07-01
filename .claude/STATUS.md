@@ -4,6 +4,30 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-07-01 — Producción · Rama: `master`
+
+**Sesión de puesta en producción.** Todo mergeado a `master` antes de arrancar (PR #2 cerrado en esta sesión).
+
+**Lo que se hizo:**
+- `/explore produccion` corrido → `.claude/artifacts/produccion/explore.md`. Hallazgo clave: migraciones 004-007 no estaban en prod, tabla `movimientos_internos` no existía, datos históricos de gastos/ingresos de Paola (marzo-junio) iban a contaminar cuenta-paola.
+- **Migraciones 004-007 corridas en prod** (SQL Editor de Supabase) por Mili.
+- **`schema.sql` baseline** creado en `supabase/schema.sql` — equivale a correr las 7 migraciones desde cero, para nuevos entornos.
+- **`.env.local` → prod** (`klkysntjfnrrbnkjzzdy.supabase.co`). Scripts `use:staging` / `use:prod` ya existían en `package.json`.
+- **Filtro de fecha de corte** en `/api/cuenta-paola-data`: gastos e ingresos con `fecha < 2026-07-01` se excluyen del cálculo de cuenta-paola pero siguen en la base para cruce de rentabilidad a fin de año.
+- **Flujo de restablecimiento de contraseña**: `/forgot-password` + `/reset-password` + link en LoginForm. Bug PKCE encontrado y corregido: `resetPasswordForEmail` tiene que correr en el browser (no en server action) para que el code verifier y el `exchangeCodeForSession` compartan la misma cookie jar.
+- **Deploy en Vercel** → `https://temporalias.vercel.app`. Root Directory = `web`. `STORAGE_BASE_URL` vacío (OCR funciona, storage de archivos deshabilitado por ahora).
+- **4 cuentas de Auth en prod**: Milagros, Francisco, Fernando, Paola (Inés sin cuenta por ahora). `user_metadata.titular` seteado vía SQL (`UPDATE auth.users SET raw_user_meta_data = '{"titular":"..."}'::jsonb`). El `||` jsonb falló porque `raw_user_meta_data` era NULL — hay que setear directo, no hacer merge.
+- **Historial de auditoría**: quitada la entrada `campo='creacion'` de reservas (redundante con `registrado_por`+`timestamp`). Agregado historial a `editarGasto` (campo por campo), `eliminarGasto` (resumen) y `editarEstadoReserva`.
+
+**Pendiente / próximo paso:**
+- Configurar SMTP propio en Supabase (Resend u otro) para eliminar el rate limit de emails de auth — con el rate limit de Supabase gratis no se puede probar el flujo de reset en producción.
+- Contraseña temporal `Temporalias2026!` — avisarle a Francisco, Fernando y Paola para que entren y la cambien con "¿Olvidaste tu contraseña?" (una vez resuelto el SMTP).
+- Redirect URL en Supabase ya configurada (`https://temporalias.vercel.app/reset-password`).
+- Storage de comprobantes: `STORAGE_BASE_URL` vacío en prod — OCR extrae datos pero no guarda el archivo. Pendiente migrar a Supabase Storage si hace falta.
+- La pregunta de "saldo inicial con Paola" (opening balance para el corte de julio) quedó sin implementar — ver análisis en la sesión anterior.
+
+---
+
 ## 2026-06-29 — Feature: cuenta-paola · Rama: `feature/cuenta-paola`
 
 **Migraciones `006` y `007` confirmadas corridas por Mili.** Reset de datos repetido (la app bloquea crear reservas de prueba con `fecha_entrada` anterior a hoy desde la UI — esperable, es la validación real de `crearReserva`; el camino para datos simulados sigue siendo inserción directa vía REST, no la UI). Se encontraron y borraron filas extra respecto del último reset (14 reservas/13 ingresos/25 gastos/4 movimientos en vez de 13/12/23/2) — quedaron de intentos de Mili probando la UI manualmente antes de pegar con la validación.
