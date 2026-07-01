@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,6 +35,9 @@ export function LoginForm() {
       <Button type="submit" disabled={loading} className="w-full cursor-pointer">
         {loading ? 'Ingresando…' : 'Ingresar'}
       </Button>
+      <Link href="/forgot-password" className="block text-xs text-slate-400 hover:text-slate-600 text-center">
+        ¿Olvidaste tu contraseña?
+      </Link>
     </form>
   )
 }
