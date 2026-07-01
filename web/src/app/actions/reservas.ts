@@ -60,17 +60,6 @@ export async function crearReserva(payload: ReservaPayload): Promise<{ id: strin
   })
   if (error) throw new Error(error.message)
 
-  await supabase.from('historial').insert({
-    timestamp,
-    id_registro: id,
-    tipo_registro: 'reserva',
-    campo: 'creacion',
-    valor_anterior: null,
-    valor_nuevo: id,
-    modificado_por: registrado_por,
-    aprobado_por: registrado_por,
-  })
-
   return { id }
 }
 

@@ -153,23 +153,37 @@ export async function editarGasto(id: string, payload: GastoPayload): Promise<vo
     throw new Error('La fecha del gasto no puede ser futura.')
   }
 
-  // Recalcula cotizacion/monto_ars/monto_usd con la fecha (posiblemente nueva) del gasto
   const cotizacion = await obtenerCotizacion(fechaISO)
   const monto_ars = payload.moneda === 'USD' ? (cotizacion > 0 ? +(payload.monto * cotizacion).toFixed(2) : null) : payload.monto
   const monto_usd = payload.moneda === 'ARS' ? (cotizacion > 0 ? +(payload.monto / cotizacion).toFixed(2) : null) : payload.monto
 
+  const [anterior, registrado_por] = await Promise.all([obtenerGasto(id), registradoPorActual()])
   const supabase = createAdminClient()
-  const { error } = await supabase.from('gastos').update({
-    ...payload,
-    cotizacion,
-    monto_ars,
-    monto_usd,
-  }).eq('id', id)
+  const { error } = await supabase.from('gastos').update({ ...payload, cotizacion, monto_ars, monto_usd }).eq('id', id)
   if (error) throw new Error(error.message)
+
+  if (anterior) {
+    const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+    const camposAuditar = ['fecha', 'monto', 'moneda', 'categoria', 'pagado_por', 'detalle'] as const
+    const filas = camposAuditar
+      .filter(k => String(payload[k] ?? '') !== String(anterior[k] ?? ''))
+      .map(campo => ({ timestamp, id_registro: id, tipo_registro: 'gasto', campo, valor_anterior: String(anterior[campo] ?? ''), valor_nuevo: String(payload[campo] ?? ''), modificado_por: registrado_por }))
+    if (filas.length > 0) await supabase.from('historial').insert(filas)
+  }
 }
 
 export async function eliminarGasto(id: string): Promise<void> {
+  const [anterior, registrado_por] = await Promise.all([obtenerGasto(id), registradoPorActual()])
   const supabase = createAdminClient()
   const { error } = await supabase.from('gastos').delete().eq('id', id)
   if (error) throw new Error(error.message)
+
+  if (anterior) {
+    const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+    await supabase.from('historial').insert({
+      timestamp, id_registro: id, tipo_registro: 'gasto', campo: 'eliminacion',
+      valor_anterior: `${anterior.fecha} · ${anterior.categoria} · ${anterior.monto} ${anterior.moneda}`,
+      valor_nuevo: null, modificado_por: registrado_por,
+    })
+  }
 }
