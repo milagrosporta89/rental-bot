@@ -5,19 +5,24 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { solicitarReset } from './actions'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
   const [error, setError] = useState('')
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await solicitarReset(formData)
-    if (res?.error) {
-      setError(res.error)
+    const email = (new FormData(e.currentTarget).get('email') as string).trim()
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) {
+      setError(error.message)
       setLoading(false)
     } else {
       setEnviado(true)
@@ -44,7 +49,7 @@ export default function ForgotPasswordPage() {
             </Link>
           </div>
         ) : (
-          <form action={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs text-slate-500">Email</Label>
               <Input name="email" type="email" required className="text-sm" autoComplete="email" autoFocus />
