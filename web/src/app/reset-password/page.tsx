@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
   const [listo, setListo] = useState(false)
   const [errorCodigo, setErrorCodigo] = useState('')
@@ -18,18 +17,28 @@ export default function ResetPasswordPage() {
   const [exito, setExito] = useState(false)
 
   useEffect(() => {
-    const code = searchParams.get('code')
-    if (!code) {
-      setErrorCodigo('El link no es válido o ya fue usado. Pedí uno nuevo.')
-      return
-    }
     const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(code)
-      .then(({ error }) => {
-        if (error) setErrorCodigo('El link expiró o ya fue usado. Pedí uno nuevo.')
-        else setListo(true)
-      })
-  }, [searchParams])
+    // createBrowserClient ya intercambia el ?code= automáticamente (detectSessionInUrl: true).
+    // Solo hay que escuchar el evento PASSWORD_RECOVERY que dispara cuando lo resuelve.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') setListo(true)
+    })
+
+    // Si después de 5 segundos no llegó el evento, el link no era válido.
+    const timeout = setTimeout(() => {
+      setErrorCodigo('El link no es válido o ya fue usado. Pedí uno nuevo.')
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
+  }, [])
+
+  // Cancelar el timeout de error si el evento llegó antes
+  useEffect(() => {
+    if (listo) setErrorCodigo('')
+  }, [listo])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -37,14 +46,8 @@ export default function ResetPasswordPage() {
     const nueva = (form.elements.namedItem('password') as HTMLInputElement).value
     const confirmar = (form.elements.namedItem('confirmar') as HTMLInputElement).value
 
-    if (nueva !== confirmar) {
-      setError('Las contraseñas no coinciden.')
-      return
-    }
-    if (nueva.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
-      return
-    }
+    if (nueva !== confirmar) { setError('Las contraseñas no coinciden.'); return }
+    if (nueva.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return }
 
     setLoading(true)
     setError('')
@@ -63,6 +66,10 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm space-y-6">
         <h1 className="text-xl font-semibold text-slate-800">Nueva contraseña</h1>
+
+        {!listo && !errorCodigo && (
+          <p className="text-sm text-slate-400">Verificando el link…</p>
+        )}
 
         {errorCodigo && (
           <div className="space-y-4">
