@@ -3,31 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { InputPassword } from '@/components/ui/input-password'
 import { createClient } from '@/lib/supabase/client'
-
-function InputPassword({ name, label }: { name: string; label: string }) {
-  const [visible, setVisible] = useState(false)
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-slate-500">{label}</Label>
-      <div className="relative">
-        <Input name={name} type={visible ? 'text' : 'password'} required className="text-sm pr-9" />
-        <button
-          type="button"
-          onClick={() => setVisible(v => !v)}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          tabIndex={-1}
-        >
-          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 export default function ResetPasswordPage() {
   const router = useRouter()

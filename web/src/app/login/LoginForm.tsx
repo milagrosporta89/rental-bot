@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InputPassword } from '@/components/ui/input-password'
 import { login } from './actions'
 
 export function LoginForm() {
@@ -27,10 +28,7 @@ export function LoginForm() {
         <Label className="text-xs text-slate-500">Email</Label>
         <Input name="email" type="email" required className="text-sm" autoComplete="email" />
       </div>
-      <div className="space-y-1">
-        <Label className="text-xs text-slate-500">Contraseña</Label>
-        <Input name="password" type="password" required className="text-sm" autoComplete="current-password" />
-      </div>
+      <InputPassword name="password" label="Contraseña" autoComplete="current-password" />
       {error && <p className="text-xs text-red-500">{error}</p>}
       <Button type="submit" disabled={loading} className="w-full cursor-pointer">
         {loading ? 'Ingresando…' : 'Ingresar'}
