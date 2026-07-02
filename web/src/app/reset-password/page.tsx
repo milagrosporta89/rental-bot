@@ -3,15 +3,36 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 
+function InputPassword({ name, label }: { name: string; label: string }) {
+  const [visible, setVisible] = useState(false)
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-slate-500">{label}</Label>
+      <div className="relative">
+        <Input name={name} type={visible ? 'text' : 'password'} required className="text-sm pr-9" />
+        <button
+          type="button"
+          onClick={() => setVisible(v => !v)}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          tabIndex={-1}
+        >
+          {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function ResetPasswordPage() {
   const router = useRouter()
   const [listo, setListo] = useState(false)
-  const [errorCodigo, setErrorCodigo] = useState('')
+  const [linkInvalido, setLinkInvalido] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState(false)
@@ -19,26 +40,19 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient()
     // createBrowserClient ya intercambia el ?code= automáticamente (detectSessionInUrl: true).
-    // Solo hay que escuchar el evento PASSWORD_RECOVERY que dispara cuando lo resuelve.
+    // Solo escuchamos el evento PASSWORD_RECOVERY que dispara cuando lo resuelve.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setListo(true)
     })
 
-    // Si después de 5 segundos no llegó el evento, el link no era válido.
-    const timeout = setTimeout(() => {
-      setErrorCodigo('El link no es válido o ya fue usado. Pedí uno nuevo.')
-    }, 5000)
+    // Timeout generoso para redes lentas — si el evento no llegó en 20s, el link probablemente no es válido
+    const timeout = setTimeout(() => setLinkInvalido(true), 20000)
 
     return () => {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
   }, [])
-
-  // Cancelar el timeout de error si el evento llegó antes
-  useEffect(() => {
-    if (listo) setErrorCodigo('')
-  }, [listo])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -67,14 +81,14 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm space-y-6">
         <h1 className="text-xl font-semibold text-slate-800">Nueva contraseña</h1>
 
-        {!listo && !errorCodigo && (
+        {!listo && !linkInvalido && (
           <p className="text-sm text-slate-400">Verificando el link…</p>
         )}
 
-        {errorCodigo && (
+        {linkInvalido && !listo && (
           <div className="space-y-4">
             <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-              {errorCodigo}
+              El link no es válido o ya fue usado.
             </p>
             <Link href="/forgot-password" className="block text-sm text-slate-500 hover:text-slate-700 text-center">
               Pedir un nuevo link
@@ -84,14 +98,8 @@ export default function ResetPasswordPage() {
 
         {listo && !exito && (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Nueva contraseña</Label>
-              <Input name="password" type="password" required className="text-sm" autoFocus />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Confirmar contraseña</Label>
-              <Input name="confirmar" type="password" required className="text-sm" />
-            </div>
+            <InputPassword name="password" label="Nueva contraseña" />
+            <InputPassword name="confirmar" label="Confirmar contraseña" />
             {error && <p className="text-xs text-red-500">{error}</p>}
             <Button type="submit" disabled={loading} className="w-full">
               {loading ? 'Guardando…' : 'Guardar contraseña'}
