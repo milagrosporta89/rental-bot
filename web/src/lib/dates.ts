@@ -2,6 +2,14 @@ import { parse, format, differenceInDays, isValid } from 'date-fns'
 
 const DD_MM_YYYY = 'dd/MM/yyyy'
 
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+/** "2025-06" → "Junio 2025" */
+export function mesLabel(claveAnioMes: string): string {
+  const [anio, mes] = claveAnioMes.split('-')
+  return `${MESES[Number(mes) - 1]} ${anio}`
+}
+
 /** "15/06/2025" → "2025-06-15" */
 export function toISO(ddmmyyyy: string): string {
   const d = parse(ddmmyyyy, DD_MM_YYYY, new Date())

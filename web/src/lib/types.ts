@@ -95,6 +95,7 @@ export interface Ingreso {
   comprobante_url: string | null
   timestamp: string
   resolucion_cancelacion: ResolucionCancelacion | null
+  id_ingreso_origen: string | null
 }
 
 export type SentidoMovimiento = 'a_favor_paola' | 'a_favor_negocio'

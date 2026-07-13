@@ -13,6 +13,37 @@ import { ReciboModal } from '@/components/reservas/ReciboModal'
 
 const tipoLabel: Record<string, string> = { adelanto: 'Adelanto', saldo: 'Saldo' }
 
+interface Grupo {
+  padre: Ingreso
+  hijos: Ingreso[]
+}
+
+// El pago que asienta el usuario es el "padre"; si Paola cobró de más, el excedente queda
+// como hijo (caja chica) del mismo pago (ver partirIngresoPorExcedente en actions/ingresos.ts).
+// Se agrupan acá para no mostrarlos como si fueran dos pagos distintos del huésped.
+function agrupar(pagos: Ingreso[]): Grupo[] {
+  const hijosPorPadre = new Map<string, Ingreso[]>()
+  for (const p of pagos) {
+    if (!p.id_ingreso_origen) continue
+    const lista = hijosPorPadre.get(p.id_ingreso_origen) ?? []
+    lista.push(p)
+    hijosPorPadre.set(p.id_ingreso_origen, lista)
+  }
+  return pagos
+    .filter(p => !p.id_ingreso_origen)
+    .map(padre => ({ padre, hijos: hijosPorPadre.get(padre.id) ?? [] }))
+}
+
+function desglose(padre: Ingreso, hijos: Ingreso[]): string | null {
+  if (hijos.length === 0) return null
+  const partes = [`Comisión: ${padre.moneda} ${padre.monto.toLocaleString('es-AR')}`]
+  for (const h of hijos) {
+    const label = h.resolucion_cancelacion === 'caja_chica' ? 'Caja chica' : 'Ajuste'
+    partes.push(`${label}: ${h.moneda} ${h.monto.toLocaleString('es-AR')}`)
+  }
+  return partes.join(' · ')
+}
+
 export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: { pagos: Ingreso[]; reservaId: string; reserva: Reserva; cancelada?: boolean }) {
   const router = useRouter()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -38,18 +69,22 @@ export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: {
     return <p className="text-sm text-slate-400 text-center py-6">Sin pagos registrados</p>
   }
 
+  const grupos = agrupar(pagos)
+
   return (
     <>
       <div className="divide-y divide-slate-50">
-        {pagos.map(p => {
+        {grupos.map(({ padre: p, hijos }) => {
           const metodo = p.nro_operacion ? 'Transferencia' : 'Efectivo'
+          const total = p.monto + hijos.reduce((s, h) => s + h.monto, 0)
+          const desgloseTexto = desglose(p, hijos)
 
           return (
             <div key={p.id} className="py-3 flex items-center gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-slate-700 tabular-nums">
-                    {p.moneda} {p.monto?.toLocaleString('es-AR')}
+                    {p.moneda} {total.toLocaleString('es-AR')}
                   </span>
                   <span className="text-xs text-slate-400">·</span>
                   <span className="text-xs text-slate-500">{tipoLabel[p.tipo_movimiento] ?? p.tipo_movimiento}</span>
@@ -67,6 +102,11 @@ export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: {
                     </>
                   )}
                 </p>
+                {desgloseTexto && (
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Split: {desgloseTexto}
+                  </p>
+                )}
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -84,6 +124,13 @@ export function PagosSection({ pagos, reservaId, reserva, cancelada = false }: {
                   <DropdownMenuItem onClick={() => router.push(`/reservas/${reservaId}/pago?edit=${p.id}`)}>
                     Editar
                   </DropdownMenuItem>
+                  {p.comprobante_url && (
+                    <DropdownMenuItem asChild>
+                      <a href={p.comprobante_url} target="_blank" rel="noopener noreferrer">
+                        Descargar comprobante
+                      </a>
+                    </DropdownMenuItem>
+                  )}
                   {cancelada && (
                     <DropdownMenuItem onClick={() => setTrasladarId(p.id)}>
                       Trasladar a otra reserva

@@ -200,6 +200,11 @@ export function ReservasTable() {
   const totalPages = Math.max(1, Math.ceil(lista.length / pageSize))
   const pagina = lista.slice(page * pageSize, (page + 1) * pageSize)
 
+  // Suma sobre toda la lista filtrada (no solo la página visible) — lo que efectivamente falta
+  // cobrar hoy dado los filtros activos. Los saldos negativos (a favor del huésped) no restan acá.
+  const reservasConSaldo = lista.filter(r => (r.saldo_usd ?? 0) > 0)
+  const totalSaldoPendiente = reservasConSaldo.reduce((s, r) => s + (r.saldo_usd ?? 0), 0)
+
   function toggleFiltro(f: Filtro) {
     setFiltros(prev => {
       const next = new Set(prev)
@@ -438,6 +443,21 @@ export function ReservasTable() {
               )
             })}
           </tbody>
+          {lista.length > 0 && (
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50">
+                <td colSpan={6} className="px-4 py-2 text-right text-xs font-medium text-slate-500 whitespace-nowrap">
+                  Saldo pendiente total {reservasConSaldo.length > 0 && `(${reservasConSaldo.length} reserva${reservasConSaldo.length === 1 ? '' : 's'})`}
+                </td>
+                <td className="px-4 py-2 text-left tabular-nums text-xs font-semibold whitespace-nowrap">
+                  <span className={totalSaldoPendiente > 0 ? 'text-red-500' : 'text-slate-400'}>
+                    {usd(totalSaldoPendiente)}
+                  </span>
+                </td>
+                <td colSpan={3}></td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 

@@ -1,9 +1,12 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { esTerminada } from '@/lib/dates'
+import { esTerminada, hoy } from '@/lib/dates'
 import { registradoPorActual } from '@/lib/auth'
-import type { Ingreso } from '@/lib/types'
+import { comisionDevengada } from '@/lib/cuentaPaola'
+import { gastoComisionExiste, crearGastoComision } from '@/app/actions/gastos'
+import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
+import type { Ingreso, Reserva } from '@/lib/types'
 
 export interface IngresoPayload {
   id_reserva: string | null
@@ -23,6 +26,12 @@ export interface IngresoPayload {
   comprobante_url: string | null
 }
 
+// Diferencias de hasta USD 1 son redondeo de cotización, no un saldo real pendiente (o a favor)
+// — sin esto una reserva con centavos de diferencia queda marcada "parcial" para siempre.
+function redondearSaldo(saldo: number): number {
+  return Math.abs(saldo) <= 1 ? 0 : saldo
+}
+
 function calcEstadoPago(saldo: number, total: number): string {
   if (saldo <= 0) return 'pagado'
   if (saldo < total) return 'parcial'
@@ -37,7 +46,7 @@ async function recalcularSaldo(reservaId: string): Promise<void> {
   ])
   const sumaUSD = (ingresos ?? []).reduce((s: number, i: { monto_usd: number | null }) => s + (i.monto_usd ?? 0), 0)
   const total = reserva?.monto_total_usd ?? 0
-  const nuevoSaldo = total - sumaUSD
+  const nuevoSaldo = redondearSaldo(total - sumaUSD)
   const nuevoEstado = calcEstadoPago(nuevoSaldo, total)
   const { error } = await supabase
     .from('reservas')
@@ -97,7 +106,7 @@ export async function registrarPago(
 
   const sumaUSD = (ingresos ?? []).reduce((s: number, i: { monto_usd: number | null }) => s + (i.monto_usd ?? 0), 0)
   const total = reserva?.monto_total_usd ?? 0
-  const nuevoSaldo = total - sumaUSD
+  const nuevoSaldo = redondearSaldo(total - sumaUSD)
   const nuevoEstado = calcEstadoPago(nuevoSaldo, total)
 
   const { error: re } = await supabase
@@ -148,7 +157,7 @@ export async function trasladarPago(ingresoId: string, reservaDestinoId: string)
   const totalOrigen = origen.monto_total_usd ?? 0
   await supabase
     .from('reservas')
-    .update({ estado_pago: calcEstadoPago(totalOrigen - sumaOrigen, totalOrigen), saldo_usd: 0 })
+    .update({ estado_pago: calcEstadoPago(redondearSaldo(totalOrigen - sumaOrigen), totalOrigen), saldo_usd: 0 })
     .eq('id', reservaOrigenId)
 
   // Destino: recalcula su saldo normalmente (ya incluye el pago trasladado) y la confirma si todavía era tentativa
@@ -222,13 +231,18 @@ export async function marcarResolucionCancelacion(
 }
 
 /**
- * Al liquidar comisiones, si Paola cobró de más en una reserva (no cancelada), el ingreso
- * original se parte en dos: uno por la comisión que correspondía (queda igual que siempre,
- * cuenta como "cobrado" en la reconciliación) y otro por el excedente, etiquetado como caja
- * chica (igual criterio que marcarResolucionCancelacion) — así una reserva ya liquidada
- * muestra el % de comisión real, no el monto bruto que incluía el excedente.
+ * Si Paola cobró de más en una reserva (no cancelada) — sea al liquidar comisiones o apenas se
+ * asienta el cobro —, el ingreso original se parte en dos: uno por la comisión que correspondía
+ * (queda igual que siempre, cuenta como "cobrado" en la reconciliación) y otro por el excedente,
+ * etiquetado como caja chica (igual criterio que marcarResolucionCancelacion) — así una reserva
+ * ya resuelta muestra el % de comisión real, no el monto bruto que incluía el excedente.
+ * Devuelve el excedente partido (para asentarlo como movimiento_interno, con la fecha del pago
+ * original — no la de hoy) o null si no había.
  */
-export async function partirIngresoPorExcedente(idReserva: string, montoComisionUsd: number): Promise<void> {
+export async function partirIngresoPorExcedente(
+  idReserva: string,
+  montoComisionUsd: number
+): Promise<{ excedenteUsd: number; excedenteArs: number; fecha: string } | null> {
   const supabase = createAdminClient()
   const { data: ingresos, error } = await supabase
     .from('ingresos')
@@ -237,11 +251,11 @@ export async function partirIngresoPorExcedente(idReserva: string, montoComision
     .eq('nombre_destinatario', 'Paola')
     .is('resolucion_cancelacion', null)
   if (error) throw new Error(error.message)
-  if (!ingresos || ingresos.length === 0) return
+  if (!ingresos || ingresos.length === 0) return null
 
   const ingreso = ingresos.reduce((mayor, i) => (i.monto_usd ?? 0) > (mayor.monto_usd ?? 0) ? i : mayor)
   const excedenteUsd = (ingreso.monto_usd ?? 0) - montoComisionUsd
-  if (excedenteUsd <= 0) return
+  if (excedenteUsd <= 0) return null
 
   const proporcionComision = montoComisionUsd / (ingreso.monto_usd ?? 1)
   const registrado_por = await registradoPorActual()
@@ -275,8 +289,65 @@ export async function partirIngresoPorExcedente(idReserva: string, montoComision
     id_reserva: ingreso.id_reserva,
     tipo_movimiento: ingreso.tipo_movimiento,
     resolucion_cancelacion: 'caja_chica',
+    id_ingreso_origen: ingreso.id,
   })
   if (ce) throw new Error(ce.message)
+
+  const excedenteArs = ingreso.monto_ars != null ? ingreso.monto_ars * (1 - proporcionComision) : 0
+  return { excedenteUsd, excedenteArs, fecha: ingreso.fecha }
+}
+
+/**
+ * Se llama siempre que se asienta un cobro nuevo a Paola (sin preguntar, reemplaza al viejo
+ * gatillo manual): si lo que ya le cobró a Paola en total para esta reserva alcanza la comisión
+ * que le corresponde, deja asentado el gasto real (una sola vez, aunque se llame de nuevo en un
+ * pago posterior) y separa el excedente a caja chica si lo hay — sin esperar a que la reserva
+ * termine ni a que alguien lo confirme a mano.
+ */
+export async function resolverComisionAlCobrar(idReserva: string): Promise<void> {
+  const supabase = createAdminClient()
+  const { data: reserva } = await supabase.from('reservas').select('*').eq('id', idReserva).single()
+  if (!reserva) return
+  const devengado = comisionDevengada(reserva as Reserva)
+  if (devengado <= 0) return
+
+  const { data: ingresos } = await supabase
+    .from('ingresos')
+    .select('monto_usd')
+    .eq('id_reserva', idReserva)
+    .eq('nombre_destinatario', 'Paola')
+    .is('resolucion_cancelacion', null)
+  const cobrado = (ingresos ?? []).reduce((s: number, i: { monto_usd: number | null }) => s + (i.monto_usd ?? 0), 0)
+  if (cobrado < devengado) return
+
+  if (!(await gastoComisionExiste(idReserva))) {
+    await crearGastoComision({
+      id_reserva: idReserva,
+      fecha: hoy(),
+      monto_usd: devengado,
+      monto_ars: devengado * reserva.cotizacion,
+      cotizacion: reserva.cotizacion,
+      pagado_por: 'Fernando',
+      detalle: `Comisión reserva #${idReserva} — ${reserva.nombre_pax}`,
+    })
+  }
+
+  const excedente = await partirIngresoPorExcedente(idReserva, devengado)
+  if (excedente) {
+    await crearMovimientoInterno({
+      fecha: excedente.fecha,
+      monto: excedente.excedenteUsd,
+      moneda: 'USD',
+      cotizacion: reserva.cotizacion,
+      monto_ars: excedente.excedenteArs,
+      monto_usd: excedente.excedenteUsd,
+      sentido: 'a_favor_negocio',
+      tipo: 'caja_chica',
+      cuenta_origen: null,
+      detalle: `Excedente cobrado por adelantado — reserva #${idReserva} (${reserva.nombre_pax})`,
+      comprobante_url: null,
+    })
+  }
 }
 
 export async function editarIngreso(

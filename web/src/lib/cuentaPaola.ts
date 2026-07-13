@@ -1,6 +1,21 @@
 import { hoyISO, toISO } from './dates'
 import { COMISION_PAOLA_PORCENTAJE, Gasto, Ingreso, MovimientoInterno, Plataforma, Reserva, TipoMovimientoInterno } from './types'
 
+/** Corte desde el cual la contabilidad vive en el sistema nuevo; los registros anteriores son
+ * datos migrados del sistema artesanal, que se conservan en la base para cruces de rentabilidad
+ * pero no se muestran en la web. */
+export const INICIO_CONTABILIDAD = '2026-07-01'
+
+/**
+ * Un ingreso o gasto es de la contabilidad nueva si su propia fecha ya es de julio en adelante, o
+ * si está enlazado a una reserva de la tabla nueva (por ejemplo una seña cobrada por adelantado
+ * antes del corte, para una reserva cuya estadía sí es de julio). Los migrados del sistema
+ * artesanal no tienen id_reserva en esta tabla, así que quedan afuera igual.
+ */
+export function esDeContabilidadNueva(fecha: string, idReserva: string | null, reservasPorId: Map<string, Reserva>): boolean {
+  return toISO(fecha) >= INICIO_CONTABILIDAD || (!!idReserva && reservasPorId.has(idReserva))
+}
+
 /** Comisión que le corresponde a una reserva concretada — $0 si está cancelada. */
 export function comisionDevengada(reserva: Reserva): number {
   if (reserva.estado_reserva === 'cancelada') return 0
@@ -44,11 +59,15 @@ function filaDeReserva(reserva: Reserva, ingresosPaola: Ingreso[]): FilaReconcil
  * agregadas después de un cierre pero con checkout anterior a esa fecha (quedaban excluidas para
  * siempre). Lo que sí queda resuelto automáticamente: en cuanto diferencia llega a 0 (porque se
  * liquidó), deja de aparecer como pendiente en los filtros que usan este resultado.
+ *
+ * Reservas terminadas antes de INICIO_CONTABILIDAD quedan afuera: su comisión se manejó en el
+ * sistema artesanal, así que sin sus ingresos migrados (ver esDeContabilidadNueva) siempre
+ * aparecerían como "a resolver" sin serlo realmente.
  */
 export function reconciliacionDesdeUltimoCierre(reservas: Reserva[], ingresosPaola: Ingreso[]): FilaReconciliacion[] {
   const hoy = hoyISO()
   return reservas
-    .filter(r => r.estado_reserva !== 'cancelada' && toISO(r.fecha_salida) <= hoy)
+    .filter(r => r.estado_reserva !== 'cancelada' && toISO(r.fecha_salida) <= hoy && toISO(r.fecha_salida) >= INICIO_CONTABILIDAD)
     .map(r => filaDeReserva(r, ingresosPaola))
 }
 
@@ -76,6 +95,7 @@ export function comisionesPorAdelantado(ingresosPaola: Ingreso[], reservas: Rese
   const hoy = hoyISO()
   const reservasPorId = new Map(reservas.map(r => [r.id, r]))
   return ingresosPaola.filter(i => {
+    if (i.resolucion_cancelacion === 'caja_chica') return false
     const reserva = i.id_reserva ? reservasPorId.get(i.id_reserva) : undefined
     return !!reserva && reserva.estado_reserva !== 'cancelada' && toISO(reserva.fecha_salida) > hoy
   })

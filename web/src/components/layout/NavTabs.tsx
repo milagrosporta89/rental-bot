@@ -9,8 +9,10 @@ import { logout } from '@/app/login/actions'
 const tabs = [
   { label: 'Calendario', href: '/calendario' },
   { label: 'Reservas', href: '/reservas' },
+  { label: 'Ingresos', href: '/ingresos' },
   { label: 'Gastos', href: '/gastos' },
   { label: 'Comisiones', href: '/cuenta-paola' },
+  { label: 'Liquidación (prov.)', href: '/liquidacion-paola' },
 ]
 
 export function NavTabs() {

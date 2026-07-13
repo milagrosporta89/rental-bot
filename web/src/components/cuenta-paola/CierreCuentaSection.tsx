@@ -97,9 +97,9 @@ export function CierreCuentaSection({ reservas, ingresosPaola, gastosPaola, movi
             detalle: `Comisión de la reserva #${fila.reserva.id} — ${fila.reserva.nombre_pax} (no se había asentado al cobrar)`,
           })
         }
-        await partirIngresoPorExcedente(fila.reserva.id, fila.devengado)
+        const excedente = await partirIngresoPorExcedente(fila.reserva.id, fila.devengado)
         await crearMovimientoInterno({
-          fecha,
+          fecha: excedente?.fecha ?? fecha,
           monto: Math.abs(fila.diferencia),
           moneda: 'USD',
           cotizacion: fila.reserva.cotizacion,

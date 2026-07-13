@@ -4,18 +4,19 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, History, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteDesglosado, saldoCajaChica, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
+import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Moneda } from '@/lib/utils'
 import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
 import { MonedaToggle } from '@/components/cuenta-paola/MonedaToggle'
-import { TablaMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
+import { TablaMovimientoFinanciero, type ItemMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
 import { TablaMovimientos } from '@/components/cuenta-paola/TablaMovimientos'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 import { TablaReconciliacionComision } from '@/components/cuenta-paola/TablaReconciliacionComision'
 import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
 import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
+import { AjusteLibreModal } from '@/components/cuenta-paola/AjusteLibreModal'
 
 interface DatosCuentaPaola {
   ingresosPaola: Ingreso[]
@@ -46,6 +47,7 @@ export default function CuentaPaolaPage() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [moneda, setMoneda] = useState<Moneda>('USD')
+  const [ajusteModalOpen, setAjusteModalOpen] = useState(false)
 
   useEffect(() => {
     fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
@@ -84,11 +86,38 @@ export default function CuentaPaolaPage() {
   // distintas de "qué es lo pendiente" en la misma pantalla. El saldo principal usa exactamente
   // la misma cuenta (comisión pendiente + gastos pendientes), nunca el acumulado de toda la vida.
   const saldo = saldoPendienteDesglosado(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
-  const cajaChica = saldoCajaChica(datos.movimientosInternos)
-  const cajaChicaArs = saldoCajaChica(datos.movimientosInternos, 'monto_ars')
   const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
   const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
+  const movimientosCajaChica = datos.movimientosInternos.filter(m => m.tipo === 'caja_chica')
+  const movimientosDeAjuste = datos.movimientosInternos.filter(m => m.tipo !== 'caja_chica')
+
+  // Una sola cuenta corriente de caja chica: lo que Paola le debe al negocio (excedente cobrado
+  // de más, cobros de reservas canceladas) en positivo, lo que el negocio le debe a ella (gastos
+  // que pagó de su bolsillo, o caja chica ya usada a su favor) en negativo. La suma de esta
+  // tabla es el número de "Caja chica" de la card de arriba.
+  const filasCajaChica: ItemMovimientoFinanciero[] = [
+    ...gastosPaolaPendientes.map(g => ({
+      id: g.id,
+      fecha: g.fecha,
+      monto: -(g.monto ?? 0),
+      monto_ars: g.monto_ars != null ? -g.monto_ars : null,
+      monto_usd: g.monto_usd != null ? -g.monto_usd : null,
+      moneda: g.moneda,
+      detalle: g.detalle,
+    })),
+    ...movimientosCajaChica.map(m => ({
+      id: m.id,
+      fecha: m.fecha,
+      monto: m.sentido === 'a_favor_negocio' ? m.monto : -m.monto,
+      monto_ars: m.monto_ars != null ? (m.sentido === 'a_favor_negocio' ? m.monto_ars : -m.monto_ars) : null,
+      monto_usd: m.monto_usd != null ? (m.sentido === 'a_favor_negocio' ? m.monto_usd : -m.monto_usd) : null,
+      moneda: m.moneda,
+      detalle: m.detalle,
+    })),
+  ].sort((a, b) => toISO(a.fecha).localeCompare(toISO(b.fecha)))
+  const cajaChica = filasCajaChica.reduce((s, f) => s + (f.monto_usd ?? 0), 0)
+  const cajaChicaArs = filasCajaChica.reduce((s, f) => s + (f.monto_ars ?? 0), 0)
 
   // Comisiones cobradas por adelantado de reservas que todavía no terminaron — quedan "en
   // stand-by" hasta que la reserva concluya, así que se muestran aparte de las que ya se
@@ -102,7 +131,7 @@ export default function CuentaPaolaPage() {
   const filasReconciliacion = reconciliacionDesdeUltimoCierre(datos.reservas, datos.ingresosPaola)
   const diferenciaPorReserva = new Map(filasReconciliacion.map(f => [f.reserva.id, f.diferencia]))
   const comisionesPerfectas = comisionesDesdeUltimoCierre.filter(
-    i => !idsAdelantadas.has(i.id) && i.id_reserva && diferenciaPorReserva.get(i.id_reserva) === 0
+    i => i.resolucion_cancelacion !== 'caja_chica' && !idsAdelantadas.has(i.id) && i.id_reserva && diferenciaPorReserva.get(i.id_reserva) === 0
   )
   const filasComisionAResolver = filasReconciliacion.filter(f => f.diferencia !== 0)
 
@@ -166,13 +195,13 @@ export default function CuentaPaolaPage() {
         </div>
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-1">Gastos pendientes de reembolso</h2>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Caja chica</h2>
           <p className="text-[11px] text-slate-400 mb-2">
-            Gastos que Paola pagó de su bolsillo (limpieza, lavandería, etc.) desde el último cierre.
+            En positivo, lo que Paola le debe al negocio (excedente cobrado de más, cobros de reservas canceladas). En negativo, lo que el negocio le debe a ella (gastos que pagó de su bolsillo, o caja chica ya usada a su favor). El total es el saldo de caja chica.
           </p>
           <TablaMovimientoFinanciero
-            items={gastosPaolaPendientes.map(g => ({ id: g.id, fecha: g.fecha, monto: g.monto, monto_ars: g.monto_ars, monto_usd: g.monto_usd, moneda: g.moneda, detalle: g.detalle }))}
-            vacioMensaje="Sin gastos pendientes de reembolso."
+            items={filasCajaChica}
+            vacioMensaje="Sin movimientos de caja chica todavía."
           />
         </div>
 
@@ -190,15 +219,26 @@ export default function CuentaPaolaPage() {
         </div>
 
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-1">Movimientos de ajuste</h2>
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <h2 className="text-sm font-medium text-slate-700">Movimientos de ajuste</h2>
+            <Button size="sm" variant="outline" onClick={() => setAjusteModalOpen(true)}>
+              Registrar ajuste
+            </Button>
+          </div>
           <p className="text-[11px] text-slate-400 mb-2">
             Transferencias reales ya hechas para saldar diferencias con Paola — lo que ya se pagó, no lo que falta.
           </p>
           <TablaMovimientos
-            items={datos.movimientosInternos}
+            items={movimientosDeAjuste}
             vacioMensaje="Sin movimientos registrados todavía."
           />
         </div>
+
+        <AjusteLibreModal
+          open={ajusteModalOpen}
+          onClose={() => setAjusteModalOpen(false)}
+          onCreado={recargar}
+        />
 
         <CancelacionesPendientesSection
           items={datos.cancelacionesPendientes}

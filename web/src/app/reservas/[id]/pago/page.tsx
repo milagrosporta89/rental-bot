@@ -11,10 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toDDMMYYYY, toISO } from '@/lib/dates'
 import { formatUSD } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
-import { comisionDevengada } from '@/lib/cuentaPaola'
-import { registrarPago, editarIngreso, obtenerIngreso } from '@/app/actions/ingresos'
+import { registrarPago, editarIngreso, obtenerIngreso, resolverComisionAlCobrar } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
-import { GatilloComisionModal } from '@/components/reservas/GatilloComisionModal'
 
 const DESTINATARIOS = ['Paola', 'Francisco', 'Fernando', 'Milagros', 'Inés']
 
@@ -64,7 +62,6 @@ function PagoPageInner() {
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [gatilloOpen, setGatilloOpen] = useState(false)
 
   // Cargar reserva
   useEffect(() => {
@@ -190,7 +187,6 @@ function PagoPageInner() {
     if (!form.tipo_movimiento)         { setError('Elegí el tipo de movimiento.'); return }
     if (!form.quien_pago.trim())       { setError('Quién pagó es obligatorio.'); return }
     if (!form.nombre_destinatario.trim()) { setError('El destinatario es obligatorio.'); return }
-    if (tipoPago === 'transferencia' && uploadState !== 'done') { setError('Subí el comprobante antes de confirmar.'); return }
 
     setLoading(true)
     try {
@@ -218,14 +214,18 @@ function PagoPageInner() {
         await registrarPago(reserva.id, payload)
       }
 
-      // US-04: gatillo (no automático) para asentar el cobro también como gasto de comisión —
-      // solo en pagos nuevos. Al editar un pago ya existente el gasto (si correspondía) ya se
-      // resolvió en su momento; volver a preguntar llevaría a asentarlo dos veces.
       if (!editId && form.nombre_destinatario.trim() === 'Paola') {
-        setGatilloOpen(true)
-      } else {
-        router.push(`/reservas/${reserva.id}`)
+        // Si lo cobrado a Paola en esta reserva (sumando todos sus pagos) ya alcanza la comisión
+        // que le corresponde, esto asienta el gasto real y separa el excedente a caja chica —
+        // sin preguntar, sin esperar al checkout. Si falla, no bloquea el flujo: "Liquidar
+        // comisiones" lo resuelve igual cuando la reserva termine.
+        try {
+          await resolverComisionAlCobrar(reserva.id)
+        } catch (e) {
+          console.error('No se pudo resolver la comisión automáticamente:', e)
+        }
       }
+      router.push(`/reservas/${reserva.id}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al guardar. Podés reintentar.')
     } finally {
@@ -273,9 +273,6 @@ function PagoPageInner() {
   const num = reserva.casa.replace(/\D/g, '')
   const idNum = reserva.id.replace(/^[A-Z]+-?/, '')
   const titulo = editId ? 'Editar pago' : 'Asentar pago'
-  // Nunca más que lo que efectivamente cobró (no se puede asentar como gasto plata que no llegó)
-  // ni más de lo que le corresponde (el excedente, si lo hay, queda como caja chica).
-  const montoComision = Math.min(montoUSD, comisionDevengada(reserva))
 
   return (
     <div className="h-full overflow-auto flex flex-col">
@@ -345,7 +342,7 @@ function PagoPageInner() {
             {/* Comprobante — solo transferencia */}
             {tipoPago === 'transferencia' && (
               <div className="col-span-1 md:col-span-4 space-y-1.5">
-                <Label className="text-xs text-slate-500">Comprobante *</Label>
+                <Label className="text-xs text-slate-500">Comprobante</Label>
 
                 {uploadState === 'idle' && (
                   <div
@@ -608,14 +605,6 @@ function PagoPageInner() {
           </div>
         </div>
       )}
-
-      <GatilloComisionModal
-        open={gatilloOpen}
-        montoCobrado={montoUSD}
-        montoComision={montoComision}
-        onConfirm={() => router.push(`/gastos/nuevo?prefillComision=1&monto=${montoComision.toFixed(2)}&moneda=USD&fecha=${form.fecha}&idReserva=${reserva.id}`)}
-        onDismiss={() => router.push(`/reservas/${reserva.id}`)}
-      />
     </div>
   )
 }

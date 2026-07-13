@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs/promises'
-import path from 'path'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Mismo prompt que services/claude.ts del bot
 const PROMPT = `Sos un asistente que extrae datos de comprobantes de transferencia bancaria argentinos.
@@ -21,26 +20,24 @@ Respondé SOLO con el JSON, sin markdown, sin explicaciones.`
 
 type MediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'application/pdf'
 
-// Misma lógica que services/storage.ts del bot (STORAGE_DIR + STORAGE_BASE_URL)
+// Bucket público 'comprobantes' (ver migración 009_storage_comprobantes.sql)
 async function subirComprobante(
   base64: string,
   mediaType: MediaType,
   nombreArchivo: string,
 ): Promise<string> {
-  const baseUrl = process.env.STORAGE_BASE_URL ?? ''
-  const storageDir = process.env.STORAGE_DIR ?? './comprobantes'
-  if (!baseUrl) return ''
-
   const ahora = new Date()
   const mesAnio = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}`
   const ext = mediaType === 'application/pdf' ? 'pdf' : mediaType.split('/')[1]
-  const nombreFinal = `${nombreArchivo}.${ext}`
-  const dirPath = path.join(storageDir, mesAnio)
+  const rutaArchivo = `${mesAnio}/${nombreArchivo}.${ext}`
 
-  await fs.mkdir(dirPath, { recursive: true })
-  await fs.writeFile(path.join(dirPath, nombreFinal), Buffer.from(base64, 'base64'))
+  const supabase = createAdminClient()
+  const { error } = await supabase.storage
+    .from('comprobantes')
+    .upload(rutaArchivo, Buffer.from(base64, 'base64'), { contentType: mediaType, upsert: true })
+  if (error) throw error
 
-  return `${baseUrl}/comprobantes/${mesAnio}/${nombreFinal}`
+  return supabase.storage.from('comprobantes').getPublicUrl(rutaArchivo).data.publicUrl
 }
 
 export async function POST(req: NextRequest) {
@@ -87,9 +84,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Comprobante ilegible o sin monto' }, { status: 422 })
   }
 
-  // Guardar en VM (misma lógica que services/storage.ts del bot)
   const fechaStr = (datos.fecha ?? '').replace(/\//g, '-') || String(Date.now())
-  const nombre = `${tipo}_${fechaStr}_${datos.nroOperacion || Date.now()}`
+  const nroOperacion = String(datos.nroOperacion || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '_')
+  const nombre = `${tipo}_${fechaStr}_${nroOperacion}`
   const url = await subirComprobante(base64, mediaType, nombre).catch(() => '')
 
   return NextResponse.json({ datos, url })
