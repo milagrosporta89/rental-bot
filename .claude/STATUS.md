@@ -10,12 +10,13 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Bug reportado por Mili, corregido**: al editar un pago que deja la reserva en saldo 0, la vista previa de "Saldo total" mostraba el monto en negativo, como si el pago editado se sumara como uno nuevo — ver detalle y fix en `BUGS.md`. Solo afectaba la vista previa en `pago/page.tsx`; el saldo guardado en base siempre fue correcto porque se recalcula desde cero al guardar.
 
+**Mismo bug, segunda vuelta**: el primer fix daba el resultado final correcto pero "Saldo actual" mostraba un número hipotético (ej. 374) que no coincidía con el saldo real visible en el resto de la app (ej. 317) — reportado por Mili sobre una reserva real. Fix definitivo: "Saldo actual" siempre muestra el saldo real de la reserva; la fila del medio pasa a mostrar la diferencia contra el pago original, no el monto crudo. **Confirmado por Mili en producción.**
+
 **Segundo bug reportado por Mili, corregido**: reservas ya terminadas con `saldo_usd` residual de -0/-1/1 dólar. Causa: `redondearSaldo` (regla de negocio "diferencias ≤ USD 1 no son saldo real") solo se aplicaba al registrar pagos, no al editar una reserva desde `ReservaModal` — se centralizó en `web/src/lib/saldo.ts` y ahora `crearReserva`/`editarReserva` la aplican siempre. Ver detalle en `BUGS.md`.
 
 **Limpieza de datos ya guardados, autorizada explícitamente por Mili, corrida contra producción**: de 15 reservas con saldo distinto de cero, 11 eran deuda real (no se tocaron) y 4 eran el residuo del bug (3 ya decían "pagado" con un residuo apenas por encima del umbral de USD 1, 1 decía "parcial" con saldo negativo) — las 4 se pusieron en saldo 0 / estado "pagado". Script temporal armado y borrado en la misma sesión, no queda en el repo. Detalle de qué reservas puntuales en `BUGS.md` (sin nombres de huéspedes ahí, evitar duplicar datos personales en un doc de proceso).
 
 **Pendiente / próximo paso**:
-- Mili prueba ambos fixes en la app real (editar un pago existente, y ver que las reservas limpiadas ahora muestren saldo 0) antes de darlos por cerrados en `BUGS.md`.
 - Evaluar si vale la pena ampliar el umbral de `redondearSaldo` (hoy USD 1) si siguen apareciendo residuos de esa magnitud en reservas ya "pagado".
 
 ---
