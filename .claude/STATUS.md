@@ -10,7 +10,11 @@ Entradas nuevas arriba. No se borran las viejas.
 
 **Bug reportado por Mili, corregido**: al editar un pago que deja la reserva en saldo 0, la vista previa de "Saldo total" mostraba el monto en negativo, como si el pago editado se sumara como uno nuevo — ver detalle y fix en `BUGS.md`. Solo afectaba la vista previa en `pago/page.tsx`; el saldo guardado en base siempre fue correcto porque se recalcula desde cero al guardar.
 
-**Pendiente / próximo paso**: Mili prueba el fix en la app real (editar un pago existente y confirmar que "Saldo actual"/"Saldo total" ahora calculan bien) antes de darlo por cerrado en `BUGS.md`.
+**Segundo bug reportado por Mili, corregido**: reservas ya terminadas con `saldo_usd` residual de -0/-1/1 dólar. Causa: `redondearSaldo` (regla de negocio "diferencias ≤ USD 1 no son saldo real") solo se aplicaba al registrar pagos, no al editar una reserva desde `ReservaModal` — se centralizó en `web/src/lib/saldo.ts` y ahora `crearReserva`/`editarReserva` la aplican siempre. Ver detalle en `BUGS.md`. **No corrige los datos ya guardados mal** — pendiente decidir con Mili si se limpia con un script puntual en producción.
+
+**Pendiente / próximo paso**:
+- Mili prueba ambos fixes en la app real (editar un pago existente, y editar/ver una reserva terminada con residuo) antes de darlos por cerrados en `BUGS.md`.
+- Decidir si se corre una limpieza puntual de `saldo_usd` en las reservas ya afectadas en producción (requiere autorización explícita, es dato financiero real).
 
 ---
 

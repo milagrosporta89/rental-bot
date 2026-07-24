@@ -6,6 +6,7 @@ import { registradoPorActual } from '@/lib/auth'
 import { comisionDevengada } from '@/lib/cuentaPaola'
 import { gastoComisionExiste, crearGastoComision } from '@/app/actions/gastos'
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
+import { redondearSaldo } from '@/lib/saldo'
 import type { Ingreso, Reserva } from '@/lib/types'
 
 export interface IngresoPayload {
@@ -24,12 +25,6 @@ export interface IngresoPayload {
   nro_operacion: string | null
   detalle: string | null
   comprobante_url: string | null
-}
-
-// Diferencias de hasta USD 1 son redondeo de cotización, no un saldo real pendiente (o a favor)
-// — sin esto una reserva con centavos de diferencia queda marcada "parcial" para siempre.
-function redondearSaldo(saldo: number): number {
-  return Math.abs(saldo) <= 1 ? 0 : saldo
 }
 
 function calcEstadoPago(saldo: number, total: number): string {
