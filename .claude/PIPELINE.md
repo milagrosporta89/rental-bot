@@ -151,6 +151,8 @@ Leé `.claude/artifacts/<feature>/po-output.json` y el código del Developer. Pa
 
 Si `summary` es `FAIL`: listá los fixes necesarios, volvé al Developer y pedile que los corrija. Repetí hasta `PASS` o hasta 3 intentos — si no se resuelve, escalá a Mili.
 
+**Un defecto real encontrado acá (el código no hace lo que el propio `po-output.json` pide) se registra en `BUGS.md`** al corregirlo — sección "Cerrados", con severidad (ver criterio ahí), commit del fix y feature de origen. No es lo mismo que un `todo_found_in_code` o un `critical_missing` sin decisión tomada todavía: eso queda en el artifact y en el gate, no en `BUGS.md`, hasta que haya un fix aplicado o una decisión explícita de Mili de dejarlo abierto como bug conocido.
+
 Commit: `[agent-qa] revisión completada`
 Mostralo.
 
@@ -159,7 +161,8 @@ Mostralo.
 ## Reglas generales (ver también `CONTEXT.md`)
 
 - Nunca saltees un gate sin aprobación explícita de Mili.
-- Si encontrás algo ambiguo que puede afectar decisiones de negocio, pará y preguntá (máximo 5 preguntas por gate, solo si son bloqueantes).
+- Si encontrás algo ambiguo que puede afectar decisiones de negocio, primero revisá `POLITICAS.md` — si ya está resuelto ahí, aplicalo directo. Si no, pará y preguntá (máximo 5 preguntas por gate, solo si son bloqueantes).
 - Todos los artifacts van en `.claude/artifacts/` y no se borran.
 - Si algo no tiene sentido dado lo explorado del proyecto, decilo antes de inventar.
 - Si el Developer o el QA ejecutan la app real (Playwright, curl, etc.) contra la base de Supabase real — no un entorno de test separado — y eso crea filas de prueba, hay que borrarlas antes de terminar la fase y dejar constancia en `STATUS.md` de qué se creó y se borró. Las tablas de gastos/ingresos/reservas son datos financieros reales, no un sandbox.
+- Un bug encontrado en cualquier fase (no solo QA) va a `BUGS.md`, no a `STATUS.md` — ver criterio de severidad ahí.

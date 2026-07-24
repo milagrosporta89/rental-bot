@@ -1,0 +1,28 @@
+# Registro de bugs
+
+Un bug es: el sistema no hace lo que su propio diseño dice que debería hacer (distinto de una feature nueva o un cambio de preferencia, que se gestionan por el pipeline de `PIPELINE.md`). Puede aparecer porque un agente lo encuentra construyendo/probando una feature, porque Mili lo encuentra usando la web, o porque un titular lo reporta. En cualquier caso se registra acá — no directo en `STATUS.md` — para no perderlo entre el detalle de sesión.
+
+**Abiertos** es la sección que importa leer para saber el estado actual. **Cerrados** es el archivo histórico (no se borra, se agrega ahí al resolverse).
+
+## Criterio de severidad
+
+- **Alta** — seguridad, pérdida/corrupción de datos financieros, o rompe el propósito central de una pantalla. Se arregla ya, no espera a que se priorice junto con otra cosa.
+- **Media** — el fix cambia algo que Mili ve o experimenta (un número, un texto, un flujo). Requiere que lo confirme antes de darlo por cerrado (no se auto-aplica en silencio).
+- **Baja** — el fix no cambia nada visible para quien usa la web (ej. limpieza interna, un caso borde que nunca ocurrió en la práctica). Se aplica directo y se avisa acá, sin bloquear en un gate.
+
+---
+
+## Abiertos
+
+- **[Media, sin verificar si sigue vigente] No hay forma de marcar un mes/período como "ya cerrado" en `cuenta-paola`.** Si se revisita el mismo período después de crear el ajuste de cierre, la tabla puede volver a mostrar la misma diferencia y nada impide duplicar el `movimiento_interno`. Mitigación parcial ya aplicada (el detalle del movimiento incluye el período, visible a simple vista), pero no es una prevención real. *(Detectado en QA de cuenta-paola, `.claude/artifacts/cuenta-paola/qa-output.json`, 2026-06-28; sin mención de resolución en sesiones posteriores — confirmar con Mili antes de asumir que sigue abierto o que ya se descartó.)*
+
+## Cerrados
+
+- **[Media, pendiente de que Mili lo pruebe en la app real] Vista previa de "Saldo total" en negativo al editar un pago que deja la reserva en saldo 0.** Reportado por Mili. En `pago/page.tsx`, `saldoRestante` restaba el monto del formulario sobre `reserva.saldo_usd` — pero en modo edición ese saldo ya tiene descontado el pago que se está editando, así que el monto se restaba dos veces (ej. saldo 0, pago de 100 en edición → mostraba -100, como si fuera un ingreso nuevo encima del existente). El guardado real (`editarIngreso`/`registrarPago` → `recalcularSaldo`) siempre suma todos los ingresos desde cero, así que el dato guardado nunca estuvo mal — era solo la vista previa. Fix: se suma de vuelta el monto original del pago (`monto_usd` del ingreso al cargarlo) antes de restar el nuevo monto, y "Saldo actual" ahora muestra ese saldo base en vez del guardado crudo. *(Sesión 2026-07-23.)*
+- **[Alta] Reset de contraseña con PKCE fallaba** — `resetPasswordForEmail` corría en server action y el code verifier quedaba en una cookie jar distinta a la de `exchangeCodeForSession`. Fix: mover la llamada al browser. *(Sesión de producción, 2026-07-01.)*
+- **[Alta] Saldo principal de cuenta-paola mostraba +$427 en vez de $877,03** — `calcularSaldoPaola` sumaba todo el histórico (incluidos períodos ya cerrados) en vez de solo lo pendiente desde el último cierre. Fix: `saldoPendienteDesglosado()`. *(Commit `5680e6d`, feature cuenta-paola, 2026-06-29.)*
+- **[Media] `/cuenta-paola` crasheaba** ("Cannot read properties of undefined (reading 'reduce')") cuando `/api/cuenta-paola-data` devolvía un error — la página asumía que la respuesta siempre tenía la forma esperada. Fix: cartel de error en vez de crash. *(Commit `0c323e3`, feature cuenta-paola, 2026-06-28/29.)*
+- **[Media] Total de "Movimientos de ajuste" mezclaba sentidos opuestos** (a favor de Paola y a favor del negocio) sin considerar el signo — la suma no representaba nada real. Fix: se quitó el total agregado. *(Commit `48750cd`, feature cuenta-paola, 2026-06-29.)*
+- **[Media] `nombre_destinatario` precargado por el gatillo de comisión quedaba invisible/no editable** en `FormularioGasto.tsx` — el bloque solo se mostraba con `fromComprobante=true`. Fix: campo editable separado para prefill sin comprobante. *(QA de cuenta-paola, commit `6a4c207`, 2026-06-28.)*
+- **[Media] El monto se redondeaba a entero (`Math.round`) al precargar gasto de comisión y movimiento de cierre**, perdiendo centavos. Fix: se sacó el redondeo en ambos casos. *(QA de cuenta-paola, commit `6a4c207`, 2026-06-28.)*
+- **[Baja] Backdrop del menú hamburguesa tapaba el propio botón**, rompiendo el toggle en mobile. Encontrado y corregido por el mismo agente Developer. *(Commit `c602279`, feature responsive, 2026-06-26.)*

@@ -4,6 +4,16 @@ Entradas nuevas arriba. No se borran las viejas.
 
 ---
 
+## 2026-07-23 — Metodología de agentes + fix de bug · Rama: `master`
+
+**Adaptado el framework de agentes de narci-bot** (`metodologia-agentes`, ver skill del mismo nombre): creados `.claude/POLITICAS.md` (registro de decisiones ya tomadas por Mili, para no repreguntarlas) y `.claude/BUGS.md` (registro de bugs abierto/cerrado, separado de este log). `CONTEXT.md` y `PIPELINE.md` actualizados para que los gates consulten `POLITICAS.md` antes de preguntar y que los bugs se registren en `BUGS.md`, no acá. Se taggearon con `*(ver POLITICAS.md/BUGS.md)*` las entradas históricas de este archivo que ya quedaron consolidadas en los registros nuevos, sin borrar el detalle original.
+
+**Bug reportado por Mili, corregido**: al editar un pago que deja la reserva en saldo 0, la vista previa de "Saldo total" mostraba el monto en negativo, como si el pago editado se sumara como uno nuevo — ver detalle y fix en `BUGS.md`. Solo afectaba la vista previa en `pago/page.tsx`; el saldo guardado en base siempre fue correcto porque se recalcula desde cero al guardar.
+
+**Pendiente / próximo paso**: Mili prueba el fix en la app real (editar un pago existente y confirmar que "Saldo actual"/"Saldo total" ahora calculan bien) antes de darlo por cerrado en `BUGS.md`.
+
+---
+
 ## 2026-07-01 — Producción · Rama: `master`
 
 **Sesión de puesta en producción.** Todo mergeado a `master` antes de arrancar (PR #2 cerrado en esta sesión).
@@ -14,7 +24,7 @@ Entradas nuevas arriba. No se borran las viejas.
 - **`schema.sql` baseline** creado en `supabase/schema.sql` — equivale a correr las 7 migraciones desde cero, para nuevos entornos.
 - **`.env.local` → prod** (`klkysntjfnrrbnkjzzdy.supabase.co`). Scripts `use:staging` / `use:prod` ya existían en `package.json`.
 - **Filtro de fecha de corte** en `/api/cuenta-paola-data`: gastos e ingresos con `fecha < 2026-07-01` se excluyen del cálculo de cuenta-paola pero siguen en la base para cruce de rentabilidad a fin de año.
-- **Flujo de restablecimiento de contraseña**: `/forgot-password` + `/reset-password` + link en LoginForm. Bug PKCE encontrado y corregido: `resetPasswordForEmail` tiene que correr en el browser (no en server action) para que el code verifier y el `exchangeCodeForSession` compartan la misma cookie jar.
+- **Flujo de restablecimiento de contraseña**: `/forgot-password` + `/reset-password` + link en LoginForm. Bug PKCE encontrado y corregido: `resetPasswordForEmail` tiene que correr en el browser (no en server action) para que el code verifier y el `exchangeCodeForSession` compartan la misma cookie jar. *(Archivado en `BUGS.md`.)*
 - **Deploy en Vercel** → `https://temporalias.vercel.app`. Root Directory = `web`. `STORAGE_BASE_URL` vacío (OCR funciona, storage de archivos deshabilitado por ahora).
 - **4 cuentas de Auth en prod**: Milagros, Francisco, Fernando, Paola (Inés sin cuenta por ahora). `user_metadata.titular` seteado vía SQL (`UPDATE auth.users SET raw_user_meta_data = '{"titular":"..."}'::jsonb`). El `||` jsonb falló porque `raw_user_meta_data` era NULL — hay que setear directo, no hacer merge.
 - **Historial de auditoría**: quitada la entrada `campo='creacion'` de reservas (redundante con `registrado_por`+`timestamp`). Agregado historial a `editarGasto` (campo por campo), `eliminarGasto` (resumen) y `editarEstadoReserva`.
@@ -39,7 +49,7 @@ Mismo dataset que el reset anterior, reconstruido con los campos nuevos:
 
 Verificado con script independiente: comisión pendiente $150, gastos pendientes $727,03, total $877,03 — igual que antes del reset, confirmando que el modelo "desde el último cierre" es estable.
 
-**Quita el total de "Movimientos de ajuste"** → commit `48750cd`: mezclaba sentidos opuestos (a_favor_paola y a_favor_negocio) sin considerar el signo, la suma no representaba nada real.
+**Quita el total de "Movimientos de ajuste"** → commit `48750cd`: mezclaba sentidos opuestos (a_favor_paola y a_favor_negocio) sin considerar el signo, la suma no representaba nada real. *(Archivado en `BUGS.md`.)*
 
 **Tema grande para retomar, sin tocar código todavía** — escenario planteado por Mili: Fernando (quien transfiere para saldar la deuda del negocio con Paola) viaja mucho y a veces no se lo puede contactar. Si Paola necesita esa plata y no puede esperar, se cobra de más en la próxima reserva que entra para hacerse de parte de lo que le deben. Al día siguiente Fernando se pone al día con el balance sin saber que ella ya se autopagó → Paola cobra dos veces.
 
@@ -69,17 +79,19 @@ Mi análisis (compartido con Mili en el chat, no implementado):
 - US-04: `nombre_destinatario` precargado por el gatillo de comisión quedaba en el payload pero invisible/no editable en `FormularioGasto.tsx` (el bloque solo se mostraba con `fromComprobante=true`). Se agregó un campo editable separado para el caso de prefill sin comprobante.
 - US-04/US-05: el monto se redondeaba a entero (`Math.round`) al precargar tanto el gasto de comisión como el movimiento de cierre mensual, perdiendo centavos. Corregido en ambos casos.
 
-**`critical_missing` no bloqueante, pendiente de decisión de Mili**: no hay forma de marcar un mes como "ya cerrado" en el cierre mensual (US-05) — si se revisita el mismo mes después de crear el ajuste, la tabla mostraría la misma diferencia otra vez y nada impide duplicar el `movimiento_interno`. Mitigación aplicada: el detalle del movimiento ahora incluye el mes, visible en la lista de ajustes, para que se note a simple vista. No es una prevención real.
+*(Ambos bugs archivados en `BUGS.md`.)*
+
+**`critical_missing` no bloqueante, pendiente de decisión de Mili**: no hay forma de marcar un mes como "ya cerrado" en el cierre mensual (US-05) — si se revisita el mismo mes después de crear el ajuste, la tabla mostraría la misma diferencia otra vez y nada impide duplicar el `movimiento_interno`. Mitigación aplicada: el detalle del movimiento ahora incluye el mes, visible en la lista de ajustes, para que se note a simple vista. No es una prevención real. *(Registrado como abierto en `BUGS.md` — confirmar con Mili si sigue vigente.)*
 
 **Sin verificación end-to-end (Playwright) en esta sesión** — bloqueado porque la migración `004_cuenta_paola.sql` todavía no está aplicada en Supabase real (tabla `movimientos_internos` y columna `ingresos.resolucion_cancelacion` no existen todavía en la base).
 
 **Migración 004 confirmada corrida por Mili en staging** (`https://evhlzntpimxfkbgyhcci.supabase.co`, el proyecto al que apunta `.env.local`/`.env.staging.local`).
 
-**Bug de runtime reportado y corregido**: `/cuenta-paola` crasheaba con "Cannot read properties of undefined (reading 'reduce')" cuando `/api/cuenta-paola-data` devolvía un error (exactamente por la migración no aplicada todavía en ese momento) — la página asumía que la respuesta siempre tenía la forma esperada. Commit `0c323e3`: ahora se muestra un cartel de error en vez de crashear.
+**Bug de runtime reportado y corregido**: `/cuenta-paola` crasheaba con "Cannot read properties of undefined (reading 'reduce')" cuando `/api/cuenta-paola-data` devolvía un error (exactamente por la migración no aplicada todavía en ese momento) — la página asumía que la respuesta siempre tenía la forma esperada. Commit `0c323e3`: ahora se muestra un cartel de error en vez de crashear. *(Archivado en `BUGS.md`.)*
 
 **Limpieza + simulación de datos en staging, autorizada explícitamente por Mili** (confirmó que esa base es de prueba/desarrollo, sin huéspedes reales, antes de borrar nada):
 - Borradas las 17 reservas `directo` que había + sus 15 ingresos asociados. Quedaron solo las 6 reservas `airbnb` preexistentes.
-- Insertado un set de datos simulados marcados con `notas: 'SIMULACION cuenta-paola'` (reservas) y prefijo `[SIM]` (ingresos/gastos), para poder identificarlos y limpiarlos después: 7 reservas nuevas (ids 14-20) cubriendo mes anterior con comisión ya saldada, mes anterior sin comisión cobrada (deuda real), mes actual con comisión cobrada de más (Paola debe devolver), reserva a 3 meses con comisión ya cobrada (no cierra hasta ese mes), cancelada con comisión cobrada (pendiente de clasificar), cancelada sin cobro, y un caso airbnb (10%) saldado. 5 ingresos a Paola, 4 gastos (2 pagados por Paola, 2 por Fernando, incluyendo el caso de comisión airbnb pagada directo por Fernando). **A propósito, ningún `movimiento_interno`** — pedido explícito de Mili para poder ver el estado "sin ajustes todavía".
+- Insertado un set de datos simulados marcados con `notas: 'SIMULACION cuenta-paola'` (reservas) y prefijo `[SIM]` (ingresos/gastos), para poder identificarlos y limpiarlos después: 7 reservas nuevas (ids 14-20) cubriendo mes anterior con comisión ya saldada, mes anterior sin comisión cobrada (deuda real), mes actual con comisión cobrada de más (Paola debe devolver), reserva a 3 meses con comisión ya cobrada (no cierra hasta ese mes), cancelada con comisión cobrada (pendiente de clasificar), cancelada sin cobro, y un caso airbnb (10%) saldado. 5 ingresos a Paola, 4 gastos (2 pagados por Paola, 2 por Fernando, incluyendo el caso de comisión airbnb pagada directo por Fernando). **A propósito, ningún `movimiento_interno`** — pedido explícito de Mili para poder ver el estado "sin ajustes todavía". *(Política de autorización para tocar staging: ver `POLITICAS.md`.)*
 - Commit `f25b905`: en "Comisiones cobradas" el detalle ahora muestra "Reserva #N — nombre del huésped" en vez del texto genérico del ingreso (pedido de Mili tras ver la pantalla con datos reales).
 
 **Reseed completo de `gastos`** (pedido explícito de Mili: "elimina todos los gastos de la tabla"): borrados los 14 que había (los 4 `[SIM]` de la tanda anterior + 10 preexistentes) y reemplazados por 19 gastos nuevos con montos realistas que Mili pasó de una planilla real (descartando los nombres propios de esa planilla — eran pagos de huéspedes, no gastos — y usando solo las filas de categoría: limpieza, lavandería, expensas, internet, community manager → `marketing`, electricidad → `luz`, impuestos comuna → `impuestos`). Repartidos en mayo 2026 (cerrado, 10 gastos) y junio 2026 (en curso, 9 gastos), `pagado_por`: limpieza/lavandería → Paola, el resto → Fernando. Mismo marcador `[SIM]` en el detalle para limpiar después.
@@ -93,19 +105,19 @@ Mi análisis (compartido con Mili en el chat, no implementado):
 **Gap detectado por Mili y corregido**: los 5 ingresos simulados a Paola no tenían su gasto de comisión espejo (lo que generaría el gatillo de US-04 en el flujo real). Se agregaron 4 gastos `categoria: comision` (Fernando → Paola) para las reservas #14, #16, #17 y #20, con el mismo monto/fecha que sus ingresos correspondientes (igual que precargaría el gatillo real). **A propósito, el ingreso de la reserva #18 (cancelada) queda sin su gasto espejo** — simula el caso de "Mili declinó el gatillo", razonable porque en ese momento todavía no se sabía si ese cobro se iba a clasificar como comisión o como caja chica.
 
 **Cambio de modelo grande, pedido por Mili tras entender el flujo** → commit `c443bc0` + migración `005_movimiento_tipo.sql`:
-- El cierre deja de ser "por mes calendario" y pasa a ser **"desde el último cierre"** de cada tipo — permite cierres tardíos, no atados al día 30.
+- El cierre deja de ser "por mes calendario" y pasa a ser **"desde el último cierre"** de cada tipo — permite cierres tardíos, no atados al día 30. *(Política vigente: ver `POLITICAS.md`.)*
 - `movimientos_internos` suma un campo `tipo` (`cierre_comision` | `reembolso_gastos` | `caja_chica` | `ajuste_libre`). Se corrigió un riesgo real de doble conteo: antes, **todo** movimiento a favor de Paola generaba un gasto espejo en `/gastos`; ahora solo lo genera `cierre_comision` (plata nunca contada) — `reembolso_gastos` no genera nada nuevo, porque esos gastos (limpieza, lavandería) ya están en `/gastos` desde el día que Paola los pagó, y duplicarlos sería pagarlos dos veces en los números.
 - `CierreCuentaSection` (reemplaza `CierreMensualSection`): dos bloques — comisión pendiente y gastos pendientes de reembolso, cada uno desde su último cierre — con un botón único que crea hasta 2 movimientos en un solo paso.
 - El botón genérico "Registrar movimiento" ahora pide el concepto (comisión pendiente / reembolso de gastos / otro ajuste).
 
-**Reset completo de datos en staging**, autorizado explícitamente por Mili, incorporando una regla de negocio que faltaba: **las reservas de Airbnb no tienen seña — todo se paga al check-in**. Se corrigió también un caso inválido que Mili señaló (una reserva *confirmada* con $0 cobrado no puede existir, porque nunca podría haberse iniciado sin al menos la seña). Datos nuevos (13 reservas, 12 ingresos, 23 gastos, 2 movimientos históricos — todos marcados `SIMULACION cuenta-paola` / `[SIM]`):
+**Reset completo de datos en staging**, autorizado explícitamente por Mili, incorporando una regla de negocio que faltaba: **las reservas de Airbnb no tienen seña — todo se paga al check-in**. Se corrigió también un caso inválido que Mili señaló (una reserva *confirmada* con $0 cobrado no puede existir, porque nunca podría haberse iniciado sin al menos la seña). *(Reglas de negocio vigentes: ver `POLITICAS.md`.)* Datos nuevos (13 reservas, 12 ingresos, 23 gastos, 2 movimientos históricos — todos marcados `SIMULACION cuenta-paola` / `[SIM]`):
 - Período anterior ya cerrado (reservas #1, #7, #13, checkout ≤ 30/04) — no aparecen más en pantalla, a propósito, para probar que el filtro "desde el último cierre" las excluye.
 - Comisión pendiente real (#2: seña pagada a la cuenta general, comisión de Paola nunca cobrada → +$180), cobro de más (#3: -$30), futura con comisión ya cobrada por adelantado (#4, no cierra hasta septiembre), cancelada con comisión cobrada pendiente de clasificar (#5), cancelada sin cobro (#6), airbnb futuras sin ningún pago — válido, todavía no inició la estadía (#9, #11), airbnb cancelada sin cobro (#10).
 - Verificado con un script de cálculo independiente (no solo confiando en la UI): comisión pendiente actual = +$150, gastos pendientes de reembolso = $727,03 — coincide con lo esperado a mano.
 
 **Todas las secciones de la pantalla pasan a tabla con fila de totales** → commit `aa38d68`: `ListaMovimientoFinanciero` se reemplaza por `TablaMovimientoFinanciero` (gastos de Paola, movimientos de ajuste, gastos pendientes de reembolso) y `CancelacionesPendientesSection` pasa a tabla con columna de acciones — mismo patrón visual que `TablaComisionesCobradas`/`TablaReconciliacionComision` en todos los casos.
 
-**Saldo principal corregido** → commit `5680e6d`: Mili no entendía por qué el saldo mostraba +$427 habiendo puesto ~$700 de su bolsillo. Causa real: `calcularSaldoPaola` sumaba **todo el histórico** (incluidos períodos ya cerrados), mezclando lo resuelto con lo pendiente. Se reemplaza por `saldoPendienteTotal` = comisión pendiente + gastos pendientes de reembolso, ambos desde el último cierre de cada tipo — el mismo número que ya calculaba "Cerrar cuenta" (ahora $877,03 con los datos simulados, no $427). De paso, positivo ahora significa siempre "el negocio le debe a Paola", sin la ambigüedad de antes. También se cambió "Devengado" → "Le corresponde" en la tabla de reconciliación (jerga contable, no era intuitiva).
+**Saldo principal corregido** → commit `5680e6d`: Mili no entendía por qué el saldo mostraba +$427 habiendo puesto ~$700 de su bolsillo. Causa real: `calcularSaldoPaola` sumaba **todo el histórico** (incluidos períodos ya cerrados), mezclando lo resuelto con lo pendiente. Se reemplaza por `saldoPendienteTotal` = comisión pendiente + gastos pendientes de reembolso, ambos desde el último cierre de cada tipo — el mismo número que ya calculaba "Cerrar cuenta" (ahora $877,03 con los datos simulados, no $427). De paso, positivo ahora significa siempre "el negocio le debe a Paola", sin la ambigüedad de antes. *(Bug archivado en `BUGS.md`; convención de signo consolidada en `POLITICAS.md`.)* También se cambió "Devengado" → "Le corresponde" en la tabla de reconciliación (jerga contable, no era intuitiva).
 
 **Cuenta de origen/destino en cada movimiento** → commit `a30e96b` + migración `006_movimiento_cuenta_origen.sql`: Mili notó que si Fernando transfiere internamente y no se asienta como salida de su cuenta, el saldo de esa cuenta se desfasa con el tiempo. Se agregó `cuenta_origen` (nullable) a `movimientos_internos`; el gasto espejo de `cierre_comision` ahora usa esa cuenta como `pagado_por` en vez de "Fernando" fijo; tanto "Registrar movimiento" como "Cerrar cuenta" la piden antes de confirmar. De paso se sacó el prop `prefill` de `MovimientoModal`, que había quedado sin uso.
 
@@ -131,13 +143,13 @@ Mi análisis (compartido con Mili en el chat, no implementado):
 
 **Agente 3 (Developer) completado en 3 tandas** (se dividió por tamaño — ~15 archivos tocados en total, una sola tanda hubiera sido inmanejable de revisar):
 
-- Tanda 1 → commit `c602279`: menú hamburguesa en `NavTabs` (`md`: sin cambios; `<md`: logo + botón, panel desplegable con las 5 opciones). Bug encontrado y corregido por el propio agente: el backdrop tapaba el botón, rompía el toggle.
+- Tanda 1 → commit `c602279`: menú hamburguesa en `NavTabs` (`md`: sin cambios; `<md`: logo + botón, panel desplegable con las 5 opciones). Bug encontrado y corregido por el propio agente: el backdrop tapaba el botón, rompía el toggle. *(Archivado en `BUGS.md`.)*
 - Tanda 2 → commit `991f4af`: toolbars de `CalendarView`, `ReservasTable`, `GastosTable` (flex-wrap, buscador a ancho completo en mobile, paginadores apilados en `<md`).
 - Tanda 3 → commit `8cbb5ef`: grillas de `ReservaModal`, `BloqueoModal`, `reservas/nueva` (pasos 1 y 2), `pago/page.tsx`, `FormularioGasto`, `FiltrosModal` (reservas y gastos) — todas a 1 columna en `<md` salvo las excepciones confirmadas en el Designer (Check-in/Check-out, Monto+Moneda, Plataforma+Estado, Casa+Estado, Cotización+Tipo de pago, Desde/Hasta). `TrasladarPagoModal`, `ReciboModal` y login: verificados sin cambios necesarios.
 
 Las 3 tandas verificadas con `tsc --noEmit` (confirmado independientemente por mí, no solo por el reporte del agente) y con Playwright contra la cuenta QA fija, en 375px y 1024px.
 
-**Incidente de datos de prueba, resuelto:** la tanda 3 necesitó crear una reserva real para probar `pago/page.tsx`, terminó creando 2 por un script corrido dos veces ("Qa Responsive Test", Casa 1, reservas `20`/`21`, con un ingreso de USD 50 cada una). El agente no pudo borrarlas (la app no tiene `eliminarReserva`, y backdatear fechas para poder cancelarlas fue bloqueado correctamente por el clasificador de permisos como modificación de datos sin consentimiento). Lo resolví yo directamente: verifiqué con `nombre_pax ilike '%Qa Responsive%'` que eran exactamente esas 2 y nada más, borré primero los `ingresos` asociados (FK) y después las `reservas`, confirmé 0 filas restantes de ambas tablas. Sin acción pendiente de Mili sobre esto.
+**Incidente de datos de prueba, resuelto:** la tanda 3 necesitó crear una reserva real para probar `pago/page.tsx`, terminó creando 2 por un script corrido dos veces ("Qa Responsive Test", Casa 1, reservas `20`/`21`, con un ingreso de USD 50 cada una). El agente no pudo borrarlas (la app no tiene `eliminarReserva`, y backdatear fechas para poder cancelarlas fue bloqueado correctamente por el clasificador de permisos como modificación de datos sin consentimiento). Lo resolví yo directamente: verifiqué con `nombre_pax ilike '%Qa Responsive%'` que eran exactamente esas 2 y nada más, borré primero los `ingresos` asociados (FK) y después las `reservas`, confirmé 0 filas restantes de ambas tablas. Sin acción pendiente de Mili sobre esto. *(Política de limpieza de datos de prueba: ver `POLITICAS.md`.)*
 
 **Pendiente / próximo paso:** mostrar a Mili para aprobación → si aprueba, arrancar **Agente 4 (QA)**. Recordar incluirle instrucción explícita de limpiar cualquier dato de prueba que genere (ya está en `PIPELINE.md` desde la feature de gastos, pero conviene remarcarlo dado este incidente).
 
@@ -151,7 +163,7 @@ El Designer encontró 10 pares de campos "ambiguos" (comparten fila hoy, no son 
 - **Quedan en 2 columnas (excepciones nuevas)**: Plataforma+Estado (`ReservaModal`), Casa+Estado (`reservas/nueva` paso 1), Cotización ARS/USD+Tipo de pago (`pago/page.tsx`).
 - **Quedan en 1 columna (sin excepción)**: Teléfono+Plataforma, Tipo de pago+Quién pagó, Fecha del pago+Destinatario, Banco destino+N° operación, Quién pagó+Fecha del pago, Fecha+Pagado por (gastos), Destinatario+Banco origen+N° operación (gastos).
 
-Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú hamburguesa de `NavTabs`. Todo lo demás son modificaciones de clases responsive sobre JSX existente, sin componentes nuevos.
+Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú hamburguesa de `NavTabs`. Todo lo demás son modificaciones de clases responsive sobre JSX existente, sin componentes nuevos. *(Decisiones de pares ambiguos consolidadas en `POLITICAS.md`.)*
 
 **Pendiente / próximo paso:** mostrar a Mili (ya aprobado en la práctica al resolver los pares ambiguos) y arrancar **Agente 3 (Developer)**. Va a ser una tanda grande — toca ~15 archivos. Considerar dividirlo en sub-commits por superficie si se vuelve inmanejable en un solo commit.
 
@@ -161,13 +173,15 @@ Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú 
 
 **Setup**: rama creada (partió de `feature/auth-header`, que partió de `master` post-gastos). `/explore responsive` corrido y aprobado por Mili → `.claude/artifacts/responsive/explore.md`. Cuenta de QA fija autorizada para toda la feature: `qa-responsive@example.com` / `QaResponsive123!` — no borrar hasta cerrar la feature.
 
-**Corrección estructural importante hecha en esta sesión**: los artifacts del pipeline (`po-output.json`, etc.) tenían nombre plano sin carpeta por feature — se iban a pisar entre features (gastos vs. responsive). Se movieron a `.claude/artifacts/<feature>/` y se actualizó `pipeline-viewer.mjs`, `PIPELINE.md`, `run-pipeline.md`, `CONTEXT.md` con la convención nueva. Ver commit `0198fd9`.
+**Corrección estructural importante hecha en esta sesión**: los artifacts del pipeline (`po-output.json`, etc.) tenían nombre plano sin carpeta por feature — se iban a pisar entre features (gastos vs. responsive). Se movieron a `.claude/artifacts/<feature>/` y se actualizó `pipeline-viewer.mjs`, `PIPELINE.md`, `run-pipeline.md`, `CONTEXT.md` con la convención nueva. Ver commit `0198fd9`. *(Política vigente: ver `POLITICAS.md`.)*
 
 **Decisiones de Mili (no volver a preguntar):**
 - Calendario y tablas: el scroll horizontal que ya tienen alcanza, no se tocan.
 - Header en mobile: menú hamburguesa.
 - Grillas de formularios a 1 columna, excepto Monto+Moneda y pares de fecha (2 columnas igual).
 - Breakpoints estándar de Tailwind, sin mínimo especial.
+
+*(Consolidado en `POLITICAS.md`.)*
 
 **Agente 1 (PO) completado** → commit `f26a7f8` → `.claude/artifacts/responsive/po-output.json` (6 user stories: header, toolbar calendario, toolbars+paginación de tablas, formularios de reservas, formularios de gastos, login).
 
@@ -189,9 +203,9 @@ Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú 
 
 **Header reorganizado** → commit `78a8b2c`: logo "TempoBoard" (tipográfico) a la izquierda, "Dashboard" pasa a estar agrupado junto a Calendario/Reservas/Gastos, se quita el nombre del titular logueado del header (queda solo el botón de cerrar sesión).
 
-**Aviso de seguridad importante para sesiones futuras:** el clasificador de permisos bloqueó dos veces en esta sesión acciones sobre Supabase Auth — (1) escribir la contraseña real de Mili en texto plano dentro de un script de Playwright (correcto: nunca escribir credenciales reales en archivos, ni siquiera temporalmente), y (2) crear una segunda cuenta de prueba asumiendo que la autorización de la cuenta anterior se extendía — no es así, **cada creación de usuario en Auth necesita autorización explícita puntual**, no hay autorización "de una vez para siempre" en esta sesión.
+**Aviso de seguridad importante para sesiones futuras:** el clasificador de permisos bloqueó dos veces en esta sesión acciones sobre Supabase Auth — (1) escribir la contraseña real de Mili en texto plano dentro de un script de Playwright (correcto: nunca escribir credenciales reales en archivos, ni siquiera temporalmente), y (2) crear una segunda cuenta de prueba asumiendo que la autorización de la cuenta anterior se extendía — no es así, **cada creación de usuario en Auth necesita autorización explícita puntual**, no hay autorización "de una vez para siempre" en esta sesión. *(Políticas vigentes: ver `POLITICAS.md`.)*
 
-**`/explore`/`PIPELINE.md` ahora aplican a toda feature nueva** (no solo las que replican el bot) — decisión de Mili, ver commit `83e90ec`. El login/header ya construido NO se rehace retroactivamente por el pipeline; la regla aplica de acá en adelante.
+**`/explore`/`PIPELINE.md` ahora aplican a toda feature nueva** (no solo las que replican el bot) — decisión de Mili, ver commit `83e90ec`. El login/header ya construido NO se rehace retroactivamente por el pipeline; la regla aplica de acá en adelante. *(Política vigente: ver `POLITICAS.md`.)*
 
 **Pendiente / próximo paso:**
 - Cuentas de Francisco, Inés, Fernando y Paola — todavía no se pidieron sus emails.
@@ -208,6 +222,8 @@ Componente nuevo definido: `MobileMenuButton` + `MobileMenuPanel` para el menú 
 - Supabase Auth (ya era dependencia instalada vía `@supabase/ssr`, cero deps nuevas).
 - Mismo nivel de acceso para los 5 titulares — el login es solo para identificar QUIÉN hizo cada acción, no para restringir nada.
 - Cuentas pre-creadas a mano, sin alta pública.
+
+*(Consolidado en `POLITICAS.md`.)*
 
 **Construido y commiteado** (`01b86dd`):
 - `src/middleware.ts` + `lib/supabase/middleware.ts`: refresca sesión + redirige a `/login` sin sesión (y al revés).

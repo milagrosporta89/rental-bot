@@ -55,6 +55,7 @@ function PagoPageInner() {
     nro_operacion: '',
     detalle: '',
   })
+  const [montoUsdOriginal, setMontoUsdOriginal] = useState(0)
   const [fromComprobante, setFromComprobante] = useState(false)
   const [destinatarioOtro, setDestinatarioOtro] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
@@ -90,6 +91,7 @@ function PagoPageInner() {
     if (!editId) return
     obtenerIngreso(editId).then(ingreso => {
       if (!ingreso) return
+      setMontoUsdOriginal(ingreso.monto_usd ?? 0)
       setTipoPago(ingreso.nro_operacion ? 'transferencia' : 'efectivo')
       setComprobanteUrl(ingreso.comprobante_url ?? '')
       if (ingreso.comprobante_url) { setUploadState('done'); setFromComprobante(true) }
@@ -179,7 +181,10 @@ function PagoPageInner() {
   const cotizNum  = parseFloat(form.cotizacion) || 0
   const montoUSD  = form.moneda === 'USD' ? montoNum : (cotizNum > 0 ? montoNum / cotizNum : 0)
   const montoARS  = form.moneda === 'ARS' ? montoNum : montoNum * cotizNum
-  const saldoRestante = (reserva?.saldo_usd ?? 0) - montoUSD
+  // En edición, el saldo guardado ya tiene este pago descontado — hay que sumarlo de
+  // vuelta para no restarlo dos veces al proyectar el nuevo monto.
+  const saldoBase = (reserva?.saldo_usd ?? 0) + (editId ? montoUsdOriginal : 0)
+  const saldoRestante = saldoBase - montoUSD
 
   async function handleSubmit() {
     if (!reserva) return
@@ -564,7 +569,7 @@ function PagoPageInner() {
               <div className="col-span-1 md:col-span-4 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-500">
                   <span>Saldo actual</span>
-                  <span className="tabular-nums text-slate-700">{formatUSD(reserva.saldo_usd)}</span>
+                  <span className="tabular-nums text-slate-700">{formatUSD(saldoBase)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500 border-t border-slate-200 pt-1.5">
                   <span>Pago</span>
