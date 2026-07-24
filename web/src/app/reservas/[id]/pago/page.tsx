@@ -181,10 +181,11 @@ function PagoPageInner() {
   const cotizNum  = parseFloat(form.cotizacion) || 0
   const montoUSD  = form.moneda === 'USD' ? montoNum : (cotizNum > 0 ? montoNum / cotizNum : 0)
   const montoARS  = form.moneda === 'ARS' ? montoNum : montoNum * cotizNum
-  // En edición, el saldo guardado ya tiene este pago descontado — hay que sumarlo de
-  // vuelta para no restarlo dos veces al proyectar el nuevo monto.
-  const saldoBase = (reserva?.saldo_usd ?? 0) + (editId ? montoUsdOriginal : 0)
-  const saldoRestante = saldoBase - montoUSD
+  // En edición, "Saldo actual" tiene que seguir siendo el saldo real de la reserva (el mismo
+  // que se ve en el resto de la app) — lo que cambia el saldo no es el monto del pago en sí,
+  // sino la diferencia entre lo que decía antes y lo que se está por guardar ahora.
+  const diferencia = montoUSD - (editId ? montoUsdOriginal : 0)
+  const saldoRestante = (reserva?.saldo_usd ?? 0) - diferencia
 
   async function handleSubmit() {
     if (!reserva) return
@@ -569,11 +570,13 @@ function PagoPageInner() {
               <div className="col-span-1 md:col-span-4 bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 space-y-1.5 text-xs">
                 <div className="flex justify-between text-slate-500">
                   <span>Saldo actual</span>
-                  <span className="tabular-nums text-slate-700">{formatUSD(saldoBase)}</span>
+                  <span className="tabular-nums text-slate-700">{formatUSD(reserva.saldo_usd)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500 border-t border-slate-200 pt-1.5">
-                  <span>Pago</span>
-                  <span className="tabular-nums text-slate-700">{formatUSD(montoUSD)}</span>
+                  <span>{editId ? 'Diferencia con el pago original' : 'Pago'}</span>
+                  <span className="tabular-nums text-slate-700">
+                    {editId && diferencia > 0 ? '+' : ''}{formatUSD(diferencia)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-500 border-t border-slate-200 pt-1.5">
                   <span>Saldo total</span>
