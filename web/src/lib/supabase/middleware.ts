@@ -38,5 +38,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  const rutasSoloMilagros = ['/cuenta-paola', '/liquidacion-paola']
+  if (
+    user &&
+    user.user_metadata?.titular !== 'Milagros' &&
+    rutasSoloMilagros.some(r => request.nextUrl.pathname.startsWith(r))
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/'
+    return NextResponse.redirect(url)
+  }
+
   return supabaseResponse
 }

@@ -6,18 +6,22 @@ import { usePathname } from 'next/navigation'
 import { ArrowUpRight, LogOut, Menu, X } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 
-const tabs = [
+const tabsBase = [
   { label: 'Calendario', href: '/calendario' },
   { label: 'Reservas', href: '/reservas' },
   { label: 'Ingresos', href: '/ingresos' },
   { label: 'Gastos', href: '/gastos' },
+]
+
+const tabsSoloMilagros = [
   { label: 'Comisiones', href: '/cuenta-paola' },
   { label: 'Liquidación (prov.)', href: '/liquidacion-paola' },
 ]
 
-export function NavTabs() {
+export function NavTabs({ titular }: { titular?: string }) {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
+  const tabs = titular === 'Milagros' ? [...tabsBase, ...tabsSoloMilagros] : tabsBase
 
   return (
     <header className="border-b border-slate-200 bg-white relative">
