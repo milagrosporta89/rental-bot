@@ -13,8 +13,17 @@ function nombreArchivo(reserva: Reserva): string {
   return `${sanitizado}.jpg`
 }
 
+function cargarLogo(): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = '/logo-temporalias.png'
+  })
+}
+
 /** Dibuja el comprobante de un pago en un canvas angosto, estilo pantalla de teléfono */
-function dibujarRecibo(pago: Ingreso, reserva: Reserva): HTMLCanvasElement {
+function dibujarRecibo(pago: Ingreso, reserva: Reserva, logo: HTMLImageElement): HTMLCanvasElement {
   const scale = 2
   const W = 420
   const H = 700
@@ -38,16 +47,11 @@ function dibujarRecibo(pago: Ingreso, reserva: Reserva): HTMLCanvasElement {
   ctx.strokeStyle = slate200
   ctx.strokeRect(12.5, 12.5, W - 25, H - 25)
 
-  // Lugar reservado para el logo (centrado, como el header de una app de pagos)
+  // Logo centrado, como el header de una app de pagos
   const logoSize = 72
-  ctx.strokeStyle = slate300
-  ctx.setLineDash([4, 3])
-  ctx.strokeRect(midX - logoSize / 2, 40, logoSize, logoSize)
-  ctx.setLineDash([])
-  ctx.fillStyle = slate300
-  ctx.font = '12px Arial'
-  ctx.textAlign = 'center'
-  ctx.fillText('LOGO', midX, 40 + logoSize / 2 + 4)
+  const logoW = logo.width >= logo.height ? logoSize : (logoSize * logo.width) / logo.height
+  const logoH = logo.width >= logo.height ? (logoSize * logo.height) / logo.width : logoSize
+  ctx.drawImage(logo, midX - logoW / 2, 40 + (logoSize - logoH) / 2, logoW, logoH)
 
   // Encabezado centrado
   ctx.fillStyle = slate900
@@ -122,8 +126,9 @@ function dibujarRecibo(pago: Ingreso, reserva: Reserva): HTMLCanvasElement {
 }
 
 /** Genera el comprobante como imagen (para previsualizar en un modal) */
-export function generarReciboImagen(pago: Ingreso, reserva: Reserva): { dataUrl: string; filename: string } {
-  const canvas = dibujarRecibo(pago, reserva)
+export async function generarReciboImagen(pago: Ingreso, reserva: Reserva): Promise<{ dataUrl: string; filename: string }> {
+  const logo = await cargarLogo()
+  const canvas = dibujarRecibo(pago, reserva, logo)
   return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), filename: nombreArchivo(reserva) }
 }
 

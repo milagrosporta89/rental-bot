@@ -19,11 +19,9 @@ export function ReciboModal({ pago, reserva, onClose }: Props) {
   const [compartiendo, setCompartiendo] = useState(false)
 
   useEffect(() => {
-    try {
-      setData(generarReciboImagen(pago, reserva))
-    } catch {
-      setError('No se pudo generar el comprobante.')
-    }
+    generarReciboImagen(pago, reserva)
+      .then(setData)
+      .catch(() => setError('No se pudo generar el comprobante.'))
   }, [pago, reserva])
 
   async function handleCompartir() {
