@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MesPicker } from '@/components/ui/mes-picker'
@@ -9,6 +9,7 @@ import { EncabezadoOrdenable } from '@/components/ui/encabezado-ordenable'
 import { toISO, mesLabel } from '@/lib/dates'
 import { formatUSD } from '@/lib/utils'
 import type { Ingreso, Reserva } from '@/lib/types'
+import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzadosIngresos } from './FiltrosModal'
 
 type SortBy = 'fecha' | 'reserva' | 'quien_pago' | 'destinatario' | 'monto_ars' | 'monto_usd' | 'desglose' | 'metodo_pago'
 type SortDir = 'asc' | 'desc'
@@ -95,6 +96,8 @@ export function IngresosTable() {
   const [mes, setMes] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('fecha')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [filtrosModalOpen, setFiltrosModalOpen] = useState(false)
+  const [filtrosAvanzados, setFiltrosAvanzados] = useState<FiltrosAvanzadosIngresos>(filtrosAvanzadosVacios())
 
   useEffect(() => {
     fetch('/api/ingresos-data')
@@ -109,7 +112,21 @@ export function IngresosTable() {
   const reservasPorId = useMemo(() => new Map(reservas.map(r => [r.id, r])), [reservas])
   const grupos = useMemo(() => agrupar(ingresos, reservasPorId), [ingresos, reservasPorId])
 
-  const filtradosPorBusqueda = grupos.filter(g => matchBusqueda(g, q))
+  const destinatariosDisponibles = useMemo(() => {
+    const set = new Set(grupos.map(g => g.padre.nombre_destinatario).filter((d): d is string => !!d))
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'))
+  }, [grupos])
+
+  const filtradosPorBusqueda = grupos
+    .filter(g => matchBusqueda(g, q))
+    .filter(g => {
+      const { fechaDesde, fechaHasta, destinatarios } = filtrosAvanzados
+      if (destinatarios.size > 0 && !destinatarios.has(g.padre.nombre_destinatario ?? '')) return false
+      const fechaISO = toISO(g.padre.fecha)
+      if (fechaDesde && fechaISO < fechaDesde) return false
+      if (fechaHasta && fechaISO > fechaHasta) return false
+      return true
+    })
 
   const mesesDisponibles = Array.from(new Set(filtradosPorBusqueda.map(g => toISO(g.padre.fecha).slice(0, 7)))).sort().reverse()
 
@@ -159,12 +176,28 @@ export function IngresosTable() {
         </div>
 
         <div className="pb-4 flex items-end justify-between gap-2 sm:gap-3 flex-wrap">
-          <div className="space-y-1 flex-1 sm:flex-initial">
-            <Label className="text-xs text-slate-500">Buscar por reserva, casa o quién pagó</Label>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-              <Input value={q} onChange={e => setQ(e.target.value)} className="pl-8 text-sm h-8" />
+          <div className="flex items-end gap-2 sm:gap-3">
+            <div className="space-y-1 flex-1 sm:flex-initial">
+              <Label className="text-xs text-slate-500">Buscar por reserva, casa o quién pagó</Label>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <Input value={q} onChange={e => setQ(e.target.value)} className="pl-8 text-sm h-8" />
+              </div>
             </div>
+
+            <button
+              onClick={() => setFiltrosModalOpen(true)}
+              aria-label="Filtros"
+              title="Filtros"
+              className="relative flex items-center justify-center h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              {contarFiltrosActivos(filtrosAvanzados) > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-semibold">
+                  {contarFiltrosActivos(filtrosAvanzados)}
+                </span>
+              )}
+            </button>
           </div>
 
           {mesesDisponibles.length > 0 && (
@@ -186,7 +219,7 @@ export function IngresosTable() {
 
         {mesesDisponibles.length === 0 ? (
           <div className="py-16 text-center text-sm text-slate-400 bg-white border border-slate-200 rounded-xl">
-            {q ? 'Sin resultados' : 'No hay ingresos registrados todavía'}
+            {q || contarFiltrosActivos(filtrosAvanzados) > 0 ? 'Sin resultados' : 'No hay ingresos registrados todavía'}
           </div>
         ) : (
           <div className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden">
@@ -232,6 +265,14 @@ export function IngresosTable() {
           </div>
         )}
       </div>
+
+      <FiltrosModal
+        open={filtrosModalOpen}
+        onClose={() => setFiltrosModalOpen(false)}
+        value={filtrosAvanzados}
+        onChange={setFiltrosAvanzados}
+        destinatarios={destinatariosDisponibles}
+      />
     </div>
   )
 }
