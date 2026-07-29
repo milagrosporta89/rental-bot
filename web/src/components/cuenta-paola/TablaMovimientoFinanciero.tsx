@@ -60,7 +60,7 @@ export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje 
             {items.length > 0 && (
               <tfoot>
                 <tr className="border-t border-slate-200 bg-slate-50 font-medium">
-                  <td className="px-4 py-2.5 text-slate-700 text-xs">Total</td>
+                  <td className="px-4 py-2.5 text-slate-700 text-xs" colSpan={2}>Total</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">$ {totalPesos.toLocaleString('es-AR')}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 text-xs whitespace-nowrap">{formatUSD(total)}</td>
                   <td className="px-4 py-2.5"></td>
