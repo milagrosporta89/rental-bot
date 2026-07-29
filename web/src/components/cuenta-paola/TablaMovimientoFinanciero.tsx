@@ -8,6 +8,7 @@ export interface ItemMovimientoFinanciero {
   monto_usd: number | null
   moneda: string
   detalle: string | null
+  categoria: string
 }
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   vacioMensaje: string
 }
 
-const COLS = 4
+const COLS = 5
 
 export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje }: Props) {
   const total = items.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
@@ -33,6 +34,7 @@ export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje 
             <thead className="bg-slate-100">
               <tr className="border-b border-slate-200">
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Fecha</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Categoría</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto en $</th>
                 <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Monto USD</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Detalle</th>
@@ -46,6 +48,7 @@ export function TablaMovimientoFinanciero({ titulo, bajada, items, vacioMensaje 
               ) : items.map(item => (
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap tabular-nums text-xs">{item.fecha}</td>
+                  <td className="px-4 py-2.5 text-slate-600 text-xs whitespace-nowrap">{item.categoria}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums text-slate-800 font-medium text-xs whitespace-nowrap">
                     {item.monto_ars != null ? `$ ${item.monto_ars.toLocaleString('es-AR')}` : '—'}
                   </td>

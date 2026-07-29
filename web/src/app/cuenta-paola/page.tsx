@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Moneda } from '@/lib/utils'
-import type { Gasto, Ingreso, MovimientoInterno, Reserva } from '@/lib/types'
+import { CATEGORIA_GASTO_LABEL, type CategoriaGasto, type Gasto, type Ingreso, type MovimientoInterno, type Reserva } from '@/lib/types'
 import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
 import { MonedaToggle } from '@/components/cuenta-paola/MonedaToggle'
 import { TablaMovimientoFinanciero, type ItemMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
@@ -105,6 +105,7 @@ export default function CuentaPaolaPage() {
       monto_usd: g.monto_usd != null ? -g.monto_usd : null,
       moneda: g.moneda,
       detalle: g.detalle,
+      categoria: CATEGORIA_GASTO_LABEL[g.categoria as CategoriaGasto] ?? g.categoria,
     })),
     ...movimientosCajaChica.map(m => ({
       id: m.id,
@@ -114,6 +115,7 @@ export default function CuentaPaolaPage() {
       monto_usd: m.monto_usd != null ? (m.sentido === 'a_favor_negocio' ? m.monto_usd : -m.monto_usd) : null,
       moneda: m.moneda,
       detalle: m.detalle,
+      categoria: 'Caja chica',
     })),
   ].sort((a, b) => toISO(a.fecha).localeCompare(toISO(b.fecha)))
   const cajaChica = filasCajaChica.reduce((s, f) => s + (f.monto_usd ?? 0), 0)
