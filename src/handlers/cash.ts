@@ -110,17 +110,6 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
     return true;
   }
 
-  // Botón de ingreso (desde flujo efectivo_tipo_ingreso — legacy)
-  if (buttonId === "efectivo_tipo_ingreso") {
-    if (!estado) return false;
-    estado.paso = "ingreso_quien";
-    estados.set(ctx.from.id, estado);
-    await ctx.replyButtons("¿Quién realizó el pago?",
-      TITULARES_INGRESO.map((t) => ({ id: `efectivo_quien_${t}`, title: t }))
-    );
-    return true;
-  }
-
   return false;
 }
 

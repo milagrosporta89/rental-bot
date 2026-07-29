@@ -62,14 +62,12 @@ export async function downloadMedia(mediaId: string): Promise<{ base64: string; 
 export interface WaMessage {
   from: string;
   fromName: string;
-  messageId: string;
   type: "text" | "image" | "document" | "interactive" | "flow_reply" | "unknown";
   text?: string;
   imageId?: string;
   documentId?: string;
   mimeType?: string;
   buttonReplyId?: string;
-  buttonReplyTitle?: string;
   flowData?: Record<string, string>;
 }
 
@@ -83,28 +81,27 @@ export function parseWebhookBody(body: any): WaMessage | null {
 
     const from: string = msg.from;
     const fromName: string = value?.contacts?.[0]?.profile?.name ?? from;
-    const messageId: string = msg.id;
     const type: string = msg.type;
 
     if (type === "text") {
-      return { from, fromName, messageId, type: "text", text: msg.text?.body };
+      return { from, fromName, type: "text", text: msg.text?.body };
     }
     if (type === "image") {
-      return { from, fromName, messageId, type: "image", imageId: msg.image?.id, mimeType: msg.image?.mime_type };
+      return { from, fromName, type: "image", imageId: msg.image?.id, mimeType: msg.image?.mime_type };
     }
     if (type === "document") {
-      return { from, fromName, messageId, type: "document", documentId: msg.document?.id, mimeType: msg.document?.mime_type };
+      return { from, fromName, type: "document", documentId: msg.document?.id, mimeType: msg.document?.mime_type };
     }
     if (type === "interactive") {
       const itype = msg.interactive?.type;
       if (itype === "nfm_reply") {
         const flowData = JSON.parse(msg.interactive.nfm_reply?.response_json ?? "{}") as Record<string, string>;
-        return { from, fromName, messageId, type: "flow_reply", flowData };
+        return { from, fromName, type: "flow_reply", flowData };
       }
       const reply = itype === "button_reply" ? msg.interactive.button_reply : msg.interactive?.list_reply;
-      return { from, fromName, messageId, type: "interactive", buttonReplyId: reply?.id, buttonReplyTitle: reply?.title };
+      return { from, fromName, type: "interactive", buttonReplyId: reply?.id };
     }
-    return { from, fromName, messageId, type: "unknown" };
+    return { from, fromName, type: "unknown" };
   } catch {
     return null;
   }
