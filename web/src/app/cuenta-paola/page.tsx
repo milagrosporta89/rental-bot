@@ -127,8 +127,11 @@ export default function CuentaPaolaPage() {
   const totalGastosPaola = gastosJulio.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
   const totalGastosPaolaArs = gastosJulio.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
 
-  const totalAPagarJulio = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd')
-  const totalAPagarJulioArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars')
+  // Saldo neto de julio: lo que le corresponde quedarse a Paola (comisión + gastos que pagó de
+  // su bolsillo) contra lo que ya tiene en mano (todo lo que cobró). Positivo = el negocio le
+  // debe la diferencia a Paola; negativo = Paola le debe esa diferencia al negocio.
+  const totalAPagarJulio = comisionesTotal + totalGastosPaola - totalRecibido
+  const totalAPagarJulioArs = comisionesTotalArs + totalGastosPaolaArs - totalRecibidoArs
 
   // Reservas que todavía no terminaron — lo ya cobrado por adelantado de esas reservas.
   const ingresosPorVenir = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
