@@ -14,7 +14,7 @@ import { MonedaToggle } from '@/components/cuenta-paola/MonedaToggle'
 import { FiltrosModal, filtrosAvanzadosVacios, contarFiltrosActivos, type FiltrosAvanzados } from '@/components/reservas/FiltrosModal'
 
 interface DatosCuentaPaola {
-  ingresosPaola: Ingreso[]
+  ingresos: Ingreso[]
   gastosPaola: Gasto[]
   movimientosInternos: MovimientoInterno[]
   reservas: Reserva[]
@@ -78,7 +78,8 @@ export default function HistoricoComisionesPage() {
     )
   }
 
-  const filasHistorico = historicoReservasLiquidadas(datos.reservas, datos.ingresosPaola)
+  const ingresosPaola = datos.ingresos.filter(i => i.nombre_destinatario === 'Paola')
+  const filasHistorico = historicoReservasLiquidadas(datos.reservas, ingresosPaola)
 
   const filasFiltradas = filasHistorico.filter(fila => {
     if (!matchBusqueda(fila, q)) return false

@@ -11,7 +11,7 @@ export async function GET() {
     { data: movimientos, error: me },
     { data: reservas, error: re },
   ] = await Promise.all([
-    supabase.from('ingresos').select('*').eq('nombre_destinatario', 'Paola'),
+    supabase.from('ingresos').select('*'),
     supabase.from('gastos').select('*').eq('pagado_por', 'Paola'),
     supabase.from('movimientos_internos').select('*'),
     supabase.from('reservas').select('*'),
@@ -32,7 +32,9 @@ export async function GET() {
   })
 
   return NextResponse.json({
-    ingresosPaola: ingresosFiltrados,
+    // Ya no filtra por destinatario: la comisión de julio se calcula sobre TODO lo que entró por
+    // reservas, sea que lo haya cobrado Paola o el negocio directamente.
+    ingresos: ingresosFiltrados,
     gastosPaola: gastosFiltrados,
     movimientosInternos: movimientos ?? [],
     reservas: reservas ?? [],

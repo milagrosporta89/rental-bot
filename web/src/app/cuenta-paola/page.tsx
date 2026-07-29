@@ -14,7 +14,7 @@ import { TablaMovimientoFinanciero, type ItemMovimientoFinanciero } from '@/comp
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
 
 interface DatosCuentaPaola {
-  ingresosPaola: Ingreso[]
+  ingresos: Ingreso[]
   gastosPaola: Gasto[]
   movimientosInternos: MovimientoInterno[]
   reservas: Reserva[]
@@ -100,25 +100,30 @@ export default function CuentaPaolaPage() {
     })),
   ].sort((a, b) => toISO(a.fecha).localeCompare(toISO(b.fecha)))
 
-  // datos.ingresosPaola/gastosPaola vienen filtrados por esDeContabilidadNueva, que además de la
+  // datos.ingresos/gastosPaola vienen filtrados por esDeContabilidadNueva, que además de la
   // fecha también mete cualquier pago viejo (mayo/junio) si está enlazado a una reserva del
   // sistema nuevo — no alcanza para "julio". Acá se acota en serio, al calendario del mes.
   const esDeJulio = (fecha: string) => {
     const iso = toISO(fecha)
     return iso >= INICIO_CONTABILIDAD && iso < FIN_JULIO
   }
-  const ingresosJulio = datos.ingresosPaola.filter(i => esDeJulio(i.fecha))
+  // Universo para la comisión: TODOS los pagos de reservas que entraron en julio, los haya
+  // cobrado Paola o el negocio directamente — lo que le corresponde a Paola no depende de quién
+  // recibió físicamente la plata.
+  const ingresosJulio = datos.ingresos.filter(i => esDeJulio(i.fecha))
+  // Subconjunto: solo lo que Paola cobró personalmente, para la card/tabla de "recibido".
+  const ingresosPaolaJulio = ingresosJulio.filter(i => i.nombre_destinatario === 'Paola')
   const gastosJulio = datos.gastosPaola.filter(g => esDeJulio(g.fecha))
 
   // Total recibido por Paola en julio — el listado "Cobros recibidos por Paola en julio" de más
   // abajo es exactamente esto.
-  const totalRecibido = ingresosJulio.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
-  const totalRecibidoArs = ingresosJulio.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
+  const totalRecibido = ingresosPaolaJulio.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
+  const totalRecibidoArs = ingresosPaolaJulio.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
 
-  // Comisión "provisoria" (10% airbnb / 15% directas) sobre cada pago que entró en julio, según
-  // la plataforma de la reserva de ese pago — no sobre el monto total de la reserva. El universo
-  // es todo lo cobrado en julio, no lo que "correspondería" cobrar. El sistema formal de
-  // comisiones (comisionDevengada, reconciliación) sigue intacto pero oculto, ver comisionSobreCobrado.
+  // Comisión "provisoria" (10% airbnb / 15% directas) sobre cada pago que entró en julio por
+  // cualquier reserva, según su plataforma — no sobre el monto total de la reserva, y sin
+  // importar si lo cobró Paola o el negocio. El sistema formal de comisiones (comisionDevengada,
+  // reconciliación) sigue intacto pero oculto, ver comisionSobreCobrado.
   const comisionDirectas = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'directo')
   const comisionDirectasArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars', 'directo')
   const comisionAirbnb = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'airbnb')
@@ -130,13 +135,13 @@ export default function CuentaPaolaPage() {
   const totalGastosPaolaArs = gastosJulio.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
 
   // Saldo neto de julio: lo que le corresponde quedarse a Paola (comisión + gastos que pagó de
-  // su bolsillo) contra lo que ya tiene en mano (todo lo que cobró). Positivo = el negocio le
-  // debe la diferencia a Paola; negativo = Paola le debe esa diferencia al negocio.
+  // su bolsillo) contra lo que ya tiene en mano (solo lo que ella cobró). Positivo = el negocio
+  // le debe la diferencia a Paola; negativo = Paola le debe esa diferencia al negocio.
   const totalAPagarJulio = comisionesTotal + totalGastosPaola - totalRecibido
   const totalAPagarJulioArs = comisionesTotalArs + totalGastosPaolaArs - totalRecibidoArs
 
-  // Reservas que todavía no terminaron — lo ya cobrado por adelantado de esas reservas.
-  const ingresosPorVenir = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
+  // Reservas que todavía no terminaron — comisión sobre lo ya cobrado (por cualquiera) de esas reservas.
+  const ingresosPorVenir = comisionesPorAdelantado(datos.ingresos, datos.reservas)
   const totalAPagarPorVenir = comisionSobreCobrado(ingresosPorVenir, reservasPorId, 'monto_usd')
   const totalAPagarPorVenirArs = comisionSobreCobrado(ingresosPorVenir, reservasPorId, 'monto_ars')
 
@@ -175,7 +180,7 @@ export default function CuentaPaolaPage() {
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-1">Cobros recibidos por Paola en julio</h2>
           <TablaComisionesCobradas
-            ingresos={ingresosJulio}
+            ingresos={ingresosPaolaJulio}
             reservas={datos.reservas}
             vacioMensaje="Sin cobros registrados en julio."
             moneda={moneda}
