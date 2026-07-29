@@ -15,7 +15,6 @@ const tabsBase = [
 
 const tabsSoloMilagros = [
   { label: 'Comisiones', href: '/cuenta-paola' },
-  { label: 'Liquidación (prov.)', href: '/liquidacion-paola' },
 ]
 
 export function NavTabs({ titular }: { titular?: string }) {

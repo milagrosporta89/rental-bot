@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  const rutasSoloMilagros = ['/cuenta-paola', '/liquidacion-paola']
+  const rutasSoloMilagros = ['/cuenta-paola']
   if (
     user &&
     user.user_metadata?.titular !== 'Milagros' &&
