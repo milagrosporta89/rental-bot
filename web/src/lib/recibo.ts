@@ -54,6 +54,7 @@ function dibujarRecibo(pago: Ingreso, reserva: Reserva, logo: HTMLImageElement):
   ctx.drawImage(logo, midX - logoW / 2, 40 + (logoSize - logoH) / 2, logoW, logoH)
 
   // Encabezado centrado
+  ctx.textAlign = 'center'
   ctx.fillStyle = slate900
   ctx.font = 'bold 26px Arial'
   ctx.fillText('Temporalias', midX, 148)
