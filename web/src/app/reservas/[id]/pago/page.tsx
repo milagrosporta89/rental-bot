@@ -464,7 +464,7 @@ function PagoPageInner() {
               <div className="md:col-span-2 space-y-1">
                 <Label className="text-xs text-slate-500">Tipo de pago *</Label>
                 <Select value={form.tipo_movimiento} onValueChange={v => set('tipo_movimiento', v)}>
-                  <SelectTrigger className="text-sm"><SelectValue placeholder="Elegí el tipo" /></SelectTrigger>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="adelanto">Adelanto / seña</SelectItem>
                     <SelectItem value="saldo">Saldo restante</SelectItem>
