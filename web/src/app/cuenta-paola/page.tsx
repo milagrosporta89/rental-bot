@@ -100,29 +100,33 @@ export default function CuentaPaolaPage() {
     })),
   ].sort((a, b) => toISO(a.fecha).localeCompare(toISO(b.fecha)))
 
-  // Total recibido por Paola: todo lo que cobró, sin distinción de plataforma ni de si la reserva
-  // ya terminó — el listado "Cobros recibidos por Paola en julio" de más abajo es exactamente esto.
-  const totalRecibido = datos.ingresosPaola.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
-  const totalRecibidoArs = datos.ingresosPaola.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
+  // datos.ingresosPaola/gastosPaola vienen filtrados por esDeContabilidadNueva, que además de la
+  // fecha también mete cualquier pago viejo (mayo/junio) si está enlazado a una reserva del
+  // sistema nuevo — no alcanza para "julio". Acá se acota en serio, al calendario del mes.
+  const esDeJulio = (fecha: string) => {
+    const iso = toISO(fecha)
+    return iso >= INICIO_CONTABILIDAD && iso < FIN_JULIO
+  }
+  const ingresosJulio = datos.ingresosPaola.filter(i => esDeJulio(i.fecha))
+  const gastosJulio = datos.gastosPaola.filter(g => esDeJulio(g.fecha))
 
-  // Comisión "provisoria" (10%/15% de lo cobrado, no de lo devengado) — el sistema formal de
-  // comisiones todavía no está activo, ver comisionSobreCobrado.
-  const comisionDirectas = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_usd', 'directo')
-  const comisionDirectasArs = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_ars', 'directo')
-  const comisionAirbnb = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_usd', 'airbnb')
-  const comisionAirbnbArs = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_ars', 'airbnb')
+  // Total recibido por Paola en julio — el listado "Cobros recibidos por Paola en julio" de más
+  // abajo es exactamente esto.
+  const totalRecibido = ingresosJulio.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
+  const totalRecibidoArs = ingresosJulio.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
+
+  // Comisión "provisoria" sobre lo cobrado en julio (10%/15%, no lo devengado) — el sistema
+  // formal de comisiones todavía no está activo, ver comisionSobreCobrado.
+  const comisionDirectas = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'directo')
+  const comisionDirectasArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars', 'directo')
+  const comisionAirbnb = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'airbnb')
+  const comisionAirbnbArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars', 'airbnb')
   const comisionesTotal = comisionDirectas + comisionAirbnb
   const comisionesTotalArs = comisionDirectasArs + comisionAirbnbArs
 
-  const totalGastosPaola = datos.gastosPaola.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
-  const totalGastosPaolaArs = datos.gastosPaola.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
+  const totalGastosPaola = gastosJulio.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
+  const totalGastosPaolaArs = gastosJulio.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
 
-  // Misma comisión provisoria, pero acotada al calendario de julio (no al total acumulado desde
-  // el corte de contabilidad, que sigue creciendo en los meses siguientes).
-  const ingresosJulio = datos.ingresosPaola.filter(i => {
-    const iso = toISO(i.fecha)
-    return iso >= INICIO_CONTABILIDAD && iso < FIN_JULIO
-  })
   const totalAPagarJulio = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd')
   const totalAPagarJulioArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars')
 
@@ -166,7 +170,7 @@ export default function CuentaPaolaPage() {
         <div>
           <h2 className="text-sm font-medium text-slate-700 mb-1">Cobros recibidos por Paola en julio</h2>
           <TablaComisionesCobradas
-            ingresos={datos.ingresosPaola}
+            ingresos={ingresosJulio}
             reservas={datos.reservas}
             vacioMensaje="Sin cobros registrados en julio."
             moneda={moneda}
