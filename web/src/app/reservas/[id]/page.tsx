@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, AlertTriangle } from 'lucide-react'
-import { Reserva, Ingreso, CASA_COLORES, CASA_LABELS, PLATAFORMA_LABEL, ESTADO_VISUAL_BADGE, ESTADO_VISUAL_LABEL } from '@/lib/types'
+import { Reserva, Ingreso, CASA_LABELS, PLATAFORMA_LABEL, ESTADO_VISUAL_BADGE, ESTADO_VISUAL_LABEL } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { PagosSection } from '@/components/reservas/PagosSection'
 import { EditarReservaButton } from '@/components/reservas/EditarReservaButton'
@@ -44,7 +44,6 @@ export default async function ReservaDetailPage({ params }: { params: Promise<{ 
   const r = reserva as Reserva
   const pagos = (ingresos ?? []) as Ingreso[]
   const num = casaNum(r.casa)
-  const color = CASA_COLORES[num] ?? '#94a3b8'
   const estado = estadoVisual(r.estado_reserva, r.fecha_entrada, r.fecha_salida)
   const terminada = esTerminada(r.fecha_salida)
 
