@@ -115,8 +115,10 @@ export default function CuentaPaolaPage() {
   const totalRecibido = ingresosJulio.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
   const totalRecibidoArs = ingresosJulio.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
 
-  // Comisión "provisoria" sobre lo cobrado en julio (10%/15%, no lo devengado) — el sistema
-  // formal de comisiones todavía no está activo, ver comisionSobreCobrado.
+  // Comisión "provisoria" (10% airbnb / 15% directas) sobre cada pago que entró en julio, según
+  // la plataforma de la reserva de ese pago — no sobre el monto total de la reserva. El universo
+  // es todo lo cobrado en julio, no lo que "correspondería" cobrar. El sistema formal de
+  // comisiones (comisionDevengada, reconciliación) sigue intacto pero oculto, ver comisionSobreCobrado.
   const comisionDirectas = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'directo')
   const comisionDirectasArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars', 'directo')
   const comisionAirbnb = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd', 'airbnb')
