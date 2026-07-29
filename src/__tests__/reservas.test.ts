@@ -10,6 +10,9 @@ jest.mock('../services/reservas', () => ({
   registrarSaldoReserva: jest.fn(),
   actualizarCampoReserva: jest.fn(),
   generarIdReserva: jest.fn(),
+  verificarSolapamiento: jest.fn(),
+  listarReservasPendientes: jest.fn(),
+  anularReserva: jest.fn(),
 }));
 jest.mock('../services/sheets', () => ({
   registrarIngreso: jest.fn(),
@@ -51,6 +54,8 @@ const mockGenerarId = svcReservas.generarIdReserva as jest.Mock;
 const mockRegistrarIngreso = svcSheets.registrarIngreso as jest.Mock;
 const mockBuscarPorId = svcReservas.buscarReservaPorId as jest.Mock;
 const mockActualizarCampo = svcReservas.actualizarCampoReserva as jest.Mock;
+const mockVerificarSolapamiento = svcReservas.verificarSolapamiento as jest.Mock;
+const mockListarPendientes = svcReservas.listarReservasPendientes as jest.Mock;
 const mockCotizacion = svcDolar.obtenerCotizacion as jest.Mock;
 const mockExtraer = svcClaude.extraerDatosComprobante as jest.Mock;
 const mockDownload = svcWhatsapp.downloadMedia as jest.Mock;
@@ -111,6 +116,8 @@ beforeEach(() => {
   mockRegistrarReserva.mockResolvedValue(undefined);
   mockRegistrarIngreso.mockResolvedValue(undefined);
   mockRegistrarSaldo.mockResolvedValue(undefined);
+  mockVerificarSolapamiento.mockResolvedValue([]);
+  mockListarPendientes.mockResolvedValue([]);
   mockProcesarComprobante.mockResolvedValue(COMPROBANTE_OK_DEFAULT);
 });
 
@@ -1740,13 +1747,14 @@ describe('escape por palabra clave mid-flujo', () => {
   const palabras = ['cancelar', 'salir', 'menu', 'menú', 'volver', 'inicio'];
 
   for (const palabra of palabras) {
-    it(`"${palabra}" mid-flujo cancela y muestra menú`, async () => {
+    it(`"${palabra}" mid-flujo pide confirmación de abandono`, async () => {
       const ctx = makeCtx(uid());
       await boton(ctx, 'res_tipo_nueva');        // inicia flujo
       await texto(ctx, palabra);
 
-      expect(ctx.lastReply()).toMatch(/cancelad|en qué/i);
-      expect(ctx.lastButtonIds()).toEqual(expect.arrayContaining(['menu_reserva']));
+      expect(ctx.lastButtonIds()).toEqual(
+        expect.arrayContaining(['escape_abandonar_si', 'escape_abandonar_no'])
+      );
     });
   }
 
