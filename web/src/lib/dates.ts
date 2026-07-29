@@ -32,12 +32,6 @@ export function calcularNoches(entrada: string, salida: string): number {
   return differenceInDays(d2, d1)
 }
 
-/** Genera un id de reserva tipo TMP-2025-0042 */
-export function generarIdReserva(n: number): string {
-  const año = new Date().getFullYear()
-  return `TMP-${año}-${String(n).padStart(4, '0')}`
-}
-
 /** Hoy en DD/MM/YYYY */
 export function hoy(): string {
   return format(new Date(), DD_MM_YYYY)

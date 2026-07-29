@@ -1,12 +1,10 @@
 import { registrarIngreso } from "../services/sheets";
 import { CASAS } from "../config";
-import { Casa, EstadoConversacion, Titular, WaCtx, MENU_BOTONES } from "../types";
+import { Casa, EstadoConversacion, WaCtx, MENU_BOTONES } from "../types";
 import { validarFecha, validarMonto, nombreWa, ahora, fechaHoy, generarId, esEscapePalabra, pedirConfirmacionEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
 
 const estados = new Map<string, EstadoConversacion>();
-
-const TITULARES_INGRESO: Titular[] = ["Francisco", "Fernando"];
 
 
 export async function onEfectivoIngreso(ctx: WaCtx): Promise<void> {
@@ -107,17 +105,6 @@ export async function onCallback(ctx: WaCtx, buttonId: string): Promise<boolean>
   if (buttonId === "efectivo_cancelar") {
     estados.delete(ctx.from.id);
     await ctx.replyButtons("Registro cancelado.", MENU_BOTONES);
-    return true;
-  }
-
-  // Botón de ingreso (desde flujo efectivo_tipo_ingreso — legacy)
-  if (buttonId === "efectivo_tipo_ingreso") {
-    if (!estado) return false;
-    estado.paso = "ingreso_quien";
-    estados.set(ctx.from.id, estado);
-    await ctx.replyButtons("¿Quién realizó el pago?",
-      TITULARES_INGRESO.map((t) => ({ id: `efectivo_quien_${t}`, title: t }))
-    );
     return true;
   }
 

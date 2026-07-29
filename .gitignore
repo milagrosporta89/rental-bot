@@ -9,3 +9,4 @@ comprobantes/
 coverage/
 *.html
 data/
+.superpowers/

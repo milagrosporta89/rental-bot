@@ -5,13 +5,6 @@ export type Casa =
   | "Casa 4"
   | "Casa 5";
 
-export type TipoIngreso =
-  | "deposito_reserva"
-  | "saldo_checkin"
-  | "transferencia"
-  | "efectivo"
-  | "airbnb";
-
 export type CategoriaGasto =
   | "limpieza"
   | "jardinero"

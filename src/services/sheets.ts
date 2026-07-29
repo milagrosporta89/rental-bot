@@ -305,37 +305,6 @@ export async function obtenerUltimosGastos(n: number): Promise<Array<{
 // Columnas Gastos: 0=id 1=fecha 2=monto 3=moneda 4=categoria 5=pagadoPor 9=detalle
 const COL_GASTO: Record<string, string> = { categoria: "E", detalle: "J", fecha: "B", monto: "C" };
 
-export async function buscarGastoPorId(id: string): Promise<{
-  rowIndex: number; // 1-based, incluye header → fila real en Sheet
-  fecha: string;
-  monto: number;
-  moneda: string;
-  categoria: string;
-  pagadoPor: string;
-  detalle: string;
-} | null> {
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: config.googleSheetId,
-    range: `${SHEETS.gastos}!A:J`,
-  });
-  const filas = res.data.values ?? [];
-  for (let i = 1; i < filas.length; i++) {
-    if (filas[i][0] === id) {
-      return {
-        rowIndex: i + 1,
-        fecha: filas[i][1] ?? "",
-        monto: parsearMonto(filas[i][2]),
-        moneda: filas[i][3] ?? "",
-        categoria: filas[i][4] ?? "",
-        pagadoPor: filas[i][5] ?? "",
-        detalle: filas[i][9] ?? "",
-      };
-    }
-  }
-  return null;
-}
-
 export async function actualizarCampoGasto(
   rowIndex: number,
   campo: string,
