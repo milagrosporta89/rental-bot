@@ -56,6 +56,8 @@ function PagoPageInner() {
     detalle: '',
   })
   const [montoUsdOriginal, setMontoUsdOriginal] = useState(0)
+  const [cotizacionCompra, setCotizacionCompra] = useState(0)
+  const [cotizacionVenta, setCotizacionVenta] = useState(0)
   const [fromComprobante, setFromComprobante] = useState(false)
   const [destinatarioOtro, setDestinatarioOtro] = useState(false)
   const [comprobanteUrl, setComprobanteUrl] = useState('')
@@ -80,8 +82,12 @@ function PagoPageInner() {
     if (editId || form.cotizacion) return
     fetch('/api/cotizacion')
       .then(r => r.json())
-      .then((d: { cotizacion: number }) => {
-        if (d.cotizacion > 0) setForm(prev => ({ ...prev, cotizacion: String(Math.round(d.cotizacion)) }))
+      .then((d: { compra: number; venta: number }) => {
+        setCotizacionCompra(d.compra)
+        setCotizacionVenta(d.venta)
+        if (d.compra > 0 && d.venta > 0) {
+          setForm(prev => ({ ...prev, cotizacion: String(Math.round((d.compra + d.venta) / 2)) }))
+        }
       })
       .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -448,7 +454,12 @@ function PagoPageInner() {
             {/* Cotización | Tipo */}
             <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
               <div className="md:col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
+                <Label className="text-xs text-slate-500">
+                  Cotización ARS/USD *
+                  {cotizacionCompra > 0 && cotizacionVenta > 0 && (
+                    <span className="text-slate-400 font-normal"> (compra ${Math.round(cotizacionCompra)} · venta ${Math.round(cotizacionVenta)})</span>
+                  )}
+                </Label>
                 <Input type="number" min={0} value={form.cotizacion} onChange={e => set('cotizacion', e.target.value)} className="text-sm" />
               </div>
 
