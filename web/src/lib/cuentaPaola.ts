@@ -101,6 +101,28 @@ export function comisionesPorAdelantado(ingresosPaola: Ingreso[], reservas: Rese
   })
 }
 
+/**
+ * Comisión "provisoria" sobre lo que Paola ya cobró (15% directas, 10% airbnb), mientras el
+ * sistema de comisiones formal no está activo (arranca en agosto, solo para reservas nuevas).
+ * A diferencia de comisionDevengada, no mira el monto total de la reserva sino lo efectivamente
+ * cobrado — no hay reconciliación corriendo, así que no hay "lo que corresponde" que comparar.
+ * Filtrable por plataforma; sin ese filtro, suma ambas.
+ */
+export function comisionSobreCobrado(
+  ingresos: Ingreso[],
+  reservasPorId: Map<string, Reserva>,
+  campo: 'monto_usd' | 'monto_ars',
+  plataforma?: Plataforma
+): number {
+  return ingresos.reduce((s, i) => {
+    const reserva = i.id_reserva ? reservasPorId.get(i.id_reserva) : undefined
+    if (!reserva) return s
+    if (plataforma && reserva.plataforma !== plataforma) return s
+    const pct = COMISION_PAOLA_PORCENTAJE[reserva.plataforma as Plataforma] ?? COMISION_PAOLA_PORCENTAJE.directo
+    return s + (i[campo] ?? 0) * pct
+  }, 0)
+}
+
 /** Gastos pagados por Paola desde el último reembolso (excluido) hasta hoy. */
 export function gastosPendientesDeReembolso(gastosPaola: Gasto[], fechaUltimoReembolsoISO: string | null): Gasto[] {
   return gastosPaola.filter(g => !fechaUltimoReembolsoISO || toISO(g.fecha) > fechaUltimoReembolsoISO)

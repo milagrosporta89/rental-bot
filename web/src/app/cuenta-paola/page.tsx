@@ -1,22 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, History, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { saldoPendienteDesglosado, fechaUltimoCierre, comisionesPorAdelantado, reconciliacionDesdeUltimoCierre } from '@/lib/cuentaPaola'
+import { comisionesPorAdelantado, comisionSobreCobrado, fechaUltimoCierre, INICIO_CONTABILIDAD } from '@/lib/cuentaPaola'
 import { toISO } from '@/lib/dates'
 import type { Moneda } from '@/lib/utils'
 import { CATEGORIA_GASTO_LABEL, type CategoriaGasto, type Gasto, type Ingreso, type MovimientoInterno, type Reserva } from '@/lib/types'
-import { SaldoPaolaCard } from '@/components/cuenta-paola/SaldoPaolaCard'
+import { TotalCard } from '@/components/cuenta-paola/TotalCard'
 import { MonedaToggle } from '@/components/cuenta-paola/MonedaToggle'
 import { TablaMovimientoFinanciero, type ItemMovimientoFinanciero } from '@/components/cuenta-paola/TablaMovimientoFinanciero'
-import { TablaMovimientos } from '@/components/cuenta-paola/TablaMovimientos'
 import { TablaComisionesCobradas } from '@/components/cuenta-paola/TablaComisionesCobradas'
-import { TablaReconciliacionComision } from '@/components/cuenta-paola/TablaReconciliacionComision'
-import { CierreCuentaSection } from '@/components/cuenta-paola/CierreCuentaSection'
-import { CancelacionesPendientesSection } from '@/components/cuenta-paola/CancelacionesPendientesSection'
-import { AjusteLibreModal } from '@/components/cuenta-paola/AjusteLibreModal'
 
 interface DatosCuentaPaola {
   ingresosPaola: Ingreso[]
@@ -38,24 +33,17 @@ function desdeFecha(fecha: string): (item: { fecha: string }) => boolean {
   return item => !desdeISO || toISO(item.fecha) > desdeISO
 }
 
-function desde(fecha: string | null): string {
-  return fecha ? `desde el ${fecha}` : '(histórico completo, todavía no hubo ningún cierre)'
-}
+// Corte fijo del mes de transición: el sistema de comisiones formal recién arranca en agosto
+// (para reservas nuevas), así que julio se mide aparte "a mano" con este rango.
+const FIN_JULIO = '2026-08-01'
 
 export default function CuentaPaolaPage() {
   const [datos, setDatos] = useState<DatosCuentaPaola | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [moneda, setMoneda] = useState<Moneda>('USD')
-  const [ajusteModalOpen, setAjusteModalOpen] = useState(false)
 
   useEffect(() => {
-    fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
-  }, [])
-
-  const recargar = useCallback(() => {
-    setCargando(true)
-    setError('')
     fetchDatos().then(setDatos).catch(e => setError(e.message)).finally(() => setCargando(false))
   }, [])
 
@@ -81,21 +69,14 @@ export default function CuentaPaolaPage() {
     )
   }
 
-  // "Comisiones cobradas" y "Gastos pagados por Paola" muestran lo acumulado desde el último
-  // cierre de cada tipo — mismo criterio que usa CierreCuentaSection, así no hay dos nociones
-  // distintas de "qué es lo pendiente" en la misma pantalla. El saldo principal usa exactamente
-  // la misma cuenta (comisión pendiente + gastos pendientes), nunca el acumulado de toda la vida.
-  const saldo = saldoPendienteDesglosado(datos.reservas, datos.ingresosPaola, datos.gastosPaola, datos.movimientosInternos)
-  const fechaCierreComision = fechaUltimoCierre(datos.movimientosInternos, 'cierre_comision')
+  const reservasPorId = new Map(datos.reservas.map(r => [r.id, r]))
   const fechaCierreReembolso = fechaUltimoCierre(datos.movimientosInternos, 'reembolso_gastos')
   const gastosPaolaPendientes = fechaCierreReembolso ? datos.gastosPaola.filter(desdeFecha(fechaCierreReembolso)) : datos.gastosPaola
   const movimientosCajaChica = datos.movimientosInternos.filter(m => m.tipo === 'caja_chica')
-  const movimientosDeAjuste = datos.movimientosInternos.filter(m => m.tipo !== 'caja_chica')
 
   // Una sola cuenta corriente de caja chica: lo que Paola le debe al negocio (excedente cobrado
   // de más, cobros de reservas canceladas) en positivo, lo que el negocio le debe a ella (gastos
-  // que pagó de su bolsillo, o caja chica ya usada a su favor) en negativo. La suma de esta
-  // tabla es el número de "Caja chica" de la card de arriba.
+  // que pagó de su bolsillo, o caja chica ya usada a su favor) en negativo.
   const filasCajaChica: ItemMovimientoFinanciero[] = [
     ...gastosPaolaPendientes.map(g => ({
       id: g.id,
@@ -118,24 +99,37 @@ export default function CuentaPaolaPage() {
       categoria: 'Caja chica',
     })),
   ].sort((a, b) => toISO(a.fecha).localeCompare(toISO(b.fecha)))
-  const cajaChica = filasCajaChica.reduce((s, f) => s + (f.monto_usd ?? 0), 0)
-  const cajaChicaArs = filasCajaChica.reduce((s, f) => s + (f.monto_ars ?? 0), 0)
 
-  // Comisiones cobradas por adelantado de reservas que todavía no terminaron — quedan "en
-  // stand-by" hasta que la reserva concluya, así que se muestran aparte de las que ya se
-  // pueden cerrar (esas sí entran en "desde el último cierre").
-  const adelantadas = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
-  const idsAdelantadas = new Set(adelantadas.map(i => i.id))
-  const comisionesDesdeUltimoCierre = fechaCierreComision ? datos.ingresosPaola.filter(desdeFecha(fechaCierreComision)) : datos.ingresosPaola
+  // Total recibido por Paola: todo lo que cobró, sin distinción de plataforma ni de si la reserva
+  // ya terminó — el listado "Cobros recibidos por Paola en julio" de más abajo es exactamente esto.
+  const totalRecibido = datos.ingresosPaola.reduce((s, i) => s + (i.monto_usd ?? 0), 0)
+  const totalRecibidoArs = datos.ingresosPaola.reduce((s, i) => s + (i.monto_ars ?? 0), 0)
 
-  // Reconciliación a nivel reserva (no por pago) — así una reserva sin ningún cobro a Paola
-  // también aparece como "a resolver", en vez de desaparecer por no tener ingreso que listar.
-  const filasReconciliacion = reconciliacionDesdeUltimoCierre(datos.reservas, datos.ingresosPaola)
-  const diferenciaPorReserva = new Map(filasReconciliacion.map(f => [f.reserva.id, f.diferencia]))
-  const comisionesPerfectas = comisionesDesdeUltimoCierre.filter(
-    i => i.resolucion_cancelacion !== 'caja_chica' && !idsAdelantadas.has(i.id) && i.id_reserva && diferenciaPorReserva.get(i.id_reserva) === 0
-  )
-  const filasComisionAResolver = filasReconciliacion.filter(f => f.diferencia !== 0)
+  // Comisión "provisoria" (10%/15% de lo cobrado, no de lo devengado) — el sistema formal de
+  // comisiones todavía no está activo, ver comisionSobreCobrado.
+  const comisionDirectas = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_usd', 'directo')
+  const comisionDirectasArs = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_ars', 'directo')
+  const comisionAirbnb = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_usd', 'airbnb')
+  const comisionAirbnbArs = comisionSobreCobrado(datos.ingresosPaola, reservasPorId, 'monto_ars', 'airbnb')
+  const comisionesTotal = comisionDirectas + comisionAirbnb
+  const comisionesTotalArs = comisionDirectasArs + comisionAirbnbArs
+
+  const totalGastosPaola = datos.gastosPaola.reduce((s, g) => s + (g.monto_usd ?? 0), 0)
+  const totalGastosPaolaArs = datos.gastosPaola.reduce((s, g) => s + (g.monto_ars ?? 0), 0)
+
+  // Misma comisión provisoria, pero acotada al calendario de julio (no al total acumulado desde
+  // el corte de contabilidad, que sigue creciendo en los meses siguientes).
+  const ingresosJulio = datos.ingresosPaola.filter(i => {
+    const iso = toISO(i.fecha)
+    return iso >= INICIO_CONTABILIDAD && iso < FIN_JULIO
+  })
+  const totalAPagarJulio = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_usd')
+  const totalAPagarJulioArs = comisionSobreCobrado(ingresosJulio, reservasPorId, 'monto_ars')
+
+  // Reservas que todavía no terminaron — lo ya cobrado por adelantado de esas reservas.
+  const ingresosPorVenir = comisionesPorAdelantado(datos.ingresosPaola, datos.reservas)
+  const totalAPagarPorVenir = comisionSobreCobrado(ingresosPorVenir, reservasPorId, 'monto_usd')
+  const totalAPagarPorVenirArs = comisionSobreCobrado(ingresosPorVenir, reservasPorId, 'monto_ars')
 
   return (
     <div className="h-full overflow-auto">
@@ -152,48 +146,31 @@ export default function CuentaPaolaPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <SaldoPaolaCard titulo="Total pendiente con Paola" saldo={saldo.total} saldoArs={saldo.totalArs} destacada moneda={moneda} />
-          <SaldoPaolaCard titulo="Pendiente de saldar — comisión" saldo={saldo.comision} saldoArs={saldo.comisionArs} moneda={moneda} />
-          <SaldoPaolaCard titulo="Caja chica" saldo={-cajaChica} saldoArs={-cajaChicaArs} moneda={moneda} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <TotalCard titulo="Total recibido por Paola" monto={totalRecibido} montoArs={totalRecibidoArs} moneda={moneda} />
+          <TotalCard
+            titulo="Total comisiones"
+            monto={comisionesTotal}
+            montoArs={comisionesTotalArs}
+            moneda={moneda}
+            detalle={[
+              { label: 'Directas', monto: comisionDirectas, montoArs: comisionDirectasArs },
+              { label: 'Airbnb', monto: comisionAirbnb, montoArs: comisionAirbnbArs },
+            ]}
+          />
+          <TotalCard titulo="Total de gastos hechos por Paola" monto={totalGastosPaola} montoArs={totalGastosPaolaArs} moneda={moneda} />
+          <TotalCard titulo="Total a pagar por julio" monto={totalAPagarJulio} montoArs={totalAPagarJulioArs} moneda={moneda} />
+          <TotalCard titulo="Total a pagar por reservas por venir" monto={totalAPagarPorVenir} montoArs={totalAPagarPorVenirArs} moneda={moneda} />
         </div>
 
-        <CierreCuentaSection
-          reservas={datos.reservas}
-          ingresosPaola={datos.ingresosPaola}
-          gastosPaola={datos.gastosPaola}
-          movimientosInternos={datos.movimientosInternos}
-          onCerrado={recargar}
-          moneda={moneda}
-        />
-
         <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-3">
-            Comisiones por reservas terminadas {desde(fechaCierreComision)}
-          </h2>
-
-          <div className="space-y-5 pl-1">
-            <div>
-              <h3 className="text-xs font-semibold text-slate-600 mb-1">Comisiones a resolver</h3>
-              <p className="text-[11px] text-slate-400 mb-2">
-                Reservas ya terminadas donde lo cobrado no coincide con lo que correspondía — incluye las que todavía no pagaron nada.
-              </p>
-              <TablaReconciliacionComision filas={filasComisionAResolver} moneda={moneda} />
-            </div>
-
-            <div>
-              <h3 className="text-xs font-semibold text-slate-600 mb-1">Comisiones sin conflictos</h3>
-              <p className="text-[11px] text-slate-400 mb-2">
-                Reservas donde Paola cobró exactamente el 10% o 15% que le corresponde — ya están listas, no necesitan ningún ajuste.
-              </p>
-              <TablaComisionesCobradas
-                ingresos={comisionesPerfectas}
-                reservas={datos.reservas}
-                vacioMensaje="Sin comisiones sin conflictos desde el último cierre."
-                moneda={moneda}
-              />
-            </div>
-          </div>
+          <h2 className="text-sm font-medium text-slate-700 mb-1">Cobros recibidos por Paola en julio</h2>
+          <TablaComisionesCobradas
+            ingresos={datos.ingresosPaola}
+            reservas={datos.reservas}
+            vacioMensaje="Sin cobros registrados en julio."
+            moneda={moneda}
+          />
         </div>
 
         <div>
@@ -206,47 +183,6 @@ export default function CuentaPaolaPage() {
             vacioMensaje="Sin movimientos de caja chica todavía."
           />
         </div>
-
-        <div>
-          <h2 className="text-sm font-medium text-slate-700 mb-1">Comisiones cobradas por adelantado — la reserva todavía no terminó</h2>
-          <p className="text-[11px] text-slate-400 mb-2">
-            Comisión ya cobrada de reservas futuras. Queda en stand-by, sin contar para ningún cierre, hasta que la reserva concluya.
-          </p>
-          <TablaComisionesCobradas
-            ingresos={adelantadas}
-            reservas={datos.reservas}
-            vacioMensaje="Sin comisiones cobradas por adelantado."
-            moneda={moneda}
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <h2 className="text-sm font-medium text-slate-700">Movimientos de ajuste</h2>
-            <Button size="sm" variant="outline" onClick={() => setAjusteModalOpen(true)}>
-              Registrar ajuste
-            </Button>
-          </div>
-          <p className="text-[11px] text-slate-400 mb-2">
-            Transferencias reales ya hechas para saldar diferencias con Paola — lo que ya se pagó, no lo que falta.
-          </p>
-          <TablaMovimientos
-            items={movimientosDeAjuste}
-            vacioMensaje="Sin movimientos registrados todavía."
-          />
-        </div>
-
-        <AjusteLibreModal
-          open={ajusteModalOpen}
-          onClose={() => setAjusteModalOpen(false)}
-          onCreado={recargar}
-        />
-
-        <CancelacionesPendientesSection
-          items={datos.cancelacionesPendientes}
-          reservas={datos.reservas}
-          onResuelto={recargar}
-        />
       </div>
     </div>
   )
