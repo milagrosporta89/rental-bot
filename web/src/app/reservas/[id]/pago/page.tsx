@@ -454,13 +454,11 @@ function PagoPageInner() {
             {/* Cotización | Tipo */}
             <div className="col-span-1 md:col-span-4 grid grid-cols-2 gap-x-3 gap-y-2 md:gap-y-4 md:contents">
               <div className="md:col-span-2 space-y-1">
-                <Label className="text-xs text-slate-500">
-                  Cotización ARS/USD *
-                  {cotizacionCompra > 0 && cotizacionVenta > 0 && (
-                    <span className="text-slate-400 font-normal"> (compra ${Math.round(cotizacionCompra)} · venta ${Math.round(cotizacionVenta)})</span>
-                  )}
-                </Label>
+                <Label className="text-xs text-slate-500">Cotización ARS/USD *</Label>
                 <Input type="number" min={0} value={form.cotizacion} onChange={e => set('cotizacion', e.target.value)} className="text-sm" />
+                {cotizacionCompra > 0 && cotizacionVenta > 0 && (
+                  <p className="text-xs text-slate-400">compra ${Math.round(cotizacionCompra)} · venta ${Math.round(cotizacionVenta)}</p>
+                )}
               </div>
 
               <div className="md:col-span-2 space-y-1">
