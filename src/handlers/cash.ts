@@ -1,12 +1,10 @@
 import { registrarIngreso } from "../services/sheets";
 import { CASAS } from "../config";
-import { Casa, EstadoConversacion, Titular, WaCtx, MENU_BOTONES } from "../types";
+import { Casa, EstadoConversacion, WaCtx, MENU_BOTONES } from "../types";
 import { validarFecha, validarMonto, nombreWa, ahora, fechaHoy, generarId, esEscapePalabra, pedirConfirmacionEscape } from "../utils";
 import { obtenerCotizacion } from "../services/dolar";
 
 const estados = new Map<string, EstadoConversacion>();
-
-const TITULARES_INGRESO: Titular[] = ["Francisco", "Fernando"];
 
 
 export async function onEfectivoIngreso(ctx: WaCtx): Promise<void> {
