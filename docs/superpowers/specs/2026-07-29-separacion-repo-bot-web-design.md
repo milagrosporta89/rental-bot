@@ -114,7 +114,24 @@ Supabase.
   `STATUS.md`, sesión 2026-07-01). Al subir `web/` a la raíz de este repo, ese Root
   Directory en Vercel hay que cambiarlo a `.` (raíz) — si no, el deploy de producción se
   rompe. **Acción manual pendiente de Mili en el dashboard de Vercel**, no algo que se
-  resuelva solo con el commit.
+  resuelva solo con el commit. Pasos concretos:
+
+  1. Entrar a [vercel.com/dashboard](https://vercel.com/dashboard) → proyecto
+     `temporalias` (el que sirve `temporalias.vercel.app`).
+  2. **Settings → General → Root Directory** → tocar "Edit", borrar `web` para que quede
+     vacío / `./` (raíz del repo), Save.
+  3. **Settings → Environment Variables**: las variables actuales (`NEXT_PUBLIC_SUPABASE_URL`,
+     `NEXT_PUBLIC_SUPABASE_ANON_KEY`, etc.) no cambian de nombre ni valor — Vercel las
+     inyecta igual sin importar el Root Directory, así que no hay que tocar nada acá.
+     Verificar igual después del primer deploy que sigan apareciendo en el build log.
+  4. Hacer el commit que sube `web/` a la raíz de este repo **y recién después** cambiar
+     el Root Directory (o al revés, cambiarlo primero) — el orden no importa en sí, pero
+     **no dejar pasar tiempo entre las dos cosas**: mientras el código ya esté en la raíz
+     y Vercel todavía apunte a `web/` (o viceversa), el próximo deploy automático va a
+     fallar (no va a encontrar `package.json` donde Vercel lo busca).
+  5. Confirmar con un deploy manual ("Redeploy" en la pestaña Deployments, sin cache) que
+     el build corre bien antes de dar por cerrado el punto — no esperar al próximo push
+     para enterarse si quedó mal.
 - El bot no tiene pipeline de deploy funcionando hoy (no hay `.github/workflows` en este
   repo pese a lo que dice `DEPLOY.md`) — el repo nuevo tampoco lo va a tener hasta el
   próximo spec. Mientras tanto, el bot no se puede desplegar solo moviendo código; sigue
