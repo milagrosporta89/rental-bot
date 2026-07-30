@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validarAuthBot } from '@/lib/bot-auth'
 import { extraerYSubirComprobante, type MediaType } from '@/lib/comprobante'
 
 export async function POST(req: NextRequest) {
+  if (!validarAuthBot(req)) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
   const form = await req.formData()
   const file = form.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 })
