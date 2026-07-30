@@ -19,7 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es" className="h-full">
       <body className={`${inter.className} h-full bg-white antialiased`}>
         <div className="flex flex-col h-full">
-          {user && <NavTabs titular={user.user_metadata?.titular} />}
+          {user && <NavTabs />}
           <main className="flex-1 overflow-hidden">{children}</main>
         </div>
       </body>
