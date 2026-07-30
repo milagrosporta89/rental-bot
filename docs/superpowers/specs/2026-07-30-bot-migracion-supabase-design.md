@@ -126,8 +126,12 @@ duplicado, `400` si es de validación).
 
 Requiere `id_reserva` (siempre — el bot ya no permite ingreso sin reserva).
 Llama a `registrarPago(id_reserva, payload)`, que bloquea si la reserva está
-cancelada, recalcula `saldo_usd`/`estado_pago` de la reserva completa y
-dispara `resolverComisionAlCobrar` si corresponde. **Importante** (corrige
+cancelada y recalcula `saldo_usd`/`estado_pago` de la reserva completa.
+**Importante:** `registrarPago` en sí **no** dispara `resolverComisionAlCobrar`
+— eso solo ocurre como paso separado en la propia UI de "Asentar pago" de la
+web (`pago/page.tsx`), no dentro de la acción. Un pago entrado por el bot
+necesita el mismo seguimiento manual de "Liquidar comisiones" que necesitaría
+uno entrado por la web a una reserva cancelada. **Importante** (corrige
 una imprecisión de una versión anterior de este spec): a diferencia de
 `crearGasto`, `registrarPago` **no calcula** `cotizacion`/`monto_ars`/
 `monto_usd` — los recibe ya resueltos en el payload, calculados por quien
