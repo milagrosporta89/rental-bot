@@ -70,9 +70,10 @@ export async function crearIngreso(payload: IngresoPayload): Promise<void> {
 /** Inserta ingreso y recalcula saldo/estado_pago de la reserva desde cero */
 export async function registrarPago(
   reservaId: string,
-  payload: IngresoPayload
+  payload: IngresoPayload,
+  registradoPorOverride?: string
 ): Promise<void> {
-  const registrado_por = await registradoPorActual()
+  const registrado_por = registradoPorOverride ?? await registradoPorActual()
   const supabase = createAdminClient()
 
   const { data: reservaActual } = await supabase.from('reservas').select('estado_reserva').eq('id', reservaId).single()

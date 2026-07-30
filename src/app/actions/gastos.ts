@@ -40,7 +40,7 @@ export async function buscarGastoDuplicado(nroOperacion: string): Promise<GastoD
   return data ?? null
 }
 
-export async function crearGasto(payload: GastoPayload): Promise<void> {
+export async function crearGasto(payload: GastoPayload, registradoPorOverride?: string): Promise<void> {
   if (!payload.monto || payload.monto <= 0) {
     throw new Error('El monto debe ser mayor a 0.')
   }
@@ -65,7 +65,7 @@ export async function crearGasto(payload: GastoPayload): Promise<void> {
   const monto_ars = payload.moneda === 'USD' ? (cotizacion > 0 ? +(payload.monto * cotizacion).toFixed(2) : null) : payload.monto
   const monto_usd = payload.moneda === 'ARS' ? (cotizacion > 0 ? +(payload.monto / cotizacion).toFixed(2) : null) : payload.monto
 
-  const registrado_por = await registradoPorActual()
+  const registrado_por = registradoPorOverride ?? await registradoPorActual()
   const supabase = createAdminClient()
   const id = `GAS-${Date.now()}`
   const timestamp = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
