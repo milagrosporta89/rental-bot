@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Error al crear el gasto'
-    const esDuplicado = msg.includes('ya fue registrado') || msg.includes('ya existe un gasto')
+    const msgLower = msg.toLowerCase()
+    const esDuplicado = msgLower.includes('ya fue registrado') || msgLower.includes('ya existe un gasto')
     return NextResponse.json({ error: msg }, { status: esDuplicado ? 409 : 400 })
   }
 }
