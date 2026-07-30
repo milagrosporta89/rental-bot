@@ -1567,9 +1567,21 @@ cd "c:/Users/Administrador/Milagros/rental-bot-whatsapp" && npm run dev
 
 ```bash
 cd "c:/Users/Administrador/Milagros/rental-bot-whatsapp"
-grep -rn "googleapis\|GOOGLE_SHEET\|GOOGLE_CLIENT_EMAIL\|GOOGLE_PRIVATE_KEY" src/ .env 2>/dev/null
+grep -rn "googleapis\|GOOGLE_SHEET\|GOOGLE_CLIENT_EMAIL\|GOOGLE_PRIVATE_KEY" src/
 ```
-Expected: sin resultados en `src/`. Si el `.env` real todavía tiene esas variables, se pueden dejar sin usar por ahora o borrarlas — no rompen nada al quedar sin leer, pero lo prolijo es sacarlas.
+**No agregar `.env` como target de este grep** — ese archivo tiene el valor real de
+`GOOGLE_PRIVATE_KEY` (clave privada de service account) y correrlo así imprime el secreto
+completo a stdout. Si hace falta confirmar que el `.env` real todavía tiene esas variables,
+alcanza con mirar los *nombres* de las claves (`grep -o '^[A-Z_]*='  .env`), nunca el archivo
+entero.
+
+Expected: sin resultados en `src/`. **Hallazgo real de la sesión que ejecutó este task**: el
+grep de arriba solo cubre `googleapis`/las 3 env vars de Sheets — no cubre los *campos de
+`config.ts`* que las leían (`googleSheetId`, `googleClientEmail`, `googlePrivateKey`,
+`anthropicApiKey`, `SHEETS`, `titularDeCasa`, `storageBaseUrl`, `storageDir`, y el tipo `Casa`),
+que quedaron huérfanos tras el Task 12 y no fueron detectados por su grep (que solo chequeó
+dependencias de npm). Se sacaron en un commit aparte durante este mismo task, verificando con
+grep que ninguno tenía otro uso antes de borrarlo.
 
 - [ ] **Step 4: Checklist manual pendiente** (avisar a Mili, no se resuelve con código):
   - Configurar `BOT_API_SECRET` y `BOT_API_BASE_URL` reales en el `.env` de producción del bot (la VM), y `BOT_API_SECRET` en las variables de entorno de Vercel de la web — deben coincidir.
