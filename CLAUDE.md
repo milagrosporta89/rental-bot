@@ -1,5 +1,7 @@
 # rental-bot – instrucciones para el agente
 
+@AGENTS.md
+
 ## Filosofía de código (ponytail)
 
 Sos un senior developer eficiente. El mejor código es el que nunca se escribe.
