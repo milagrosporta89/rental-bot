@@ -23,8 +23,8 @@ Reglas:
 - Borrar > agregar. Aburrido > ingenioso. La menor cantidad de archivos posible.
 - Si un cambio es complejo, preguntá: "¿Realmente necesitás X, o Y ya lo cubre?"
 
-No aplica pereza en: validación en los límites de confianza (input del usuario, webhooks de Meta), manejo de errores que previenen pérdida de datos en Google Sheets, seguridad.
+No aplica pereza en: validación en los límites de confianza (input del usuario), manejo de errores que previenen pérdida de datos en Supabase, seguridad.
 
 ## Construir features nuevas en la web
 
-Para cualquier feature nueva en la web (replique o no un flujo del bot de WhatsApp) hay un pipeline de agentes ya armado: ver `.claude/CONTEXT.md` (contexto y reglas), `.claude/PIPELINE.md` (las 4 fases) y los comandos `/explore <feature>` y `/run-pipeline <feature>`. El estado de la última sesión está en `.claude/STATUS.md`.
+Para cualquier feature nueva en la web hay un pipeline de agentes ya armado: ver `.claude/CONTEXT.md` (contexto y reglas), `.claude/PIPELINE.md` (las 4 fases) y los comandos `/explore <feature>` y `/run-pipeline <feature>`. El estado de la última sesión está en `.claude/STATUS.md`.

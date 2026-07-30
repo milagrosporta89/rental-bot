@@ -8,8 +8,9 @@ Para el estilo de código (filosofía "ponytail": YAGNI, sin dependencias nuevas
 
 ## Qué es el proyecto
 
-- **Bot de WhatsApp** (`src/`, Node.js + TypeScript): captura reservas, ingresos y gastos por conversación (botones + texto libre) y por foto/PDF de comprobante (OCR con Claude Vision, `src/services/claude.ts` + `src/services/comprobantes.ts`).
-- **Web** (`web/`, Next.js + Supabase): dashboard para gestionar lo mismo con una UI tradicional. Ya tiene reservas, calendario, pagos (ingresos), recibos y gastos (completo, mergeado a `master`). Login + header con el usuario logueado: construido en `feature/auth-header`, **todavía sin mergear a `master`**. **Responsive (mobile) es la feature en construcción** (rama `feature/responsive-ui`) — no tiene equivalente en el bot, ver nota más abajo.
+Este repo (`rental-bot`) es la **web** (`src/`, Next.js + Supabase): dashboard para gestionar reservas, calendario, pagos (ingresos), recibos y gastos con una UI tradicional. Ya tiene reservas, calendario, pagos (ingresos), recibos y gastos (completo, mergeado a `master`). Login + header con el usuario logueado: construido en `feature/auth-header`, **todavía sin mergear a `master`**. **Responsive (mobile) es la feature en construcción** (rama `feature/responsive-ui`) — no tiene equivalente en el bot, ver nota más abajo.
+
+El **bot de WhatsApp** (Node.js + TypeScript: captura reservas, ingresos y gastos por conversación y por foto/PDF de comprobante con OCR) vive en un repo separado, `rental-bot-whatsapp` — no es inspeccionable desde acá.
 
 ### Backends: ojo, están migrados de forma desigual
 
@@ -17,7 +18,7 @@ Para el estilo de código (filosofía "ponytail": YAGNI, sin dependencias nuevas
 |---|---|---|
 | Reservas, bloqueos | Supabase | Supabase |
 | Ingresos | Supabase | Supabase |
-| **Gastos** | **Google Sheets** (`src/services/sheets.ts`) | **Supabase, tabla `gastos`** (existe, vacía — confirmado por introspección directa, no hay migración SQL versionada para esta tabla) |
+| **Gastos** | **Google Sheets** (repo del bot, `rental-bot-whatsapp`) | **Supabase, tabla `gastos`** (existe, vacía — confirmado por introspección directa, no hay migración SQL versionada para esta tabla) |
 
 Esto significa que para gastos, bot y web **no comparten fuente de verdad todavía**. Es una decisión de negocio ya tomada por Mili (ver `.claude/artifacts/gastos/po-output.json`): la web es Supabase-only y no replica ni sincroniza con el Sheet. No asumas que esto aplica igual a otros dominios sin confirmarlo — cada feature nueva puede tener su propio gap de backend, hay que investigarlo de cero (ver `commands/explore.md`).
 

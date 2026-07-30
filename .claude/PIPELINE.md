@@ -96,7 +96,7 @@ Leé `.claude/artifacts/<feature>/po-output.json` y producí `.claude/artifacts/
 }
 ```
 
-Si el dominio ya tiene un patrón de UI equivalente en la web (ej: subida de comprobante, wizard de varios pasos), el component tree debe reusarlo/extenderlo en vez de inventar uno nuevo — revisá `web/src/components` y `web/src/app` antes de diseñar desde cero.
+Si el dominio ya tiene un patrón de UI equivalente en la web (ej: subida de comprobante, wizard de varios pasos), el component tree debe reusarlo/extenderlo en vez de inventar uno nuevo — revisá `src/components` y `src/app` antes de diseñar desde cero.
 
 Commit: `[agent-designer] estructura de componentes y flujo`
 Mostralo y esperá aprobación.
@@ -111,16 +111,16 @@ Leé ambos artifacts anteriores y construí el formulario.
 
 Reglas:
 - TypeScript estricto.
-- Usá los tipos que ya existen en el proyecto (`web/src/lib/types.ts`); si falta alguno, agregalo ahí, no lo dupliques en el componente.
-- Conectá con Supabase usando los clientes ya configurados (`web/src/lib/supabase/`).
+- Usá los tipos que ya existen en el proyecto (`src/lib/types.ts`); si falta alguno, agregalo ahí, no lo dupliques en el componente.
+- Conectá con Supabase usando los clientes ya configurados (`src/lib/supabase/`).
 - Sin estilos por ahora, solo estructura y lógica funcional.
 - Si algo del diseño es ambiguo, tomá la decisión más simple y dejá un comentario `// TODO: confirmar con Mili`.
 - Adaptá los nombres de archivo/componente al dominio real de `<feature>` (ej: para gastos sería `ExpenseForm.tsx`, no copies nombres de otra feature).
 
 Archivos a crear (rutas indicativas, ajustá el nombre a `<feature>`):
-- `web/src/components/<feature>/<Feature>Form.tsx`
-- `web/src/components/<feature>/<Feature>Form.types.ts` (si no existen ya los tipos necesarios en `lib/types.ts`)
-- `web/src/hooks/use<Feature>Submit.ts`
+- `src/components/<feature>/<Feature>Form.tsx`
+- `src/components/<feature>/<Feature>Form.types.ts` (si no existen ya los tipos necesarios en `lib/types.ts`)
+- `src/hooks/use<Feature>Submit.ts`
 
 Commit: `[agent-dev] formulario base sin estilos`
 Mostralo y esperá aprobación.

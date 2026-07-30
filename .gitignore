@@ -40,3 +40,9 @@ next-env.d.ts
 
 # workspace de subagent-driven-development (por plan, no versionado)
 .superpowers/
+
+# datos y archivos locales que no se versionan (ver spec de separación de repos)
+_archive/
+comprobantes/
+data/
+dist/

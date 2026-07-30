@@ -16,17 +16,17 @@ Buscá en `src/handlers/` si hay un flujo de bot relacionado. Hay dos caminos:
 ## Pasos — con equivalente en el bot
 
 1. Buscá el handler del flujo en `src/handlers/`.
-2. Buscá dónde persiste los datos: ¿Google Sheets (`src/services/sheets.ts`)? ¿Supabase? **No asumas que es lo mismo que en otra feature ya migrada** — cada flujo puede estar en un backend distinto. Si hay una tabla de Supabase candidata, conectate y confirmá su schema real (columnas, requeridas, tipos) en vez de inferirlo solo del código del bot — pueden haber divergido. Si hace falta, hacé un script puntual de solo lectura para introspectar la tabla y borralo después de usarlo.
-3. Buscá los tipos TypeScript relacionados en `src/types.ts`.
-4. Fijate si la web (`web/src`) ya tiene algún patrón de UI equivalente o reusable para este flujo (ej: subida de comprobante con OCR, wizard de pasos, validaciones) — vas a necesitarlo para no reinventar nada en las fases de Designer/Developer.
-5. Leé cualquier README o documentación existente (`*.md` en la raíz y en `web/`).
+2. Buscá dónde persiste los datos en la web: ¿Supabase? (la persistencia del bot, si existe un flujo equivalente, vive en el repo del bot — `rental-bot-whatsapp` — no en este repo, no la busques acá). **No asumas que es lo mismo que en otra feature ya migrada** — cada flujo puede estar en un backend distinto. Si hay una tabla de Supabase candidata, conectate y confirmá su schema real (columnas, requeridas, tipos) en vez de inferirlo solo del código del bot — pueden haber divergido. Si hace falta, hacé un script puntual de solo lectura para introspectar la tabla y borralo después de usarlo.
+3. Buscá los tipos TypeScript relacionados en `src/lib/types.ts`.
+4. Fijate si el proyecto (`src`) ya tiene algún patrón de UI equivalente o reusable para este flujo (ej: subida de comprobante con OCR, wizard de pasos, validaciones) — vas a necesitarlo para no reinventar nada en las fases de Designer/Developer.
+5. Leé cualquier README o documentación existente (`*.md` en la raíz).
 
 ## Pasos — sin equivalente en el bot
 
-1. Revisá qué dependencias ya están instaladas en `web/package.json` que puedan cubrir la necesidad (ej: `@supabase/ssr` para auth) — preferí siempre lo que ya está instalado sobre agregar algo nuevo.
-2. Revisá patrones ya existentes en `web/src` que la nueva feature deba seguir o integrar (ej: cómo está armado el layout, el header, los clientes de Supabase).
+1. Revisá qué dependencias ya están instaladas en `package.json` que puedan cubrir la necesidad (ej: `@supabase/ssr` para auth) — preferí siempre lo que ya está instalado sobre agregar algo nuevo.
+2. Revisá patrones ya existentes en `src` que la nueva feature deba seguir o integrar (ej: cómo está armado el layout, el header, los clientes de Supabase).
 3. Identificá qué configuración o estado externo hace falta (variables de entorno, servicios de terceros, datos que tienen que existir de antemano — ej: cuentas de usuario) y si ya existe o falta crearlo.
-4. Leé cualquier README o documentación existente (`*.md` en la raíz y en `web/`).
+4. Leé cualquier README o documentación existente (`*.md` en la raíz).
 
 ## Reporte final
 

@@ -9,19 +9,19 @@ Actuá como QA Lead. Tu tarea es leer el código del proyecto **rental-bot** (bo
 Lee estos archivos para entender las superficies testeables:
 
 **Web (Next.js):**
-- `web/src/app/reservas/nueva/page.tsx` — formulario nueva reserva (2 pasos)
-- `web/src/app/reservas/[id]/pago/page.tsx` — asentar/editar pago
-- `web/src/app/reservas/[id]/page.tsx` — detalle de reserva
-- `web/src/app/reservas/page.tsx` — listado de reservas
-- `web/src/app/calendario/page.tsx` — vista calendario
-- `web/src/components/reservas/ReservasTable.tsx` — tabla reservas
-- `web/src/components/reservas/PagosSection.tsx` — sección pagos en detalle
-- `web/src/components/modals/ReservaModal.tsx` — modal editar reserva
-- `web/src/components/modals/BloqueoModal.tsx` — modal bloqueo de fechas
-- `web/src/components/calendario/CalendarView.tsx` — calendario interactivo
-- `web/src/app/actions/reservas.ts` — acciones server-side reservas
-- `web/src/app/actions/ingresos.ts` — acciones server-side ingresos
-- `web/src/lib/types.ts` — tipos compartidos
+- `src/app/reservas/nueva/page.tsx` — formulario nueva reserva (2 pasos)
+- `src/app/reservas/[id]/pago/page.tsx` — asentar/editar pago
+- `src/app/reservas/[id]/page.tsx` — detalle de reserva
+- `src/app/reservas/page.tsx` — listado de reservas
+- `src/app/calendario/page.tsx` — vista calendario
+- `src/components/reservas/ReservasTable.tsx` — tabla reservas
+- `src/components/reservas/PagosSection.tsx` — sección pagos en detalle
+- `src/components/modals/ReservaModal.tsx` — modal editar reserva
+- `src/components/modals/BloqueoModal.tsx` — modal bloqueo de fechas
+- `src/components/calendario/CalendarView.tsx` — calendario interactivo
+- `src/app/actions/reservas.ts` — acciones server-side reservas
+- `src/app/actions/ingresos.ts` — acciones server-side ingresos
+- `src/lib/types.ts` — tipos compartidos
 
 **Bot WhatsApp:**
 - `src/handlers/income.ts` — flujo comprobantes foto/PDF
