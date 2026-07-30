@@ -682,7 +682,7 @@ describe('services/api', () => {
       isAxiosError: true,
       response: { status: 409, data: { error: 'El número de operación 123 ya fue registrado.' } },
     });
-    mockedAxios.isAxiosError = jest.fn().mockReturnValue(true) as unknown as typeof axios.isAxiosError;
+    (mockedAxios.isAxiosError as unknown) = jest.fn().mockReturnValue(true);
     await expect(crearGasto({
       registrado_por: 'Milagros', fecha: '01/07/2026', monto: 100, moneda: 'ARS',
       categoria: 'otro', pagado_por: 'Milagros', nombre_destinatario: null,
@@ -700,8 +700,8 @@ describe('services/api', () => {
     mockedAxios.get.mockResolvedValue({ data: { reservas: [] } });
     await buscarReservas({ buscar: 'Juan' });
     expect(mockedAxios.get).toHaveBeenCalledWith(
-      expect.stringContaining('buscar=Juan'),
-      expect.anything()
+      expect.any(String),
+      expect.objectContaining({ params: { buscar: 'Juan' } })
     );
   });
 });
@@ -836,6 +836,15 @@ En el objeto `config` de `src/config.ts`, agregar:
 npx jest api.test.ts
 ```
 Expected: `PASS`, 4/4 tests.
+
+**Nota (encontrada al ejecutar este task):** con `jest@30` + los tipos reales de `axios`
+(sin el `@types/axios@0.9.36` viejo que traía el repo desde su extracción — axios incluye
+sus propios tipos hace años, ese paquete es un stub obsoleto), puede hacer falta: sacar
+`@types/axios` de `package.json`, subir `@types/jest` a `^30` para que matchee la versión
+de `jest` instalada, y agregar `"typeRoots": ["./node_modules/@types"]` a `tsconfig.json`
+(sin esto, TypeScript puede heredar `@types/axios` desde el `node_modules` del checkout
+principal si el worktree vive anidado dentro de él). Estos tres cambios van en el mismo
+commit de este task si hacen falta.
 
 - [ ] **Step 6: Commit**
 
