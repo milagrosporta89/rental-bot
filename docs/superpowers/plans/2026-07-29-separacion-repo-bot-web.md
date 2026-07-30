@@ -26,10 +26,18 @@
 - Create (repo nuevo): `c:/Users/Administrador/Milagros/rental-bot-whatsapp/` — copia exacta de:
   - `src/` completo (incluye `src/__tests__/`)
   - `package.json`, `package-lock.json`, `tsconfig.json`, `jest.config.js`, `jest.setup.js`
-  - `scripts/diagnostico-sheets.js`, `scripts/generar-resumen.js`, `scripts/migrar-datos.js`, `scripts/setup/setup-sheets.js`
   - `docs/auditoria-casuisticas.md`, `docs/flujo-reservas.svg`
   - `DEPLOY.md`, `railway.json`
   - `.env` (real, untracked — copiar como archivo opaco)
+
+  (Nota: el plan original también listaba `scripts/diagnostico-sheets.js`,
+  `scripts/generar-resumen.js`, `scripts/migrar-datos.js` y
+  `scripts/setup/setup-sheets.js`. Entre el diseño del spec y la ejecución de
+  este plan se mergeó a `origin/master` un PR de limpieza de código muerto
+  que ya archivó esos 4 scripts one-time fuera de git (`_archive/scripts/`,
+  gitignoreado) por "cumplir su función y no estar referenciados desde
+  `package.json`". Ya no existen como archivos trackeados — se sacan de este
+  task y del Task 4, no hay nada que mover ni borrar ahí.)
 
 **Interfaces:** Ninguna — este task no modifica el repo `rental-bot` todavía, solo crea el repo nuevo al lado. Task 4 depende de que este task haya terminado y verificado (Task 3) antes de borrar nada acá.
 
@@ -40,10 +48,6 @@ mkdir -p "/c/Users/Administrador/Milagros/rental-bot-whatsapp"
 cd "/c/Users/Administrador/Milagros/rental-bot"
 
 cp -r src "/c/Users/Administrador/Milagros/rental-bot-whatsapp/"
-mkdir -p "/c/Users/Administrador/Milagros/rental-bot-whatsapp/scripts/setup"
-cp scripts/diagnostico-sheets.js scripts/generar-resumen.js scripts/migrar-datos.js \
-   "/c/Users/Administrador/Milagros/rental-bot-whatsapp/scripts/"
-cp scripts/setup/setup-sheets.js "/c/Users/Administrador/Milagros/rental-bot-whatsapp/scripts/setup/"
 
 mkdir -p "/c/Users/Administrador/Milagros/rental-bot-whatsapp/docs"
 cp docs/auditoria-casuisticas.md docs/flujo-reservas.svg \
@@ -65,7 +69,7 @@ Run:
 ```bash
 find "/c/Users/Administrador/Milagros/rental-bot-whatsapp" -maxdepth 2 | sort
 ```
-Expected: se ven `src/`, `scripts/`, `docs/`, `package.json`, `package-lock.json`, `tsconfig.json`, `jest.config.js`, `jest.setup.js`, `DEPLOY.md`, `railway.json`, `.env`. Si falta alguno, repetir el `cp` correspondiente antes de continuar — no seguir al Step 4 con archivos faltantes.
+Expected: se ven `src/`, `docs/`, `package.json`, `package-lock.json`, `tsconfig.json`, `jest.config.js`, `jest.setup.js`, `DEPLOY.md`, `railway.json`, `.env`. Si falta alguno, repetir el `cp` correspondiente antes de continuar — no seguir al Step 4 con archivos faltantes.
 
 - [ ] **Step 4: `.gitignore` del repo nuevo**
 
@@ -220,7 +224,7 @@ Expected: `build OK, dist/index.js existe: true`. (No hace falta levantar el ser
 ### Task 4: Sacar del repo `rental-bot` todo lo que ya vive en el repo del bot
 
 **Files:**
-- Delete (de este repo, `rental-bot`): `src/`, `package.json`, `package-lock.json`, `tsconfig.json`, `jest.config.js`, `jest.setup.js`, `scripts/diagnostico-sheets.js`, `scripts/generar-resumen.js`, `scripts/migrar-datos.js`, `scripts/setup/setup-sheets.js`, `docs/auditoria-casuisticas.md`, `docs/flujo-reservas.svg`, `DEPLOY.md`, `railway.json`
+- Delete (de este repo, `rental-bot`): `src/`, `package.json`, `package-lock.json`, `tsconfig.json`, `jest.config.js`, `jest.setup.js`, `docs/auditoria-casuisticas.md`, `docs/flujo-reservas.svg`, `DEPLOY.md`, `railway.json`
 - Delete (untracked): `.env` (raíz) — solo después de confirmar que ya existe su copia en el repo del bot (Task 1, Step 2/3).
 
 **Interfaces:** Ninguna — a partir de este punto el repo `rental-bot` deja de tener un proyecto Node en la raíz (hasta el Task 5, que trae el de `web/`).
@@ -236,7 +240,6 @@ Expected: `OK para continuar`. Si no, volver al Task 1 — no seguir con el `git
 cd "/c/Users/Administrador/Milagros/rental-bot"
 git rm -r src
 git rm package.json package-lock.json tsconfig.json jest.config.js jest.setup.js
-git rm scripts/diagnostico-sheets.js scripts/generar-resumen.js scripts/migrar-datos.js scripts/setup/setup-sheets.js
 git rm docs/auditoria-casuisticas.md docs/flujo-reservas.svg
 git rm DEPLOY.md railway.json
 ```
@@ -258,7 +261,7 @@ Ver docs/superpowers/specs/2026-07-29-separacion-repo-bot-web-design.md.
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
 
-Expected: `git status` no muestra ninguno de los archivos borrados como pendiente; `ls scripts/` en este repo solo muestra `pipeline-viewer.mjs` (y la carpeta `setup/` queda vacía — borrarla: `rmdir scripts/setup` si `git rm` la dejó vacía en el working tree).
+Expected: `git status` no muestra ninguno de los archivos borrados como pendiente; `ls scripts/` en este repo sigue mostrando solo `pipeline-viewer.mjs` (los 4 scripts one-time ya estaban archivados fuera de git desde antes de este plan, no hay carpeta `scripts/setup/` que limpiar).
 
 ---
 
@@ -359,7 +362,7 @@ Insertar una línea nueva entre el título y la primera sección, para que quede
 
 - [ ] **Step 2: Reemplazar el `.gitignore` de la raíz**
 
-Contenido nuevo completo (reemplaza el archivo entero — el viejo tenía entradas específicas del bot que ya no aplican: `dist/`, `_archive/`, `QA_rental_bot.xlsx`, `comprobantes/`, `data/`):
+Contenido nuevo completo (reemplaza el archivo entero — el viejo tenía entradas específicas del bot que ya no aplican: `dist/`, `_archive/`, `QA_rental_bot.xlsx`, `comprobantes/`, `data/`. Se mantiene `.superpowers/`, agregada después del spec original para el workspace de esta misma metodología — sí sigue aplicando):
 
 ```
 # dependencies
@@ -401,6 +404,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# workspace de subagent-driven-development (por plan, no versionado)
+.superpowers/
 ```
 
 - [ ] **Step 3: Commit**
