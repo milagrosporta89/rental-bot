@@ -8,6 +8,9 @@ export async function GET(req: NextRequest) {
   const buscar = req.nextUrl.searchParams.get('buscar')
   const pendientes = req.nextUrl.searchParams.get('pendientes')
 
+  // Sanitize buscar to prevent PostgREST filter injection
+  const buscarSano = buscar?.replace(/[,()."]/g, '').trim() || null
+
   const supabase = createAdminClient()
   let query = supabase
     .from('reservas')
@@ -17,8 +20,8 @@ export async function GET(req: NextRequest) {
   if (pendientes) {
     query = query.neq('estado_pago', 'pagado')
   }
-  if (buscar) {
-    query = query.or(`nombre_pax.ilike.%${buscar}%,id.eq.${buscar}`)
+  if (buscarSano) {
+    query = query.or(`nombre_pax.ilike.%${buscarSano}%,id.eq.${buscarSano}`)
   }
 
   const { data, error } = await query.order('fecha_entrada', { ascending: false }).limit(20)
