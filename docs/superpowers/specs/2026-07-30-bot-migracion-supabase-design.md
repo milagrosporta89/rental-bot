@@ -67,7 +67,7 @@ WhatsApp → bot (rental-bot-whatsapp, VM propia)
         Supabase (mismo proyecto que ya usa la web)
 ```
 
-El bot nunca toca Supabase directo. Todo pasa por 5 endpoints nuevos en la
+El bot nunca toca Supabase directo. Todo pasa por 6 endpoints nuevos en la
 web bajo `src/app/api/bot/`, protegidos por un secret compartido — mismo
 patrón que ya usa el webhook de WhatsApp con `WHATSAPP_WEBHOOK_VERIFY_TOKEN`.
 
@@ -125,11 +125,21 @@ duplicado, `400` si es de validación).
 ### `POST /api/bot/ingresos`
 
 Requiere `id_reserva` (siempre — el bot ya no permite ingreso sin reserva).
-Llama a `registrarPago(id_reserva, payload)`, que ya hace todo lo necesario:
-bloquea si la reserva está cancelada, calcula `monto_ars`/`monto_usd`,
-recalcula `saldo_usd`/`estado_pago` de la reserva completa, dispara
-`resolverComisionAlCobrar` si corresponde. El bot no tiene que saber nada de
-esa lógica — solo manda los datos confirmados por chat.
+Llama a `registrarPago(id_reserva, payload)`, que bloquea si la reserva está
+cancelada, recalcula `saldo_usd`/`estado_pago` de la reserva completa y
+dispara `resolverComisionAlCobrar` si corresponde. **Importante** (corrige
+una imprecisión de una versión anterior de este spec): a diferencia de
+`crearGasto`, `registrarPago` **no calcula** `cotizacion`/`monto_ars`/
+`monto_usd` — los recibe ya resueltos en el payload, calculados por quien
+llama (hoy la propia pantalla de "Asentar pago" de la web). El bot pasa a
+tener esa misma responsabilidad — ver `GET /api/bot/cotizacion` abajo y el
+detalle del flujo de ingreso más adelante en este documento.
+
+### `GET /api/bot/cotizacion?fecha=DD/MM/YYYY`
+
+Solo lectura. Envoltorio directo de `obtenerCotizacionCompraVenta` (el mismo
+helper que ya usa `/api/cotizacion` para la pantalla de pago) — devuelve
+`{ compra, venta }`. Sin fecha, trae la cotización del día.
 
 ### `GET /api/bot/reservas?buscar=<texto>` y `GET /api/bot/reservas?pendientes=1`
 
@@ -171,7 +181,7 @@ join es directo. Devuelve `{ titular, saldo_usd }[]`.
   comisión — solo quedaría (a evaluar en el plan de implementación) si algo
   residual sigue leyendo/escribiendo Sheets; el objetivo declarado es cero
   Sheets, así que si no queda ningún uso real, el archivo se elimina entero.
-- **Nuevo `src/services/api.ts`**: cliente HTTP a los 5 endpoints, con el
+- **Nuevo `src/services/api.ts`**: cliente HTTP a los 6 endpoints, con el
   header `Authorization` y manejo de errores (traduce `409`/`400`/`401` a
   mensajes de chat legibles, mismo tono que los errores de duplicado que ya
   maneja hoy).
@@ -180,11 +190,21 @@ join es directo. Devuelve `{ titular, saldo_usd }[]`.
   la llamada final (`api.crearGasto(...)` en vez de `registrarGasto` de
   Sheets).
 - **Ingreso — flujo nuevo unificado** (reemplaza `income.ts`/`cash.ts`/la
-  parte de `reservas.ts` que registraba adelanto/saldo): primero pregunta a
-  qué reserva corresponde (lista de pendientes vía `GET /api/bot/reservas?
-  pendientes=1`, o buscar por nombre), después monto/moneda/quién pagó/fecha
-  (u OCR de comprobante), confirma, llama a `api.registrarIngreso(idReserva,
-  ...)`.
+  parte de `reservas.ts` que registraba adelanto/saldo):
+  1. Pregunta a qué reserva corresponde (lista de pendientes vía
+     `GET /api/bot/reservas?pendientes=1`, o buscar por nombre).
+  2. Monto y moneda (u OCR de comprobante que los sugiere).
+  3. **Cotización**: llama a `GET /api/bot/cotizacion` (con la fecha del
+     pago, si ya se sabe) y muestra compra/venta al usuario, **precargando
+     el promedio redondeado** como valor por defecto — mismo criterio que
+     ya usa hoy la pantalla "Asentar pago" de la web
+     (`Math.round((compra + venta) / 2)`). El usuario puede escribir un
+     valor distinto para pisar el default antes de confirmar; el bot
+     recalcula `monto_ars`/`monto_usd` con la cotización final (la
+     por-defecto o la que el usuario haya puesto) antes de mandar el
+     payload — igual que hace `pago/page.tsx` en el cliente.
+  4. Quién pagó, fecha, confirmar → llama a `api.registrarIngreso(idReserva,
+     ...)` mandando ya `cotizacion`/`monto_ars`/`monto_usd` resueltos.
 - **`src/handlers/balance.ts`**: se reduce a un solo comando ("Ver saldo"),
   que llama a `GET /api/bot/saldos` y formatea la respuesta — se elimina
   `onReportarSaldoCommand` y todo lo de `SaldosReales`.
