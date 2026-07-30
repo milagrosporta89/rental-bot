@@ -907,12 +907,20 @@ export async function onPhoto(
     return;
   }
 
-  estados.set(ctx.from.id, { paso: "confirmar_datos", tipo: "comprobante", datos: { ...datos, comprobanteUrl } });
+  // datos.moneda viene de api.ts tipado como string (honesto: el OCR no garantiza en runtime
+  // que sea exactamente "ARS"/"USD") — se normaliza acá antes de guardarlo en el estado, mismo
+  // criterio que ya usa la web en pago/page.tsx al consumir el mismo endpoint de OCR.
+  const datosNormalizados = {
+    ...datos,
+    moneda: (datos.moneda === "USD" ? "USD" : "ARS") as "ARS" | "USD",
+  };
 
-  const titularOrd = detectarTitular(datos.nombreOrdenante ?? "");
+  estados.set(ctx.from.id, { paso: "confirmar_datos", tipo: "comprobante", datos: { ...datosNormalizados, comprobanteUrl } });
+
+  const titularOrd = detectarTitular(datosNormalizados.nombreOrdenante ?? "");
   const sugerencia = titularOrd ? `\n\n🔍 Detecté: gasto de ${titularOrd}` : "";
 
-  await ctx.replyButtons(formatearResumenComprobante(datos) + sugerencia, [
+  await ctx.replyButtons(formatearResumenComprobante(datosNormalizados) + sugerencia, [
     { id: "gasto_confirmar", title: "✅ Confirmar" },
     { id: "gasto_corregir",  title: "✏️ Corregir" },
   ]);
