@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     .neq('estado_reserva', 'cancelada')
 
   if (pendientes) {
-    query = query.neq('estado_pago', 'pagado')
+    query = query.gt('saldo_usd', 0)
   }
   if (buscarSano) {
     query = query.or(`nombre_pax.ilike.%${buscarSano}%,id.eq.${buscarSano}`)
