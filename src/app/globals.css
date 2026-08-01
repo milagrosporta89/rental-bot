@@ -106,12 +106,13 @@ body {
   margin-top: 4px;
 }
 
-/* FullCalendar — chips sólidos, centrados */
+/* FullCalendar — chips sólidos, centrados. Alto fijo del lane: no crece aunque
+   se superpongan 2 reservas, esas se reparten el mismo espacio (ver fc-event-stacked) */
 .fc-timeline-lane,
 .fc-resource-area .fc-datagrid-cell-frame {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  max-height: 50px !important;
   overflow: hidden;
 }
 
@@ -124,9 +125,9 @@ body {
   cursor: pointer !important;
 }
 
-/* Chip apilado (solapamiento): ajusta al sublane de ~20px */
+/* Chip apilado (solapamiento de 2 reservas): ajusta al sublane de ~25px */
 .fc-timeline-event.fc-event-stacked {
-  height: 20px !important;
+  height: 25px !important;
 }
 
 /* Reserva tentativa: franja rayada a la izquierda del chip, en el color de la casa */
@@ -159,11 +160,6 @@ body {
 /* Reserva en curso (ya hizo check-in, todavía no terminó): borde en el mismo color del texto */
 .fc-timeline-event.fc-event-en-curso {
   border: 1.5px solid currentColor !important;
-}
-
-/* Reserva terminada: colores desaturados para que se distinga de un vistazo */
-.fc-timeline-event.fc-event-terminada {
-  filter: grayscale(0.6) opacity(0.75);
 }
 
 .fc-timeline-event .fc-event-main {

@@ -9,7 +9,7 @@ import type { DateClickArg } from '@fullcalendar/interaction'
 import { createClient } from '@/lib/supabase/client'
 import { Reserva, Bloqueo, CalendarEvent } from '@/lib/types'
 import { reservaToEvent, bloqueoToEvent } from '@/lib/calendar'
-import { toDDMMYYYY, esTerminada, esEnCurso } from '@/lib/dates'
+import { toDDMMYYYY, esEnCurso } from '@/lib/dates'
 import { BloqueoModal } from '@/components/modals/BloqueoModal'
 import { ReservaModal } from '@/components/modals/ReservaModal'
 import { ReservaTooltip } from '@/components/calendario/ReservaTooltip'
@@ -324,8 +324,8 @@ export function CalendarView() {
     const r = props.reserva
     const classes: string[] = []
     if (r.estado_reserva === 'tentativa') classes.push('fc-event-tentativa')
-    if (esTerminada(r.fecha_salida)) classes.push('fc-event-terminada')
-    else if (esEnCurso(r.fecha_entrada, r.fecha_salida)) classes.push('fc-event-en-curso')
+    // esEnCurso ya da false para reservas terminadas (esas van grises desde reservaToEvent)
+    if (esEnCurso(r.fecha_entrada, r.fecha_salida)) classes.push('fc-event-en-curso')
     return classes
   }, [])
 
@@ -344,17 +344,21 @@ export function CalendarView() {
     const harness = info.el.closest('.fc-timeline-event-harness') as HTMLElement | null
     // CSS agrega margin-top: 4px al harness — compensar en todos los cálculos de top
     const CSS_MARGIN = 4
+    // Deben coincidir con la altura de lane (.fc-timeline-lane) y de chip (.fc-timeline-event) en globals.css
+    const LANE_HEIGHT = 50
+    const EVENT_HEIGHT = 28
 
     if (overlapping.length === 0) {
-      // Chip único: agregar 4px extra al top (además del CSS margin)
-      if (harness) harness.style.top = '4px'
+      // Chip único: centrado verticalmente en el lane (compensando el margin-top del CSS)
+      const top = Math.round((LANE_HEIGHT - EVENT_HEIGHT) / 2) - CSS_MARGIN
+      if (harness) harness.style.top = `${top}px`
     } else {
       info.el.classList.add('fc-event-stacked')
       const group = [info.event, ...overlapping].sort(
         (a: any, b: any) => (a.start?.getTime() ?? 0) - (b.start?.getTime() ?? 0) || a.id.localeCompare(b.id)
       )
       const myPos = group.findIndex((ev: any) => ev.id === info.event.id)
-      const sublaneH = Math.floor(40 / group.length)
+      const sublaneH = Math.floor(LANE_HEIGHT / group.length)
       // Restamos CSS_MARGIN para que margin-top no empuje el chip fuera del lane
       if (harness) harness.style.top = `${myPos * sublaneH - CSS_MARGIN}px`
     }
