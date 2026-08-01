@@ -156,6 +156,16 @@ body {
   padding-left: 10px;
 }
 
+/* Reserva en curso (ya hizo check-in, todavía no terminó): borde en el mismo color del texto */
+.fc-timeline-event.fc-event-en-curso {
+  border: 1.5px solid currentColor !important;
+}
+
+/* Reserva terminada: colores desaturados para que se distinga de un vistazo */
+.fc-timeline-event.fc-event-terminada {
+  filter: grayscale(0.6) opacity(0.75);
+}
+
 .fc-timeline-event .fc-event-main {
   display: flex;
   align-items: center;

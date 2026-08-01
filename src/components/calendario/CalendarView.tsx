@@ -9,7 +9,7 @@ import type { DateClickArg } from '@fullcalendar/interaction'
 import { createClient } from '@/lib/supabase/client'
 import { Reserva, Bloqueo, CalendarEvent } from '@/lib/types'
 import { reservaToEvent, bloqueoToEvent } from '@/lib/calendar'
-import { toDDMMYYYY } from '@/lib/dates'
+import { toDDMMYYYY, esTerminada, esEnCurso } from '@/lib/dates'
 import { BloqueoModal } from '@/components/modals/BloqueoModal'
 import { ReservaModal } from '@/components/modals/ReservaModal'
 import { ReservaTooltip } from '@/components/calendario/ReservaTooltip'
@@ -320,9 +320,13 @@ export function CalendarView() {
 
   const handleEventClassNames = useCallback((arg: { event: { extendedProps: unknown } }) => {
     const props = arg.event.extendedProps as CalendarEvent['extendedProps']
-    return props.tipo === 'reserva' && props.reserva?.estado_reserva === 'tentativa'
-      ? ['fc-event-tentativa']
-      : []
+    if (props.tipo !== 'reserva' || !props.reserva) return []
+    const r = props.reserva
+    const classes: string[] = []
+    if (r.estado_reserva === 'tentativa') classes.push('fc-event-tentativa')
+    if (esTerminada(r.fecha_salida)) classes.push('fc-event-terminada')
+    else if (esEnCurso(r.fecha_entrada, r.fecha_salida)) classes.push('fc-event-en-curso')
+    return classes
   }, [])
 
   const handleEventDidMount = useCallback((info: any) => {
@@ -466,6 +470,30 @@ export function CalendarView() {
             slotLabelFormat={[{ month: 'long', year: 'numeric' }, { weekday: 'narrow' }, { day: 'numeric' }]}
           />
         )}
+      </div>
+
+      {/* Leyenda de referencias visuales del calendario */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-6 pb-4 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="text-slate-600">●</span> Saldo pendiente
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className="inline-block w-3.5 h-3.5 rounded-sm text-slate-500"
+            style={{
+              backgroundImage: 'repeating-linear-gradient(45deg, currentColor 0px, currentColor 2px, transparent 2px, transparent 4px)',
+            }}
+          />
+          Tentativa
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3.5 h-3.5 rounded-sm border-2 border-slate-500 bg-slate-100" />
+          En curso
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3.5 h-3.5 rounded-sm bg-slate-200" />
+          Terminada
+        </span>
       </div>
 
       {tooltip && <ReservaTooltip reserva={tooltip.reserva} x={tooltip.x} y={tooltip.y} />}

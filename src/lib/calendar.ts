@@ -28,7 +28,9 @@ export function reservaToEvent(r: Reserva): CalendarEvent {
   const id = casaId(r.casa)
   const color = CASA_COLORES[id] ?? '#6366f1'
   const tentativa = r.estado_reserva === 'tentativa'
-  const deudor = r.estado_pago === 'debe' || r.estado_pago === 'parcial'
+  // saldo_usd (no estado_pago): estado_pago es editable a mano y puede desincronizarse
+  // del saldo real, dejando el puntito prendido en reservas ya cobradas.
+  const deudor = r.saldo_usd > 0
 
   // Confirmada: fondo muy suave (≈ color al 13%, igual que los chips de la tabla)
   // Tentativa:  fondo un poco más visible para distinguirla sin usar transparencia real
