@@ -15,6 +15,7 @@ import { DuplicadoBloqueo } from './DuplicadoBloqueo'
 import { FormularioGasto, type GastoFormState } from './FormularioGasto'
 import { ConfirmacionGasto, type ResumenGasto } from './ConfirmacionGasto'
 import { PantallaExito } from './PantallaExito'
+import { toTitleCase } from '@/lib/utils'
 
 type Paso = 'carga' | 'confirmacion' | 'exito'
 const PASO_NUM: Record<Paso, 1 | 2 | 3> = { carga: 1, confirmacion: 2, exito: 3 }
@@ -31,10 +32,6 @@ const FORM_INICIAL: GastoFormState = {
   nro_operacion: '',
   detalle: '',
   id_reserva: '',
-}
-
-function toTitleCase(s: string) {
-  return s.replace(/\b\w/g, c => c.toUpperCase())
 }
 
 export function GastoWizard() {

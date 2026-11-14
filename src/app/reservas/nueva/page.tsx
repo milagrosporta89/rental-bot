@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toISO, toDDMMYYYY, calcularNoches } from '@/lib/dates'
-import { formatUSD } from '@/lib/utils'
+import { formatUSD, normalizarDestinatario } from '@/lib/utils'
 import { CASA_LABELS, EstadoPago, Plataforma } from '@/lib/types'
 import { crearReserva } from '@/app/actions/reservas'
 import { crearIngreso } from '@/app/actions/ingresos'
@@ -159,7 +159,7 @@ function NuevaReservaForm() {
         monto: datos.monto ? String(datos.monto) : prev.monto,
         moneda: (datos.moneda === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
         quien_pago: datos.nombreOrdenante || prev.quien_pago,
-        nombre_destinatario: datos.nombreDestinatario || prev.nombre_destinatario,
+        nombre_destinatario: datos.nombreDestinatario ? normalizarDestinatario(datos.nombreDestinatario) : prev.nombre_destinatario,
         banco_destino: datos.bancoDestino || prev.banco_destino,
         nro_operacion: datos.nroOperacion || prev.nro_operacion,
         fecha: datos.fecha ? toISO(datos.fecha) : prev.fecha,

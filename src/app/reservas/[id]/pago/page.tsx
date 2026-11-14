@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
-import { formatUSD } from '@/lib/utils'
+import { formatUSD, toTitleCase, normalizarDestinatario } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
 import { registrarPago, editarIngreso, obtenerIngreso, resolverComisionAlCobrar } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
@@ -101,7 +101,7 @@ function PagoPageInner() {
       setTipoPago(ingreso.nro_operacion ? 'transferencia' : 'efectivo')
       setComprobanteUrl(ingreso.comprobante_url ?? '')
       if (ingreso.comprobante_url) { setUploadState('done'); setFromComprobante(true) }
-      const destNorm = ingreso.nombre_destinatario ? toTitleCase(ingreso.nombre_destinatario) : ''
+      const destNorm = ingreso.nombre_destinatario ? normalizarDestinatario(ingreso.nombre_destinatario) : ''
       if (destNorm && !DESTINATARIOS.includes(destNorm)) setDestinatarioOtro(true)
       setForm({
         monto: String(ingreso.monto ?? ''),
@@ -121,10 +121,6 @@ function PagoPageInner() {
   function set(k: keyof FormState, v: string) {
     setForm(prev => ({ ...prev, [k]: v }))
     setError('')
-  }
-
-  function toTitleCase(s: string) {
-    return s.replace(/\b\w/g, c => c.toUpperCase())
   }
 
   // ── Comprobante ──────────────────────────────────────────────────────
@@ -148,7 +144,7 @@ function PagoPageInner() {
         monto:               datos.monto       ? String(datos.monto) : prev.monto,
         moneda:              (datos.moneda === 'USD' ? 'USD' : 'ARS') as 'ARS' | 'USD',
         quien_pago:          datos.nombreOrdenante    ? toTitleCase(datos.nombreOrdenante)    : prev.quien_pago,
-        nombre_destinatario: datos.nombreDestinatario ? toTitleCase(datos.nombreDestinatario) : prev.nombre_destinatario,
+        nombre_destinatario: datos.nombreDestinatario ? normalizarDestinatario(datos.nombreDestinatario) : prev.nombre_destinatario,
         banco_destino:       datos.bancoDestino       ? toTitleCase(datos.bancoDestino)       : prev.banco_destino,
         nro_operacion:       datos.nroOperacion       || prev.nro_operacion,
         fecha:               datos.fecha ? toISO(datos.fecha) : prev.fecha,

@@ -8,6 +8,9 @@ import { gastoComisionExiste, crearGastoComision } from '@/app/actions/gastos'
 import { crearMovimientoInterno } from '@/app/actions/movimientosInternos'
 import { redondearSaldo } from '@/lib/saldo'
 import type { Ingreso, Reserva } from '@/lib/types'
+import { normalizarDestinatario } from '@/lib/utils'
+
+const destinatario = (n: string | null) => (n?.trim() ? normalizarDestinatario(n) : null)
 
 export interface IngresoPayload {
   id_reserva: string | null
@@ -58,6 +61,7 @@ export async function crearIngreso(payload: IngresoPayload): Promise<void> {
 
   const { error } = await supabase.from('ingresos').insert({
     ...payload,
+    nombre_destinatario: destinatario(payload.nombre_destinatario),
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
     registrado_por,
@@ -86,6 +90,7 @@ export async function registrarPago(
 
   const { error: ie } = await supabase.from('ingresos').insert({
     ...payload,
+    nombre_destinatario: destinatario(payload.nombre_destinatario),
     id,
     tipo: payload.nro_operacion ? 'transferencia' : 'efectivo',
     registrado_por,
@@ -361,7 +366,7 @@ export async function editarIngreso(
     monto_usd: payload.monto_usd,
     tipo_movimiento: payload.tipo_movimiento,
     quien_pago: payload.quien_pago,
-    nombre_destinatario: payload.nombre_destinatario,
+    nombre_destinatario: destinatario(payload.nombre_destinatario),
     banco_destino: payload.banco_destino,
     nro_operacion: payload.nro_operacion,
     detalle: payload.detalle,

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { TITULARES_PAGADOR } from '@/lib/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -22,4 +23,20 @@ export function formatMonto(usd: number | null | undefined, ars: number | null |
   if (moneda === 'USD') return formatUSD(usd)
   if (ars == null) return '—'
   return `$ ${Math.ceil(ars).toLocaleString('es-AR')}`
+}
+
+/** "JUAN PÉREZ" / "maría josé" → "Juan Pérez" / "María José" (respeta acentos) */
+export function toTitleCase(s: string): string {
+  return s.toLocaleLowerCase('es-AR').replace(/(^|[^\p{L}])\p{L}/gu, m => m.toLocaleUpperCase('es-AR'))
+}
+
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+
+/**
+ * Destinatario de un ingreso: si el nombre contiene el de un titular, queda solo ese
+ * ("Porta Milagros" → "Milagros", "María Paola Gelis" → "Paola"); si no, en Title Case.
+ */
+export function normalizarDestinatario(nombre: string): string {
+  const palabras = sinAcentos(nombre).split(/[^a-z]+/)
+  return TITULARES_PAGADOR.find(t => palabras.includes(sinAcentos(t))) ?? toTitleCase(nombre.trim())
 }
