@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toDDMMYYYY, toISO } from '@/lib/dates'
-import { formatUSD } from '@/lib/utils'
+import { formatUSD, toTitleCase } from '@/lib/utils'
 import { Reserva, CASA_LABELS } from '@/lib/types'
 import { registrarPago, editarIngreso, obtenerIngreso, resolverComisionAlCobrar } from '@/app/actions/ingresos'
 import type { IngresoPayload } from '@/app/actions/ingresos'
@@ -121,10 +121,6 @@ function PagoPageInner() {
   function set(k: keyof FormState, v: string) {
     setForm(prev => ({ ...prev, [k]: v }))
     setError('')
-  }
-
-  function toTitleCase(s: string) {
-    return s.replace(/\b\w/g, c => c.toUpperCase())
   }
 
   // ── Comprobante ──────────────────────────────────────────────────────

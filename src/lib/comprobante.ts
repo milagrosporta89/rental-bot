@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { toTitleCase } from '@/lib/utils'
 
 const PROMPT = `Sos un asistente que extrae datos de comprobantes de transferencia bancaria argentinos.
 Analizá el documento y extraé los siguientes datos en formato JSON exacto, sin texto adicional:
@@ -73,7 +74,10 @@ export async function extraerYSubirComprobante(
     const data = await res.json() as { content: Array<{ type: string; text: string }> }
     const raw = data.content[0]?.text?.trim() ?? ''
     const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
-    datos = JSON.parse(jsonStr)
+    datos = JSON.parse(jsonStr) as DatosComprobanteOCR
+    for (const k of ['nombreOrdenante', 'nombreDestinatario', 'bancoOrigen', 'bancoDestino'] as const) {
+      if (datos[k]) datos[k] = toTitleCase(datos[k].trim())
+    }
   } catch {
     throw new Error('No se pudo leer el comprobante')
   }

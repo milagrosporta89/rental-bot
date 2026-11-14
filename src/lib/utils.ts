@@ -23,3 +23,8 @@ export function formatMonto(usd: number | null | undefined, ars: number | null |
   if (ars == null) return '—'
   return `$ ${Math.ceil(ars).toLocaleString('es-AR')}`
 }
+
+/** "JUAN PÉREZ" / "maría josé" → "Juan Pérez" / "María José" (respeta acentos) */
+export function toTitleCase(s: string): string {
+  return s.toLocaleLowerCase('es-AR').replace(/(^|[^\p{L}])\p{L}/gu, m => m.toLocaleUpperCase('es-AR'))
+}

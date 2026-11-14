@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toISO, toDDMMYYYY, calcularNoches } from '@/lib/dates'
-import { formatUSD } from '@/lib/utils'
+import { formatUSD, toTitleCase } from '@/lib/utils'
 import { CASA_LABELS, EstadoPago, Plataforma } from '@/lib/types'
 import { crearReserva } from '@/app/actions/reservas'
 import { crearIngreso } from '@/app/actions/ingresos'
@@ -266,7 +266,7 @@ function NuevaReservaForm() {
         monto_usd: montoUSD,
         tipo_movimiento: s2.tipo_movimiento as 'adelanto' | 'saldo',
         quien_pago: s2.quien_pago.trim(),
-        nombre_destinatario: s2.nombre_destinatario.trim(),
+        nombre_destinatario: toTitleCase(s2.nombre_destinatario.trim()),
         banco_destino: s2.banco_destino.trim(),
         nro_operacion: s2.nro_operacion.trim(),
         detalle: s2.detalle.trim(),

@@ -6,6 +6,7 @@ import { registradoPorActual } from '@/lib/auth'
 import { CASA_TITULAR } from '@/lib/types'
 import { verificarDisponibilidad } from '@/lib/disponibilidad'
 import { redondearSaldo } from '@/lib/saldo'
+import { toTitleCase } from '@/lib/utils'
 
 async function getNextId(supabase: ReturnType<typeof createAdminClient>): Promise<string> {
   const { data } = await supabase.from('reservas').select('id')
@@ -31,10 +32,6 @@ export interface ReservaPayload {
   cotizacion: number
 }
 
-function toTitleCase(s: string): string {
-  return s.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-}
-
 export async function crearReserva(payload: ReservaPayload): Promise<{ id: string }> {
   const conflicto = await verificarDisponibilidad(payload.casa, payload.fecha_entrada, payload.fecha_salida)
   if (conflicto) throw new Error(conflicto)
@@ -48,7 +45,7 @@ export async function crearReserva(payload: ReservaPayload): Promise<{ id: strin
   const casaNum = payload.casa.replace(/\D/g, '')
   const casa = casaNum ? `Casa ${casaNum}` : payload.casa   // siempre "Casa N"
   const titular = CASA_TITULAR[casaNum] ?? payload.titular
-  const nombre_pax = toTitleCase(payload.nombre_pax)
+  const nombre_pax = toTitleCase(payload.nombre_pax.trim().replace(/\s+/g, ' '))
 
   const { error } = await supabase.from('reservas').insert({
     ...payload,
@@ -81,7 +78,7 @@ export async function editarReserva(
   const casaNum = payload.casa.replace(/\D/g, '')
   const casa = casaNum ? `Casa ${casaNum}` : payload.casa
   const titular = CASA_TITULAR[casaNum] ?? payload.titular
-  const nombre_pax = toTitleCase(payload.nombre_pax)
+  const nombre_pax = toTitleCase(payload.nombre_pax.trim().replace(/\s+/g, ' '))
   const { error } = await supabase.from('reservas').update({ ...payload, casa, titular, nombre_pax, registrado_por }).eq('id', id)
   if (error) throw new Error(error.message)
 
